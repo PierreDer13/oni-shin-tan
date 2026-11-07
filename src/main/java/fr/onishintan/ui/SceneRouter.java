@@ -11,7 +11,6 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
-import javafx.scene.ImageCursor;
 import javafx.scene.image.Image;
 import javafx.scene.input.MouseEvent;
 
