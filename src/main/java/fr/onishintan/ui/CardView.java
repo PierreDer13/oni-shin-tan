@@ -17,6 +17,7 @@ import javafx.scene.image.ImageView;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
+import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.TextAlignment;
@@ -35,6 +36,10 @@ public class CardView extends Group {
     public CardView(Card card, double width) {
         this.card = card;
         face.getTransforms().add(new Scale(width / W, width / W));
+        Rectangle corners = new Rectangle(W, H);
+        corners.setArcWidth(30);
+        corners.setArcHeight(30);
+        face.setClip(corners);
         getChildren().add(face);
         render();
     }

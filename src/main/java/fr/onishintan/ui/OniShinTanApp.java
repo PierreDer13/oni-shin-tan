@@ -1,6 +1,8 @@
 package fr.onishintan.ui;
 
 import fr.onishintan.model.HeroClass;
+import fr.onishintan.model.Minion;
+import fr.onishintan.model.MinionCard;
 import fr.onishintan.model.Player;
 import javafx.application.Application;
 import javafx.geometry.Pos;
@@ -8,10 +10,9 @@ import javafx.scene.control.Button;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
-import javafx.scene.layout.FlowPane;
 
 public class OniShinTanApp extends Application {
-        @Override
+    @Override
     public void start(Stage stage) {
         SceneRouter router = new SceneRouter(stage);
         router.register(Screen.HOME, () -> {
@@ -31,12 +32,23 @@ public class OniShinTanApp extends Application {
             MockCards.ALL.forEach(c -> grid.getChildren().add(new CardView(c, 230)));
             return grid;
         });
-                router.register(Screen.MATCH, () -> {
+        router.register(Screen.MATCH, () -> {
             Player enemy = MockCards.player("Pierre", HeroClass.ONI, 7);
             Player you = MockCards.player("Kayne", HeroClass.SAMURAI, 3);
             you.getSide().getMinions().get(0).takeDamage(2);
-            you.getHero().gainArmour(10);
-            return new BoardView("izakaya", enemy, "shuten-doji", you, "yasuke");
+            for (int i = 0; i < 5; i++) { you.refillKi(); enemy.refillKi(); }
+            you.spendKi(2);
+            for (int i = 0; i < 5; i++) { you.draw(); enemy.draw(); }
+            BoardView board = new BoardView("izakaya", enemy, "shuten-doji", you, "yasuke");
+            board.showClocks("1:30", "1:12", true);
+            board.setOnPlay((card, slot) -> {
+                if (!(card instanceof MinionCard m) || you.getSide().isFull()) return;
+                you.spendKi(card.getKiCost());
+                you.removeFromHand(card);
+                you.getSide().place(new Minion(m), slot);
+                board.render();
+            });
+            return board;
         });
         router.goTo(Screen.HOME);
         stage.setTitle("Oni Shin Tan");
