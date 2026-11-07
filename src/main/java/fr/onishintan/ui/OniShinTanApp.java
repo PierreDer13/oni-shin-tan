@@ -1,5 +1,7 @@
 package fr.onishintan.ui;
 
+import fr.onishintan.model.HeroClass;
+import fr.onishintan.model.Player;
 import javafx.application.Application;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
@@ -28,6 +30,13 @@ public class OniShinTanApp extends Application {
             grid.setAlignment(Pos.CENTER);
             MockCards.ALL.forEach(c -> grid.getChildren().add(new CardView(c, 230)));
             return grid;
+        });
+                router.register(Screen.MATCH, () -> {
+            Player enemy = MockCards.player("Pierre", HeroClass.ONI, 7);
+            Player you = MockCards.player("Kayne", HeroClass.SAMURAI, 3);
+            you.getSide().getMinions().get(0).takeDamage(2);
+            you.getHero().gainArmour(10);
+            return new BoardView("izakaya", enemy, "shuten-doji", you, "yasuke");
         });
         router.goTo(Screen.HOME);
         stage.setTitle("Oni Shin Tan");
