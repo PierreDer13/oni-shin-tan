@@ -33,17 +33,18 @@ public class SceneRouter {
     /** Tells the router how to build a screen. */
     public void register(Screen s, Supplier<Parent> builder) { screens.put(s, builder); }
 
-    /** Shows a screen: straight away the first time, then behind the shōji doors. */
+    /** Shows a screen: straight away the first time, then behind the shōji doors.
+     *  The doors start at once; the next screen is built while they are closed, so a slow screen never delays the click. */
     public void goTo(Screen s) {
-        Parent next = screens.getOrDefault(s, () -> placeholder(s)).get();
-        if (content.getChildren().isEmpty()) content.getChildren().setAll(next);
-        else doors.play(() -> content.getChildren().setAll(next));
+        Supplier<Parent> next = screens.getOrDefault(s, () -> placeholder(s));
+        if (content.getChildren().isEmpty()) content.getChildren().setAll(next.get());
+        else doors.play(() -> content.getChildren().setAll(next.get()));
     }
 
     /** Stand-in until the real screen exists: its name and a way back home. */
     private Parent placeholder(Screen s) {
         Button home = new Button("Home");
-        home.setOnAction(e -> goTo(Screen.HOME));
+        home.setOnMousePressed(e -> goTo(Screen.HOME));
         VBox box = new VBox(20, new Label(s.name()), home);
         box.setAlignment(Pos.CENTER);
         return box;

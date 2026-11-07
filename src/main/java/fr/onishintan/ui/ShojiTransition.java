@@ -27,6 +27,7 @@ public class ShojiTransition extends Pane {
         right.layoutXProperty().bind(widthProperty().divide(2));
         getChildren().addAll(left, right);
         setVisible(false);
+        for (AudioClip c : List.of(closeSound, tapSound, openSound)) c.play(0);   // silent warm-up so the first real play has no delay
     }
 
     /** Closes the doors, runs swap while the screen is hidden, then opens them again. */
