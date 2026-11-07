@@ -39,6 +39,7 @@ public class OniShinTanApp extends Application {
             for (int i = 0; i < 5; i++) { you.refillKi(); enemy.refillKi(); }
             you.spendKi(2);
             for (int i = 0; i < 5; i++) { you.draw(); enemy.draw(); }
+            you.getSide().getMinions().forEach(Minion::onTurnStart);
             BoardView board = new BoardView("izakaya", enemy, "shuten-doji", you, "yasuke");
             board.showClocks("1:30", "1:12", true);
             board.setOnPlay((card, slot) -> {
@@ -47,6 +48,13 @@ public class OniShinTanApp extends Application {
                 you.removeFromHand(card);
                 you.getSide().place(new Minion(m), slot);
                 board.render();
+            });
+            board.setOnAttack((attacker, target) -> {
+                target.takeDamage(attacker.getAttack());
+                if (target instanceof Minion) attacker.takeDamage(target.getAttack());
+                attacker.markAttacked();
+                you.getSide().removeDead();
+                enemy.getSide().removeDead();
             });
             return board;
         });
