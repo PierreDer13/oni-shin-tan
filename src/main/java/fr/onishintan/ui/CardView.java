@@ -3,6 +3,7 @@ package fr.onishintan.ui;
 import fr.onishintan.model.Card;
 import fr.onishintan.model.Keyword;
 import fr.onishintan.model.MinionCard;
+import fr.onishintan.model.Rarity;
 import fr.onishintan.model.WeaponCard;
 import java.io.InputStream;
 import javafx.geometry.HPos;
@@ -66,6 +67,10 @@ public class CardView extends Group {
         int[] s = stats();
         if (s != null) { stat(s[0], "攻撃 ATK", 27); stat(s[1], card instanceof WeaponCard ? "耐久 DUR" : "体力 HP", 402); }
         text(desc, 17, 154 + 24 * kw, 32, 208 - 24 * kw, 210).setFont(Font.font(SERIF, 17)); // description, top middle
+        if (card.getRarity() == Rarity.LEGENDARY)
+            rarityTag("伝説 LEGENDARY", 190, "#8a6a1c, #f7e08a 30%, #fff6c8 50%, #d4ab4a 70%, #8a6a1c", "#3a2a05", Color.GOLD);
+        if (card.getRarity() == Rarity.MYTHIC)
+            rarityTag("神話 MYTHIC", 150, "#9fb8d9, #e9f7ff 30%, #ffffff 50%, #c8e6ff 65%, #b6a8ff 85%, #9fb8d9", "#2b3e63", Color.web("#bfe9ff"));
     }
 
     /** Pink glow on cards the player can afford (used by the hand). */
@@ -122,5 +127,13 @@ public class CardView extends Group {
         l.relocate(x, y);
         face.getChildren().add(l);
         return l;
+    }
+
+    /** Legendary / mythic tag across the top of the card: a shiny gradient pill with a matching glow (GDD). */
+    private void rarityTag(String tag, double width, String gradient, String ink, Color glow) {
+        Label t = text(tag, 18, (W - width) / 2, 0, width, 34);
+        t.setTextFill(Color.web(ink));
+        t.setStyle("-fx-background-color: linear-gradient(to right, " + gradient + "); -fx-background-radius: 6;");
+        t.setEffect(new DropShadow(18, glow));
     }
 }

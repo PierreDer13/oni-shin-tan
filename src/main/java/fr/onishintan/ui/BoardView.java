@@ -2,6 +2,7 @@ package fr.onishintan.ui;
 
 import fr.onishintan.model.Hero;
 import fr.onishintan.model.Card;
+import fr.onishintan.model.Combatant;
 import fr.onishintan.model.Minion;
 import fr.onishintan.model.Player;
 import java.util.List;
@@ -35,6 +36,8 @@ public class BoardView extends Pane {
     private final Pane table = new Pane();
     private final ImageView bg;
     private final Rectangle kiPreview = new Rectangle(KI_X, 0, KI_W, 0);
+    private Combatant selected;
+    private BiConsumer<Combatant, Combatant> onAttack = (a, t) -> {};
 
     private static final String HUD = "-fx-background-color: rgba(20,12,8,0.75); -fx-text-fill: #f3ede1; -fx-font-weight: bold;"
         + " -fx-background-radius: 10; -fx-alignment: center; -fx-text-alignment: center;";
@@ -55,6 +58,7 @@ public class BoardView extends Pane {
         bg = image("/images/boards/" + board + ".png");
         bg.setFitWidth(W);
         bg.setFitHeight(H);
+        bg.setOnMouseClicked(e -> { selected = null; render(); });
         Scale scale = new Scale();
         table.getTransforms().add(scale);
         InvalidationListener fit = o -> {
@@ -74,8 +78,8 @@ public class BoardView extends Pane {
     /** Redraws everything that changes during a match: heroes, minions, Ki and decks. */
     public void render() {
         live.getChildren().clear();
-        hero(enemy.getHero(), enemyPortrait, 107);
-        hero(you.getHero(), yourPortrait, 637);
+        hero(enemy.getHero(), enemyPortrait, 107, false);
+        hero(you.getHero(), yourPortrait, 637, true);
         row(enemy, ENEMY_Y);
         row(you, YOUR_Y);
         kiBar(you);
@@ -99,6 +103,9 @@ public class BoardView extends Pane {
         this.onPlay = onPlay;
         render();
     }
+
+    /** What happens when you pick an attacker and then a target (the match will call the engine here). */
+    public void setOnAttack(BiConsumer<Combatant, Combatant> onAttack) { this.onAttack = onAttack; }
 
     /** Dims the top of your available Ki by what a hovered card costs (0 = nothing hovered). */
     public void previewCost(int cost) {
@@ -183,14 +190,18 @@ public class BoardView extends Pane {
         return node;
     }
 
-    /** One side's minions in slots 1 to 7, left to right. */
+    /** One side's minions in slots 1 to 7, left to right, each clickable for attacks. */
     private void row(Player p, double y) {
         List<Minion> minions = p.getSide().getMinions();
-        for (int i = 0; i < minions.size(); i++) place(new MinionView(minions.get(i), MINION_W), SLOT_X + 2 + i * SLOT_STEP, y);
+        for (int i = 0; i < minions.size(); i++) {
+            MinionView v = new MinionView(minions.get(i), MINION_W);
+            clickable(v, minions.get(i), p == you);
+            place(v, SLOT_X + 2 + i * SLOT_STEP, y);
+        }
     }
 
     /** The hero's scroll, centred on the screen in its row, with HP in the scroll's bottom-right corner. */
-    private void hero(Hero h, String portrait, double zoneY) {
+    private void hero(Hero h, String portrait, double zoneY, boolean mine) {
         double hgt = 150, wid = hgt * 1.6;
         ImageView img = image("/images/heroes/" + portrait + ".png");
         img.setFitHeight(hgt);
@@ -200,6 +211,7 @@ public class BoardView extends Pane {
         StackPane box = new StackPane(img, hp);
         StackPane.setAlignment(hp, Pos.BOTTOM_RIGHT);
         StackPane.setMargin(hp, new Insets(0, wid * 0.05, hgt * 0.06, 0));
+        clickable(box, h, mine);
         place(box, W / 2 - wid / 2, zoneY + (119 - hgt) / 2);
     }
 
@@ -209,4 +221,30 @@ public class BoardView extends Pane {
     }
 
     private ImageView image(String path) { return new ImageView(new Image(getClass().getResourceAsStream(path))); }
+
+    /** Attack selection on one character: yours can be picked as attacker (shadow on hover, gold when picked);
+     *  once one is picked, the enemies it may hit glow red and attack on click. */
+    private void clickable(Node n, Combatant c, boolean mine) {
+        if (mine && c.canAttack()) {
+            n.setEffect(c == selected ? new DropShadow(30, Color.GOLD) : null);
+            n.setOnMouseEntered(e -> { if (c != selected) n.setEffect(new DropShadow(20, Color.BLACK)); });
+            n.setOnMouseExited(e -> { if (c != selected) n.setEffect(null); });
+            n.setOnMouseClicked(e -> { selected = c == selected ? null : c; render(); });
+        } else if (!mine && selected != null && canTarget(c)) {
+            n.setEffect(new DropShadow(30, Color.CRIMSON));
+            n.setOnMouseClicked(e -> {
+                Combatant attacker = selected;
+                selected = null;
+                onAttack.accept(attacker, c);
+                render();
+            });
+        }
+    }
+
+    /** Stand-in for the engine's validTargets: Shirodu minions must be hit first, hidden Shinobi can't be targeted. */
+    private boolean canTarget(Combatant t) {
+        List<Minion> walls = enemy.getSide().shirodus();
+        if (t instanceof Minion m) return !m.isHidden() && (walls.isEmpty() || walls.contains(m));
+        return walls.isEmpty();
+    }
 }
