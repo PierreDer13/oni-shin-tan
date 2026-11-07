@@ -7,6 +7,10 @@ import fr.onishintan.model.MinionCard;
 import fr.onishintan.model.Rarity;
 import java.util.List;
 import java.util.Set;
+import fr.onishintan.model.Deck;
+import fr.onishintan.model.Hero;
+import fr.onishintan.model.Minion;
+import fr.onishintan.model.Player;
 
 /** Hand-made cards to test the views until cards.json is loaded. Japanese texts are placeholders. */
 public final class MockCards {
@@ -22,4 +26,11 @@ public final class MockCards {
     );
 
     private MockCards() {}
+
+        /** A test player whose board holds n mock minions (cycling through ALL). */
+    public static Player player(String name, HeroClass heroClass, int minions) {
+        Player p = new Player(name, new Hero(heroClass), new Deck(ALL));
+        for (int i = 0; i < minions; i++) p.getSide().place(new Minion((MinionCard) ALL.get(i % ALL.size())), i);
+        return p;
+    }
 }
