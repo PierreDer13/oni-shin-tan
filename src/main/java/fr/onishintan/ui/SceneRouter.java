@@ -9,6 +9,7 @@ import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import javafx.scene.image.Image;
@@ -16,7 +17,9 @@ import javafx.scene.input.MouseEvent;
 
 /** Shows one Screen at a time in the main window. Each visit builds the screen fresh. */
 public class SceneRouter {
-    private final Scene scene =new Scene(new VBox(), 1280, 720);
+    private final StackPane content = new StackPane();
+    private final ShojiTransition doors = new ShojiTransition();
+    private final Scene scene = new Scene(new StackPane(content, doors), 1280, 720);
     private final Map<Screen, Supplier<Parent>> screens = new EnumMap<>(Screen.class);
     private final ImageCursor pointer = cursor("pointer"), grab = cursor("grab");
 
@@ -30,8 +33,11 @@ public class SceneRouter {
     /** Tells the router how to build a screen. */
     public void register(Screen s, Supplier<Parent> builder) { screens.put(s, builder); }
 
+    /** Shows a screen: straight away the first time, then behind the shōji doors. */
     public void goTo(Screen s) {
-        scene.setRoot(screens.getOrDefault(s, () -> placeholder(s)).get());
+        Parent next = screens.getOrDefault(s, () -> placeholder(s)).get();
+        if (content.getChildren().isEmpty()) content.getChildren().setAll(next);
+        else doors.play(() -> content.getChildren().setAll(next));
     }
 
     /** Stand-in until the real screen exists: its name and a way back home. */
