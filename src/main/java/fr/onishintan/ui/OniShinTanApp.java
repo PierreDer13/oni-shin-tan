@@ -21,7 +21,7 @@ public class OniShinTanApp extends Application {
             for (Screen s : Screen.values()) {
                 if (s == Screen.HOME) continue;
                 Button b = new Button(s.name());
-                b.setOnAction(e -> router.goTo(s));
+                b.setOnMousePressed(e -> router.goTo(s));
                 menu.getChildren().add(b);
             }
             return menu;
