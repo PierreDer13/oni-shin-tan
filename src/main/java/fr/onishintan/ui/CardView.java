@@ -23,7 +23,6 @@ import javafx.scene.text.FontWeight;
 import javafx.scene.text.TextAlignment;
 import javafx.scene.transform.Scale;
 import javafx.scene.text.Text;
-import javafx.scene.shape.Rectangle;
 
 /** One card in the karuta layout: drawn at the art's size (530 x 742), then scaled to the width asked. */
 public class CardView extends Group {
