@@ -1,9 +1,11 @@
 package fr.onishintan.ui;
 
 import fr.onishintan.model.Hero;
+import fr.onishintan.model.Card;
 import fr.onishintan.model.Minion;
 import fr.onishintan.model.Player;
 import java.util.List;
+import java.util.function.BiConsumer;
 import javafx.beans.InvalidationListener;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -26,11 +28,13 @@ import javafx.scene.shape.Line;
 public class BoardView extends Pane {
     public static final double W = 1600, H = 900;
     public static final double SLOT_X = 352, SLOT_STEP = 130.5, ENEMY_Y = 257, YOUR_Y = 443, MINION_W = 114;
+    public static final double KI_X = 89, KI_TOP = 285, KI_W = 30, KI_H = 420, KI_STEP = KI_H / Player.KI_CAP;
 
     private final Player enemy, you;
     private final String enemyPortrait, yourPortrait;
     private final Pane table = new Pane();
     private final ImageView bg;
+    private final Rectangle kiPreview = new Rectangle(KI_X, 0, KI_W, 0);
 
     private static final String HUD = "-fx-background-color: rgba(20,12,8,0.75); -fx-text-fill: #f3ede1; -fx-font-weight: bold;"
         + " -fx-background-radius: 10; -fx-alignment: center; -fx-text-alignment: center;";
@@ -41,6 +45,7 @@ public class BoardView extends Pane {
     private final Button enemyPower = hud(new Button("HERO\nPOWER"), 948, 112, 158, 113, 18);
     private final Label yourClock = hud(new Label(), 1381, 500, 190, 71, 30);
     private final Label enemyClock = hud(new Label(), 1381, 301, 190, 71, 30);
+    private BiConsumer<Card, Integer> onPlay = (c, slot) -> {};
 
     public BoardView(String board, Player enemy, String enemyPortrait, Player you, String yourPortrait) {
         this.enemy = enemy;
@@ -77,6 +82,8 @@ public class BoardView extends Pane {
         live.getChildren().add(hud(new Label("OPPONENT KI\n" + enemy.getKi() + " / " + Player.KI_CAP), 1452, 14, 132, 67, 16));
         deck(enemy, 182, 239);
         deck(you, 1227, 632);
+        enemyHand(enemy);
+        live.getChildren().add(new HandView(you, onPlay, this::previewCost));
     }
 
     /** Both chess clocks: the active one is big and bright, the other small and grey (GDD). */
@@ -85,6 +92,18 @@ public class BoardView extends Pane {
         enemyClock.setText(theirs);
         clock(yourClock, yourTurn);
         clock(enemyClock, !yourTurn);
+    }
+
+    /** What happens when you drop a card on your row (the match will call the engine here). */
+    public void setOnPlay(BiConsumer<Card, Integer> onPlay) {
+        this.onPlay = onPlay;
+        render();
+    }
+
+    /** Dims the top of your available Ki by what a hovered card costs (0 = nothing hovered). */
+    public void previewCost(int cost) {
+        kiPreview.setY(KI_TOP + KI_H - you.getKi() * KI_STEP);
+        Anim.to(kiPreview, Anim.ease(kiPreview.heightProperty(), Math.min(cost, you.getKi()) * KI_STEP));
     }
 
     public Button getEndTurn() { return endTurn; }
@@ -101,7 +120,7 @@ public class BoardView extends Pane {
     private void kiBar(Player p) {
         Label bar = hud(new Label("KI\n(MAX 12)"), 48, 220, 113, 546, 16);
         bar.setStyle(bar.getStyle() + " -fx-alignment: top-center; -fx-padding: 8 0 0 0;");
-        double x = 89, top = 285, w = 30, h = 420, step = h / Player.KI_CAP;
+        double x = KI_X, top = KI_TOP, w = KI_W, h = KI_H, step = KI_STEP;
         Rectangle track = new Rectangle(x, top, w, h);
         track.setFill(Color.TRANSPARENT);
         track.setStroke(Color.web("#f3ede1", 0.4));
@@ -111,7 +130,10 @@ public class BoardView extends Pane {
         Rectangle ki = new Rectangle(x, top + h - p.getKi() * step, w, p.getKi() * step);
         ki.setFill(Color.HOTPINK);
         ki.setEffect(new DropShadow(15, Color.HOTPINK));
-        live.getChildren().addAll(bar, track, unlocked, ki);
+        kiPreview.setFill(Color.web("#140c08", 0.6));
+        kiPreview.setMouseTransparent(true);
+        kiPreview.setHeight(0);
+        live.getChildren().addAll(bar, track, unlocked, ki, kiPreview);
         for (int i = 1; i < Player.KI_CAP; i++) {
             Line mark = new Line(x - 5, top + i * step, x + w + 5, top + i * step);
             mark.setStroke(Color.web("#f3ede1", 0.6));
@@ -123,15 +145,34 @@ public class BoardView extends Pane {
 
     /** A deck as a card back, centred in its zone; hovering shows how many cards are left (GDD). */
     private void deck(Player p, double x, double y) {
-        ImageView back = image("/images/frames/card-back.png");
-        back.setFitWidth(MINION_W);
-        back.setPreserveRatio(true);
+        ImageView back = cardBack(MINION_W);
         Tooltip.install(back, new Tooltip(p.getDeck().size() + " cards left"));
-        Rectangle corners = new Rectangle(MINION_W, MINION_W * CardView.H / CardView.W);
-        corners.setArcWidth(30 * MINION_W / CardView.W);
-        corners.setArcHeight(30 * MINION_W / CardView.W);
-        back.setClip(corners);
         place(back, x + (115 - MINION_W) / 2, y + (127 - MINION_W * CardView.H / CardView.W) / 2);
+    }
+
+    /** A card back w wide, with the cards' rounded corners. */
+    private ImageView cardBack(double w) {
+        ImageView back = image("/images/frames/card-back.png");
+        back.setFitWidth(w);
+        back.setPreserveRatio(true);
+        Rectangle corners = new Rectangle(w, w * CardView.H / CardView.W);
+        corners.setArcWidth(30 * w / CardView.W);
+        corners.setArcHeight(30 * w / CardView.W);
+        back.setClip(corners);
+        return back;
+    }
+
+    /** The opponent's hand: card backs upside down in an arc at the top; hovering shows how many (GDD). */
+    private void enemyHand(Player p) {
+        int n = p.getHand().size();
+        double mid = (n - 1) / 2.0;
+        for (int i = 0; i < n; i++) {
+            double d = i - mid;
+            ImageView back = cardBack(90);
+            back.setRotate(180 - d * 4);
+            Tooltip.install(back, new Tooltip(n + " cards in hand"));
+            place(back, W / 2 - 45 + d * 45, -70 - d * d * 2);
+        }
     }
 
     /** Styles a label or button as a HUD box of the given size and font, at (x, y) on the grid. */
