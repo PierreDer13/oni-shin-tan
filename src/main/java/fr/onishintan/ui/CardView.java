@@ -42,7 +42,8 @@ public class CardView extends Group {
         /** Rebuilds the card face from the card's data. */
     public void render() {
         face.getChildren().setAll(new ImageView(art()));
-        text(String.valueOf(card.getKiCost()), 56, 25, 18, 100, 100);                    // Ki circle
+        text(String.valueOf(card.getKiCost()), 50, 25, 24, 100, 82);                     // Ki circle
+        text("気 Ki", 14, 25, 88, 100, 20);
         String kanji = card.getNameKanji();
         vertical(kanji, Math.min(56, 200 / kanji.length()), 370, 30, 135, 210);           // Japanese name, top right
         String name = card.getNameRomaji();
@@ -56,10 +57,9 @@ public class CardView extends Group {
                 vertical(k.getDisplayName().toUpperCase(), 18, 150 + 24 * kw++, 32, 24, 210);
                 desc = desc.replaceAll(k.getDisplayName() + "([.:]\\s*|$)", "");
             }
-            stat(m.getBaseAttack(), 27);
-            stat(m.getBaseHealth(), 402);
         }
-        if (card instanceof WeaponCard w) { stat(w.getAttack(), 27); stat(w.getDurability(), 402); }
+        int[] s = stats();
+        if (s != null) { stat(s[0], "攻撃 ATK", 27); stat(s[1], card instanceof WeaponCard ? "耐久 DUR" : "体力 HP", 402); }
         text(desc, 17, 154 + 24 * kw, 32, 208 - 24 * kw, 210).setFont(Font.font(SERIF, 17)); // description, top middle
     }
 
@@ -67,6 +67,13 @@ public class CardView extends Group {
     public void setPlayable(boolean playable) { setEffect(playable ? new DropShadow(40, Color.HOTPINK) : null); }
 
     public Card getCard() { return card; }
+
+    /** ATK and HP (durability for weapons) shown at the bottom, or null for spells. MinionView shows live values. */
+    protected int[] stats() {
+        if (card instanceof MinionCard m) return new int[] { m.getBaseAttack(), m.getBaseHealth() };
+        if (card instanceof WeaponCard w) return new int[] { w.getAttack(), w.getDurability() };
+        return null;
+    }
 
     /** The card's art, or the blank frame of its class while the art is missing. */
     private Image art() {
@@ -93,7 +100,10 @@ public class CardView extends Group {
         face.getChildren().add(col);
     }
 
-    private void stat(int value, double x) { text(String.valueOf(value), 56, x, 595, 100, 100); }
+    private void stat(int value, String caption, double x) {
+        text(String.valueOf(value), 50, x, 600, 100, 82);
+        text(caption, 14, x, 665, 100, 20);
+    }
 
     /** A centred bold label in the box (x, y, w, h), in card coordinates. */
     private Label text(String s, double size, double x, double y, double w, double h) {
