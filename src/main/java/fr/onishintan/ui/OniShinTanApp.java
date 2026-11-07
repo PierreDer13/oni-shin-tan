@@ -38,7 +38,8 @@ public class OniShinTanApp extends Application {
             you.getSide().getMinions().get(0).takeDamage(2);
             for (int i = 0; i < 5; i++) { you.refillKi(); enemy.refillKi(); }
             you.spendKi(2);
-            for (int i = 0; i < 5; i++) { you.draw(); enemy.draw(); }
+            for (int i = 0; i < 7; i++) { if (i < 6) you.draw(); enemy.draw(); }
+            enemy.gainTemporaryKi(1);
             you.getSide().getMinions().forEach(Minion::onTurnStart);
             BoardView board = new BoardView("izakaya", enemy, "shuten-doji", you, "yasuke");
             board.showClocks("1:30", "1:12", true);
