@@ -1,9 +1,15 @@
 package fr.onishintan.ui;
 
+import java.util.Random;
+
 import fr.onishintan.model.HeroClass;
 import fr.onishintan.model.Minion;
 import fr.onishintan.model.MinionCard;
 import fr.onishintan.model.Player;
+import fr.onishintan.model.Rarity;
+import fr.onishintan.model.Weapon;
+import fr.onishintan.model.WeaponCard;
+
 import javafx.application.Application;
 import javafx.geometry.Pos;
 import javafx.scene.layout.FlowPane;
@@ -30,10 +36,14 @@ public class OniShinTanApp extends Application {
         });
         router.register(Screen.MATCH, () -> {
             Player enemy = MockCards.player("Pierre", HeroClass.ONI, 7);
-            Player you = MockCards.player("Kayne", HeroClass.SAMURAI, 3);
+            Player you = MockCards.player("Kayne", HeroClass.SAMURAI, 7);
             you.getSide().getMinions().get(0).takeDamage(2);
             for (int i = 0; i < Player.KI_CAP; i++) { you.refillKi(); enemy.refillKi(); }
             for (int i = 0; i < 7; i++) { if (i < 6) you.draw(); enemy.draw(); }
+            you.getHero().takeDamage(95);     // both heroes at 5 HP for testing
+            enemy.getHero().takeDamage(95);
+            you.getHero().gainArmour(20);   // Samurai starts with 20 armour (GDD)
+            you.getHero().equip(new Weapon(new WeaponCard("katana", "Katana", "刀", "かたな", 3, Rarity.COMMON, HeroClass.SAMURAI, "", "", 8, 1)));
             enemy.gainTemporaryKi(1);
             you.getSide().getMinions().forEach(Minion::onTurnStart);
             BoardView board = new BoardView("izakaya", enemy, "shuten-doji", you, "yasuke");
@@ -53,6 +63,12 @@ public class OniShinTanApp extends Application {
                 enemy.getSide().removeDead();
             });
             board.setOnPower(() -> you.spendKi(HeroPowerView.COST));
+            board.setOnTrade(card -> {
+                you.removeFromHand(card);
+                you.getDeck().insertRandom(card, new Random());
+                you.draw();
+                board.render();
+            });
             return board;
         });
         router.goTo(Screen.HOME);
