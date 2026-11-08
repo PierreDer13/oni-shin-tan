@@ -30,6 +30,7 @@ public class CardView extends Group {
     public static final double W = 530, H = 742;
     private static final String SERIF = "Yu Mincho";
     private static final Color INK = Color.web("#1f1b17");
+    private static final Color DAMAGED = Color.web("#c41e1e");
 
     private final Card card;
     private final Pane face = new Pane();
@@ -65,7 +66,7 @@ public class CardView extends Group {
             }
         }
         int[] s = stats();
-        if (s != null) { stat(s[0], "攻撃 ATK", 27); stat(s[1], card instanceof WeaponCard ? "耐久 DUR" : "体力 HP", 402); }
+        if (s != null) { stat(s[0], "攻撃 ATK", 27, INK); stat(s[1], card instanceof WeaponCard ? "耐久 DUR" : "体力 HP", 402, damaged() ? DAMAGED : INK); }
         text(desc, 17, 154 + 24 * kw, 32, 208 - 24 * kw, 210).setFont(Font.font(SERIF, 17)); // description, top middle
         if (card.getRarity() == Rarity.LEGENDARY)
             rarityTag("伝説 LEGENDARY", 190, "#8a6a1c, #f7e08a 30%, #fff6c8 50%, #d4ab4a 70%, #8a6a1c", "#3a2a05", Color.GOLD);
@@ -79,6 +80,9 @@ public class CardView extends Group {
     public Card getCard() { return card; }
 
     /** ATK and HP (durability for weapons) shown at the bottom, or null for spells. MinionView shows live values. */
+    /** Whether the HP should show in red (a damaged minion). Printed cards never are; MinionView decides. */
+    protected boolean damaged() { return false; }
+
     protected int[] stats() {
         if (card instanceof MinionCard m) return new int[] { m.getBaseAttack(), m.getBaseHealth() };
         if (card instanceof WeaponCard w) return new int[] { w.getAttack(), w.getDurability() };
@@ -110,8 +114,8 @@ public class CardView extends Group {
         face.getChildren().add(col);
     }
 
-    private void stat(int value, String caption, double x) {
-        text(String.valueOf(value), 50, x, 600, 100, 82);
+    private void stat(int value, String caption, double x, Color color) {
+        text(String.valueOf(value), 50, x, 600, 100, 82).setTextFill(color);
         text(caption, 14, x, 665, 100, 20);
     }
 

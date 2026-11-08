@@ -17,5 +17,8 @@ public class MinionView extends CardView {
         return minion == null ? super.stats() : new int[] { minion.getAttack(), minion.getHealth() };
     }
 
+    @Override
+    protected boolean damaged() { return minion != null && minion.getHealth() < minion.getMaxHealth(); }
+
     public Minion getMinion() { return minion; }
 }
