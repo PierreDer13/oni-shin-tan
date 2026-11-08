@@ -5,11 +5,16 @@ import fr.onishintan.model.Card;
 import fr.onishintan.model.Combatant;
 import fr.onishintan.model.Minion;
 import fr.onishintan.model.Player;
+
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BiConsumer;
 
 import javafx.animation.Animation;
+import javafx.animation.KeyFrame;
+import javafx.animation.KeyValue;
 import javafx.animation.ScaleTransition;
+import javafx.animation.Timeline;
 import javafx.beans.InvalidationListener;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -77,6 +82,7 @@ public class BoardView extends Pane {
         enemyPower.setMouseTransparent(true);
         table.getChildren().addAll(bg, live, endTurn, yourPower, enemyPower, yourClock, enemyClock);
         getChildren().add(table);
+        setStyle("-fx-background-color: black;");
         render();
     }
 
@@ -92,7 +98,7 @@ public class BoardView extends Pane {
         deck(enemy, 182, 239);
         deck(you, 1227, 632);
         enemyHand(enemy);
-        live.getChildren().add(new HandView(you, onPlay, this::previewCost));
+        live.getChildren().add(new HandView(you, (card, slot) -> { onPlay.accept(card, slot); impact(card.getKiCost()); }, this::previewCost));
     }
 
     /** Both chess clocks: the active one is big and bright, the other small and grey (GDD). */
@@ -285,4 +291,23 @@ public class BoardView extends Pane {
         t.play();
         n.sceneProperty().addListener((o, was, now) -> { if (now == null) t.stop(); });
     } 
+
+    /** Screen shake when a card lands: 6+ Ki shakes; 10+ Ki shakes longer and harder, and every minion on the board wobbles. */
+    private void impact(int ki) {
+        if (ki < 6) return;
+        double strength = ki >= 10 ? 14 : 6;
+        int jolts = ki >= 10 ? 15 : 10;
+        List<MinionView> cards = ki < 10 ? List.of()
+                : live.getChildren().stream().filter(MinionView.class::isInstance).map(MinionView.class::cast).toList();
+        Timeline t = new Timeline();
+        for (int i = 0; i <= jolts; i++) {
+            double fade = 1 - (double) i / jolts;
+            List<KeyValue> moves = new ArrayList<>(List.of(
+                    new KeyValue(table.translateXProperty(), (Math.random() * 2 - 1) * strength * fade),
+                    new KeyValue(table.translateYProperty(), (Math.random() * 2 - 1) * strength * fade)));
+            for (MinionView c : cards) moves.add(new KeyValue(c.rotateProperty(), (Math.random() * 2 - 1) * 8 * fade));
+            t.getKeyFrames().add(new KeyFrame(Duration.millis(i * 35), moves.toArray(KeyValue[]::new)));
+        }
+        t.play();
+    }
 }
