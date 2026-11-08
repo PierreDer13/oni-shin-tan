@@ -48,6 +48,7 @@ import javafx.scene.transform.Scale;
 import javafx.scene.shape.Circle;
 import javafx.scene.shape.Line;
 import javafx.util.Duration;
+import javafx.scene.layout.Region;
 
 /** The match table on a 1600 x 900 grid (zones from the Izakaya mock-up), scaled to fit the window. */
 public class BoardView extends Pane {
@@ -311,14 +312,18 @@ public class BoardView extends Pane {
         ImageView img = image("/images/heroes/" + portrait + ".png");
         img.setFitHeight(hgt);
         img.setPreserveRatio(true);
-        Label hp = new Label(String.valueOf(h.getHealth()));
-        boolean hurt = h.getHealth() < h.getMaxHealth();   // damaged hero: dark badge, red numbers
-        hp.setStyle("-fx-background-color: " + (hurt ? "#1f1b17" : "#7d1a1e") + "; -fx-text-fill: " + (hurt ? "#ff4a3d" : "white")
-                + "; -fx-font-size: 18; -fx-font-weight: bold; -fx-padding: 2 10; -fx-background-radius: 3;");
-        throb(hp);
+        boolean hurt = h.getHealth() < h.getMaxHealth();
+        ImageView frame = image("/images/hud/hp-frame.png");
+        frame.setFitWidth(54);
+        frame.setPreserveRatio(true);
+        Label number = new Label(String.valueOf(h.getHealth()));
+        number.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 17; -fx-font-weight: bold; -fx-text-fill: "
+                + (hurt ? "#c41e1e" : "#1f1b17") + ";");
+        StackPane hp = new StackPane(frame, number);
+        hp.setMaxSize(Region.USE_PREF_SIZE, Region.USE_PREF_SIZE);
         StackPane box = new StackPane(img, hp);
         StackPane.setAlignment(hp, Pos.BOTTOM_RIGHT);
-        StackPane.setMargin(hp, new Insets(0, wid * 0.05, hgt * 0.06, 0));
+        StackPane.setMargin(hp, new Insets(0, wid * 0.08, hgt * 0.06, 0));
         clickable(box, h, mine);
         place(box, W / 2 - wid / 2, zoneY + (119 - hgt) / 2);
     }
@@ -400,15 +405,15 @@ public class BoardView extends Pane {
         /** A hero power in its mock-up zone: Ki cost in the circle, name below. Yours: hover shadow, press to use
      *  (pays the Ki), then it stays dimmed for the turn. The opponent's is only shown. */
     private void power(Player p, double zoneY, boolean mine) {
-        double size = 160;
+        double size = 120, k = size / 160;
         ImageView frame = image("/images/hud/hero-power.png");
         frame.setFitWidth(size);
         frame.setPreserveRatio(true);
         Label cost = new Label(String.valueOf(POWER_COST));
-        cost.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 26; -fx-font-weight: bold; -fx-text-fill: #1f1b17;");
+        cost.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: " + 26 * k + "; -fx-font-weight: bold; -fx-text-fill: #1f1b17;");
         cost.setTranslateY(-size * 0.28);
         String[] info = POWER.get(p.getHero().getHeroClass());   // English name, Japanese name, effect
-        VBox text = new VBox(1, powerText(info[0], 15), powerText(info[1], 12), powerText(info[2], 9.5));
+        VBox text = new VBox(1, powerText(info[0], 15 * k), powerText(info[1], 12 * k), powerText(info[2], 9.5 * k));
         text.setAlignment(Pos.CENTER);
         text.setMaxWidth(size * 0.7);
         text.setTranslateY(size * 0.12);
