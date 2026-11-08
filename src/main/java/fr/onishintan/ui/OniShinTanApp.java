@@ -28,6 +28,7 @@ public class OniShinTanApp extends Application {
         music.setVolume(0.35);
         music.play();
         router.register(Screen.HOME, () -> new HomeView(router));
+        router.register(Screen.CLASS_SELECT, () -> new ClassSelectView(router));
         router.register(Screen.INVENTORY, () -> {
             FlowPane grid = new FlowPane(20, 20);
             grid.setAlignment(Pos.CENTER);
