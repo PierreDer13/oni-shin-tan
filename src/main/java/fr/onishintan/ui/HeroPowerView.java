@@ -1,0 +1,65 @@
+package fr.onishintan.ui;
+
+import fr.onishintan.model.HeroClass;
+
+import java.util.Map;
+import java.util.function.IntConsumer;
+
+import javafx.geometry.Pos;
+import javafx.scene.control.Label;
+import javafx.scene.effect.ColorAdjust;
+import javafx.scene.image.ImageView;
+import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
+
+/** A hero power panel: Ki cost in the circle, English name, Japanese name and effect below.
+ *  Usable: yellow outline, hover previews the Ki and grows a little, press uses it. Used: dimmed for the turn. */
+public class HeroPowerView extends StackPane {
+    public static final double SIZE = 120;
+    public static final int COST = 2;   // placeholder until balanced
+
+    /** Hero powers until the engine has them: the GDD names. */
+    private static final Map<HeroClass, String[]> POWER = Map.of(
+            HeroClass.NINJA, new String[] { "Shuriken", "手裏剣", "Deal 6 damage to any character" },
+            HeroClass.SAMURAI, new String[] { "Katana", "刀", "Equip a weapon: more Ki, stronger blade" },
+            HeroClass.KANNUSHI, new String[] { "Miko", "巫女", "Summon a 3/3 Miko" },
+            HeroClass.ONI, new String[] { "Jikininki", "食人鬼", "Drain 4 HP from a character to heal your hero" });
+
+    public HeroPowerView(HeroClass hero, boolean used, boolean usable, IntConsumer previewCost, Runnable onUse) {
+        double k = SIZE / 160;
+        ImageView frame = BoardView.image("/images/hud/hero-power.png");
+        frame.setFitWidth(SIZE);
+        frame.setPreserveRatio(true);
+        Label cost = new Label(String.valueOf(COST));
+        cost.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: " + 26 * k + "; -fx-font-weight: bold; -fx-text-fill: #1f1b17;");
+        cost.setTranslateY(-SIZE * 0.28);
+        String[] info = POWER.get(hero);   // English name, Japanese name, effect
+        VBox text = new VBox(1, text(info[0], 15 * k), text(info[1], 12 * k), text(info[2], 9.5 * k));
+        text.setAlignment(Pos.CENTER);
+        text.setMaxWidth(SIZE * 0.7);
+        text.setTranslateY(SIZE * 0.12);
+        getChildren().addAll(frame, cost, text);
+        if (used) setEffect(new ColorAdjust(0, -0.3, -0.5, 0));
+        if (!usable) return;
+        setEffect(BoardView.border(8));   // usable: yellow outline like a minion that can attack
+        setOnMouseEntered(e -> {
+            previewCost.accept(COST);
+            setEffect(BoardView.border(14));
+            Anim.to(this, Anim.ease(scaleXProperty(), 1.04), Anim.ease(scaleYProperty(), 1.04));
+        });
+        setOnMouseExited(e -> {
+            previewCost.accept(0);
+            setEffect(BoardView.border(8));
+            Anim.to(this, Anim.ease(scaleXProperty(), 1.0), Anim.ease(scaleYProperty(), 1.0));
+        });
+        setOnMousePressed(e -> onUse.run());
+    }
+
+    /** Dark ink text for the panel, centred and wrapping. */
+    private static Label text(String s, double size) {
+        Label l = new Label(s);
+        l.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: " + size + "; -fx-font-weight: bold; -fx-text-fill: #1f1b17; -fx-text-alignment: center;");
+        l.setWrapText(true);
+        return l;
+    }
+}

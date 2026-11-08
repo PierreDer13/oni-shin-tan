@@ -26,7 +26,9 @@ public final class MockCards {
         new MinionCard("fuma-kotaro", "Fūma Kotarō", "風魔小太郎", "ふうまこたろう", 7, Rarity.LEGENDARY, HeroClass.NINJA,
             "Shinobi. Yogake: each enemy minion attacks another random enemy minion", "忍び。夜駆け：敵の手下が互いに襲い合う", 9, 6, Set.of(Keyword.SHINOBI)),
         new MinionCard("amaterasu-omikami", "Amaterasu Ōmikami", "天照大神", "あまてらすおおみかみ", 10, Rarity.MYTHIC, HeroClass.NEUTRAL,
-            "Banzai: restore your hero to full HP", "", 17, 17, Set.of(Keyword.BANZAI))
+            "Banzai: restore your hero to full HP", "", 17, 17, Set.of(Keyword.BANZAI)),
+        new MinionCard("tsuru", "Tsuru", "鶴", "つる", 2, Rarity.COMMON, HeroClass.NEUTRAL, "Torii", "", 4, 3, Set.of(Keyword.TORII)),
+        new MinionCard("kame", "Kame", "亀", "かめ", 3, Rarity.COMMON, HeroClass.NEUTRAL, "Shirodu", "", 2, 6, Set.of(Keyword.SHIRODU))
     );
 
     private MockCards() {}

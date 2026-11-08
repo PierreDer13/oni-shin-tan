@@ -101,4 +101,21 @@ final class Fx {
             tl.play();
         }
     }
+
+    /** A Torii gate drops slowly from the sky onto a card; on landing, onLand runs (a small screen shake)
+     *  and the gate rocks a few times, then settles at its own opacity. */
+    static void drop(Node g, Runnable onLand) {
+        double end = g.getOpacity();
+        g.setTranslateY(-700);
+        g.setOpacity(0);
+        g.setScaleX(1.15);
+        g.setScaleY(1.15);
+        new Timeline(
+                new KeyFrame(Duration.millis(650), e -> onLand.run(), new KeyValue(g.translateYProperty(), 0, Interpolator.EASE_IN),
+                        new KeyValue(g.opacityProperty(), end), new KeyValue(g.scaleXProperty(), 1), new KeyValue(g.scaleYProperty(), 1)),
+                new KeyFrame(Duration.millis(710), new KeyValue(g.rotateProperty(), -5)),
+                new KeyFrame(Duration.millis(770), new KeyValue(g.rotateProperty(), 4)),
+                new KeyFrame(Duration.millis(830), new KeyValue(g.rotateProperty(), -2)),
+                new KeyFrame(Duration.millis(890), new KeyValue(g.rotateProperty(), 0))).play();
+    }
 }
