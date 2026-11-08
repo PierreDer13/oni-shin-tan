@@ -4,20 +4,30 @@ import javafx.animation.Animation;
 import javafx.animation.Interpolator;
 import javafx.animation.TranslateTransition;
 import javafx.beans.InvalidationListener;
+import javafx.geometry.Pos;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.Pane;
+import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
+import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
+import javafx.scene.text.TextAlignment;
 import javafx.scene.transform.Scale;
 import javafx.scene.Node;
 import javafx.util.Duration;
 import javafx.scene.media.AudioClip;
+import javafx.scene.control.Label;
+import javafx.scene.control.Tooltip;
 
 /** The Home screen on a 1600 x 900 grid, scaled to the window. Layers, back to front:
  *  background, clouds, pines, sakura, waves, then banners, scroll and buttons. */
 public class HomeView extends Pane {
     public static final double W = 1600, H = 900;
+    public static final int MAX_REI = 6000;
+    private static final String PLAYER_NAME = "Kayne";   // placeholders until the player profile is saved
+    private static final int PLAYER_REI = 2450;
 
     private final Pane grid = new Pane();
     private final SceneRouter router;
@@ -59,6 +69,8 @@ public class HomeView extends Pane {
         String[] classes = { "samurai", "ninja", "kannushi", "oni" };
         for (int i = 0; i < classes.length; i++) banner(classes[i], 960 + i * 160, 20, 150);
         add("scroll", 175, 20, 170);
+        add("scroll", 175, 20, 170);
+        profile(175, 20, PLAYER_NAME, PLAYER_REI);
         button("adventure", 480, 610, 300, Screen.ADVENTURE_SELECT);
         button("pvp", 820, 610, 300, Screen.MATCH);
         String[] bar = { "deck-builder", "inventory", "profile", "settings" };
@@ -78,23 +90,25 @@ public class HomeView extends Pane {
 
     /** A plaque that goes to its screen the moment it's pressed. */
     private void button(String name, double x, double y, double w, Screen to) {
-        clickable(add("button-" + name, x, y, w), () -> router.goTo(to));
+        clickable(add("button-" + name, x, y, w), false, () -> router.goTo(to));
     }
 
     /** A class banner: same hover shadow, opens the Deck Builder for now (its class later). */
     private void banner(String heroClass, double x, double y, double w) {
-        clickable(add("banner-" + heroClass, x, y, w), () -> router.goTo(Screen.DECK_BUILDER));
+        clickable(add("banner-" + heroClass, x, y, w), true, () -> router.goTo(Screen.DECK_BUILDER));
     }
 
-    /** Hover: a dark shadow around the element. Press: runs the action. */
-    private static void clickable(ImageView v, Runnable action) {
+    /** Hover: small dark shadow and 4 % bigger (hanging items grow down from their top). Press: click sound, then the action. */
+    private static void clickable(ImageView v, boolean hanging, Runnable action) {
+        double s = 1.04;
         v.setOnMouseEntered(e -> {
+            double down = hanging ? (s - 1) * v.getBoundsInLocal().getHeight() / 2 : 0;
             v.setEffect(new DropShadow(12, Color.BLACK));
-            Anim.to(v, Anim.ease(v.scaleXProperty(), 1.04), Anim.ease(v.scaleYProperty(), 1.04));
+            Anim.to(v, Anim.ease(v.scaleXProperty(), s), Anim.ease(v.scaleYProperty(), s), Anim.ease(v.translateYProperty(), down));
         });
         v.setOnMouseExited(e -> {
             v.setEffect(null);
-            Anim.to(v, Anim.ease(v.scaleXProperty(), 1.0), Anim.ease(v.scaleYProperty(), 1.0));
+            Anim.to(v, Anim.ease(v.scaleXProperty(), 1.0), Anim.ease(v.scaleYProperty(), 1.0), Anim.ease(v.translateYProperty(), 0.0));
         });
         v.setOnMousePressed(e -> { CLICK.play(); action.run(); });
     }
@@ -112,5 +126,30 @@ public class HomeView extends Pane {
         t.setInterpolator(Interpolator.EASE_BOTH);
         t.playFrom(Duration.seconds(Math.random() * seconds));
         n.sceneProperty().addListener((o, was, now) -> { if (now == null) t.stop(); });
+    }
+
+    /** The player's name, then the Rei rank: 霊 as a title, the points labelled "Rei", out of 6000. Hover explains it. */
+    private void profile(double x, double y, String name, int rei) {
+        int points = Math.max(0, Math.min(MAX_REI, rei));
+        VBox text = new VBox(6,
+                label(name, 26),
+                label("霊", 40),
+                label(points + " Rei", 24),
+                label("/ " + MAX_REI, 14));
+        text.setAlignment(Pos.TOP_CENTER);
+        text.setPrefWidth(130);
+        text.relocate(x + 20, y + 90);
+        Tooltip.install(text, new Tooltip("Rei (霊): your rank, from 0 to " + MAX_REI + " points"));
+        grid.getChildren().add(text);
+    }
+
+    /** Dark ink text in the card font, centred and wrapping if too long. */
+    private static Label label(String s, double size) {
+        Label l = new Label(s);
+        l.setFont(Font.font("Yu Mincho", FontWeight.BOLD, size));
+        l.setTextFill(Color.web("#1f1b17"));
+        l.setWrapText(true);
+        l.setTextAlignment(TextAlignment.CENTER);
+        return l;
     }
 }

@@ -6,15 +6,21 @@ import fr.onishintan.model.MinionCard;
 import fr.onishintan.model.Player;
 import javafx.application.Application;
 import javafx.geometry.Pos;
-import javafx.scene.control.Button;
 import javafx.scene.layout.FlowPane;
-import javafx.scene.layout.VBox;
+import javafx.scene.media.MediaPlayer;
 import javafx.stage.Stage;
+import javafx.scene.media.Media;
 
 public class OniShinTanApp extends Application {
+    private MediaPlayer music;
+
     @Override
     public void start(Stage stage) {
         SceneRouter router = new SceneRouter(stage);
+        music = new MediaPlayer(new Media(getClass().getResource("/sounds/music.mp3").toExternalForm()));
+        music.setCycleCount(MediaPlayer.INDEFINITE);
+        music.setVolume(0.35);
+        music.play();
         router.register(Screen.HOME, () -> new HomeView(router));
         router.register(Screen.INVENTORY, () -> {
             FlowPane grid = new FlowPane(20, 20);
@@ -26,8 +32,7 @@ public class OniShinTanApp extends Application {
             Player enemy = MockCards.player("Pierre", HeroClass.ONI, 7);
             Player you = MockCards.player("Kayne", HeroClass.SAMURAI, 3);
             you.getSide().getMinions().get(0).takeDamage(2);
-            for (int i = 0; i < 5; i++) { you.refillKi(); enemy.refillKi(); }
-            you.spendKi(2);
+            for (int i = 0; i < Player.KI_CAP; i++) { you.refillKi(); enemy.refillKi(); }
             for (int i = 0; i < 7; i++) { if (i < 6) you.draw(); enemy.draw(); }
             enemy.gainTemporaryKi(1);
             you.getSide().getMinions().forEach(Minion::onTurnStart);
@@ -47,6 +52,7 @@ public class OniShinTanApp extends Application {
                 you.getSide().removeDead();
                 enemy.getSide().removeDead();
             });
+            board.setOnPower(() -> you.spendKi(BoardView.POWER_COST));
             return board;
         });
         router.goTo(Screen.HOME);
