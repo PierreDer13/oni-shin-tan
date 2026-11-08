@@ -5,11 +5,17 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Random;
 
-/** One side of a match: hero, deck, hand, board and Ki. The chess clock comes with the engine. */
+/**
+ * One side of a match: hero, deck, hand, board and Ki. The chess clock comes
+ * with the engine.
+ */
 public class Player {
     public static final int KI_CAP = 12;
     public static final int MAX_HAND = 12;
+    /** Ki cost of a trade. OPEN: 0 or 1, decided with Kayne on Mon 9 Nov. */
+    public static final int TRADE_COST = 0;
 
     private final String name;
     private final Hero hero;
@@ -31,9 +37,33 @@ public class Player {
      */
     public Optional<Card> draw() {
         Optional<Card> top = deck.draw();
-        if (top.isEmpty() || hand.size() >= MAX_HAND) return Optional.empty();
+        if (top.isEmpty() || hand.size() >= MAX_HAND)
+            return Optional.empty();
         hand.add(top.get());
         return top;
+    }
+
+    /**
+     * Puts a card from the hand back into the deck at a random place, then draws
+     * one.
+     * The once-per-turn rule lives in TurnManager.swapCard.
+     * 
+     * @return false if the card is not in the hand or the player lacks the Ki
+     */
+    public boolean trade(Card card, Random rng) {
+        if (card == null || !hand.contains(card) || ki < TRADE_COST) {
+            return false;
+        }
+        hand.remove(card);
+        ki -= TRADE_COST;
+        deck.insertRandom(card, rng);
+        draw();
+        return true;
+    }
+
+    /** Trade with a fresh Random: what Kayne's mock calls. The engine passes its own rng. */
+    public boolean trade(Card card) {
+        return trade(card, new Random());
     }
 
     /** Start of turn: max Ki +1 (cap 12), then Ki refilled. */
@@ -42,24 +72,55 @@ public class Player {
         ki = maxKi;
     }
 
-    public boolean canAfford(int cost) { return cost <= ki; }
+    public boolean canAfford(int cost) {
+        return cost <= ki;
+    }
 
     public void spendKi(int cost) {
-        if (!canAfford(cost)) throw new IllegalStateException("Not enough Ki: " + ki + " < " + cost);
+        if (!canAfford(cost))
+            throw new IllegalStateException("Not enough Ki: " + ki + " < " + cost);
         ki -= cost;
     }
 
     /** Extra Ki for this turn only (Izakaya even roll, second-player coin). */
-    public void gainTemporaryKi(int n) { ki += n; }
+    public void gainTemporaryKi(int n) {
+        ki += n;
+    }
 
-    public boolean removeFromHand(Card c) { return hand.remove(c); }
-    public void addToHand(Card c) { if (hand.size() < MAX_HAND) hand.add(c); }
+    public boolean removeFromHand(Card c) {
+        return hand.remove(c);
+    }
 
-    public String getName() { return name; }
-    public Hero getHero() { return hero; }
-    public Deck getDeck() { return deck; }
-    public List<Card> getHand() { return Collections.unmodifiableList(hand); }
-    public BoardSide getSide() { return side; }
-    public int getKi() { return ki; }
-    public int getMaxKi() { return maxKi; }
+    public void addToHand(Card c) {
+        if (hand.size() < MAX_HAND)
+            hand.add(c);
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public Hero getHero() {
+        return hero;
+    }
+
+    public Deck getDeck() {
+        return deck;
+    }
+
+    public List<Card> getHand() {
+        return Collections.unmodifiableList(hand);
+    }
+
+    public BoardSide getSide() {
+        return side;
+    }
+
+    public int getKi() {
+        return ki;
+    }
+
+    public int getMaxKi() {
+        return maxKi;
+    }
 }
