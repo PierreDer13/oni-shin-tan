@@ -9,8 +9,10 @@ import fr.onishintan.model.Player;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.BiConsumer;
 import javafx.util.Duration;
 
@@ -73,6 +75,8 @@ public class BoardView extends Pane {
     private Combatant selected;
     private BiConsumer<Combatant, Combatant> onAttack = (a, t) -> {};
     private final Map<Combatant, Node> nodes = new HashMap<>();
+    private final Set<Minion> toriiShown = new HashSet<>();
+    private final Map<Minion, ImageView> toriiNodes = new HashMap<>();
 
     private static final String HUD = "-fx-background-color: rgba(20,12,8,0.75); -fx-text-fill: #f3ede1; -fx-font-weight: bold;"
         + " -fx-background-radius: 10; -fx-alignment: center; -fx-text-alignment: center;";
@@ -128,6 +132,8 @@ public class BoardView extends Pane {
     public void render() {
         live.getChildren().clear();
         nodes.clear();
+        toriiShown.removeIf(m -> !m.hasTorii());
+        toriiNodes.clear();
         hero(enemy.getHero(), enemyPortrait, 107, false);
         hero(you.getHero(), yourPortrait, 637, true);
         power(enemy, 112, false);
@@ -316,6 +322,7 @@ public class BoardView extends Pane {
             if (minions.get(i).isHidden() && v.getEffect() == null) v.setEffect(new ColorAdjust(0, -0.4, -0.45, 0));
             readable(v, minions.get(i), x, y, i >= 4);
             place(v, x, y);
+            if (minions.get(i).hasTorii()) torii(minions.get(i), x, y);
             if (minions.get(i).isHidden()) shinobiClouds(x, y);
         }
     }
@@ -478,6 +485,8 @@ public class BoardView extends Pane {
         int aHp = attacker.getHealth(), tHp = target.getHealth();
         Fx.attack(a, t, () -> {
             onAttack.accept(attacker, target);
+            breakTorii(target);
+            breakTorii(attacker);
             Fx.slash(live, t);
             impact(attacker instanceof Minion m ? m.getSource().getKiCost() : 0, true);
             Fx.damageNumber(live, t, tHp - target.getHealth());
@@ -541,5 +550,22 @@ public class BoardView extends Pane {
             t.playFrom(Duration.seconds(Math.random() * 3));
             c.sceneProperty().addListener((o, was, now) -> { if (now == null) t.stop(); });
         }
+    }
+
+    /** A Torii gate across a protected card: drops in and shakes the first time it appears, then stays still. */
+    private void torii(Minion m, double x, double y) {
+        ImageView g = image("/images/fx/torii.png");
+        g.setFitWidth(190);
+        g.setPreserveRatio(true);
+        g.setOpacity(0.8);
+        g.setMouseTransparent(true);
+        place(g, x + MINION_W / 2 - 95, y + 15);
+        toriiNodes.put(m, g);
+        if (toriiShown.add(m)) Fx.drop(g, () -> impact(0, true));
+    }
+
+    /** If a character has just lost its Torii (it blocked the hit), its gate is cut in half and vanishes. */
+    private void breakTorii(Combatant c) {
+        if (c instanceof Minion m && toriiShown.remove(m) && !m.hasTorii()) Fx.deathCut(live, toriiNodes.get(m));
     }
 }
