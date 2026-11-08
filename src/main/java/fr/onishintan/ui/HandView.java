@@ -7,18 +7,17 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.IntConsumer;
-import java.util.function.IntConsumer;
-
 import javafx.geometry.Point2D;
 import javafx.scene.Group;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
+import javafx.scene.input.MouseEvent;
 
 /** Your hand fanned at the bottom of the board (grid coordinates). Hover raises and spreads it,
  *  hovering a card shows it big, dragging a playable card onto your row plays it. */
 public class HandView extends Group {
-    public static final double CARD_W = 120;
+    public static final double CARD_W = 120, GAP = 70, RAISED_GAP = 105;
 
     private final Player player;
     private final BiConsumer<Card, Integer> onPlay;
@@ -35,21 +34,25 @@ public class HandView extends Group {
             CardView v = new CardView(c, CARD_W);
             boolean playable = player.canAfford(c.getKiCost());
             v.setPlayable(playable);
-            v.setOnMouseEntered(e -> { hovered = v; fan(true, true); onHover.accept(c.getKiCost()); });
-            v.setOnMouseExited(e -> { hovered = null; fan(isHover(), true); onHover.accept(0); });
             if (playable) drag(v);
             cards.add(v);
         }
         getChildren().addAll(cards);
+        double half = (cards.size() - 1) / 2.0 * RAISED_GAP + CARD_W / 2 + 10;
+        Rectangle zone = new Rectangle(BoardView.W / 2 - half, 700, half * 2, 200);
+        zone.setFill(Color.TRANSPARENT);
+        zone.setPickOnBounds(true);
+        getChildren().add(0, zone);
         setOnMouseEntered(e -> fan(true, true));
-        setOnMouseExited(e -> fan(false, true));
+        setOnMouseMoved(this::pick);
+        setOnMouseExited(e -> { hovered = null; fan(false, true); onHover.accept(0); });
         fan(false, false);
     }
 
     /** Places the cards on an arc centred on the board; raised = lifted and spread out; animate = glide there.
      *  The hovered card rises above the others, straightens up and grows. */
     private void fan(boolean raised, boolean animate) {
-        double mid = (cards.size() - 1) / 2.0, gap = raised ? 105 : 70;
+        double mid = (cards.size() - 1) / 2.0, gap = raised ? RAISED_GAP : GAP;
         for (int i = 0; i < cards.size(); i++) {
             CardView v = cards.get(i);
             boolean up = v == hovered;
@@ -73,7 +76,6 @@ public class HandView extends Group {
             v.setViewOrder(-2);
             showSlots(true);
         });
-        v.setOnMousePressed(e -> { v.toFront(); v.setRotate(0); showSlots(true); });
         v.setOnMouseDragged(e -> {
             Point2D p = sceneToLocal(e.getSceneX(), e.getSceneY());
             v.relocate(p.getX() - CARD_W / 2, p.getY() - CARD_W * 0.7);
@@ -110,4 +112,17 @@ public class HandView extends Group {
 
     /** Whether slot i of your row is empty. */
     private boolean free(int i) { return i >= player.getSide().size(); }
+
+    /** The hovered card is chosen by the mouse's x only: the whole column above and below a card counts as that card,
+     *  so a lifted card never "escapes" the mouse and flickers. */
+    private void pick(MouseEvent e) {
+        if (cards.isEmpty()) return;
+        double x = sceneToLocal(e.getSceneX(), e.getSceneY()).getX();
+        int i = (int) Math.round((x - BoardView.W / 2) / RAISED_GAP + (cards.size() - 1) / 2.0);
+        CardView v = cards.get(Math.max(0, Math.min(cards.size() - 1, i)));
+        if (v == hovered) return;
+        hovered = v;
+        fan(true, true);
+        onHover.accept(v.getCard().getKiCost());
+    }
 }
