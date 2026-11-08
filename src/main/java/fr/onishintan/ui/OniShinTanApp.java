@@ -52,6 +52,7 @@ public class OniShinTanApp extends Application {
                 you.getSide().removeDead();
                 enemy.getSide().removeDead();
             });
+            board.setOnPower(() -> you.spendKi(BoardView.POWER_COST));
             return board;
         });
         router.goTo(Screen.HOME);
