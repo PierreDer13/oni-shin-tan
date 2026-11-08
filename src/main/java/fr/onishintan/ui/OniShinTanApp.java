@@ -32,8 +32,7 @@ public class OniShinTanApp extends Application {
             Player enemy = MockCards.player("Pierre", HeroClass.ONI, 7);
             Player you = MockCards.player("Kayne", HeroClass.SAMURAI, 3);
             you.getSide().getMinions().get(0).takeDamage(2);
-            for (int i = 0; i < 5; i++) { you.refillKi(); enemy.refillKi(); }
-            you.spendKi(2);
+            for (int i = 0; i < Player.KI_CAP; i++) { you.refillKi(); enemy.refillKi(); }
             for (int i = 0; i < 7; i++) { if (i < 6) you.draw(); enemy.draw(); }
             enemy.gainTemporaryKi(1);
             you.getSide().getMinions().forEach(Minion::onTurnStart);
