@@ -6,30 +6,42 @@ import fr.onishintan.model.Player;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.function.IntConsumer;
 import javafx.geometry.Point2D;
+import javafx.geometry.Rectangle2D;
 import javafx.scene.Group;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.input.MouseEvent;
+import javafx.animation.Animation;
+import javafx.animation.FadeTransition;
+import javafx.animation.ParallelTransition;
+import javafx.animation.TranslateTransition;
+import javafx.scene.Node;
+import javafx.scene.shape.Circle;
+import javafx.util.Duration;
 
 /** Your hand fanned at the bottom of the board (grid coordinates). Hover raises and spreads it,
  *  hovering a card shows it big, dragging a playable card onto your row plays it. */
 public class HandView extends Group {
+    private static final Rectangle2D DECK = new Rectangle2D(BoardView.DECK_X, BoardView.DECK_Y, 115, 127);
     public static final double CARD_W = 120, GAP = 70, RAISED_GAP = 105;
 
     private final Player player;
+    private final Consumer<Card> onTrade;
     private final BiConsumer<Card, Integer> onPlay;
     private final List<CardView> cards = new ArrayList<>();
-    private final List<Rectangle> glows = new ArrayList<>();
+    private final List<Node> glows = new ArrayList<>();
     private final IntConsumer onHover;
     private CardView hovered;
 
-    public HandView(Player player, BiConsumer<Card, Integer> onPlay, IntConsumer onHover) {
+    public HandView(Player player, BiConsumer<Card, Integer> onPlay, Consumer<Card> onTrade, IntConsumer onHover) {
         this.player = player;
         this.onPlay = onPlay;
         this.onHover = onHover;
+        this.onTrade = onTrade;
         for (Card c : player.getHand()) {
             CardView v = new CardView(c, CARD_W);
             boolean playable = player.canAfford(c.getKiCost());
@@ -87,27 +99,49 @@ public class HandView extends Group {
             int slot = (int) ((p.getX() - BoardView.SLOT_X) / BoardView.SLOT_STEP);
             if (p.getY() > BoardView.YOUR_Y && p.getY() < BoardView.YOUR_Y + 160 && slot >= 0 && slot < BoardSide.MAX && free(slot))
                 onPlay.accept(v.getCard(), slot);
+            else if (DECK.contains(p)) onTrade.accept(v.getCard());
             else fan(true, true);
         });
     }
 
-    /** While dragging: a soft pink glow on every free slot of your row. */
+    /** While dragging: a soft pink glow on every free slot of your row, and pink spirit motes over your deck (drop there to trade). */
     private void showSlots(boolean on) {
         getChildren().removeAll(glows);
         glows.clear();
         if (!on) return;
-        for (int i = 0; i < BoardSide.MAX; i++) {
-            if (!free(i)) continue;
-            Rectangle r = new Rectangle(BoardView.SLOT_X + i * BoardView.SLOT_STEP, BoardView.YOUR_Y, 118, 160);
-            r.setArcWidth(12);
-            r.setArcHeight(12);
-            r.setFill(Color.HOTPINK.deriveColor(0, 1, 1, 0.12));
-            r.setStroke(Color.HOTPINK.deriveColor(0, 1, 1, 0.5));
-            r.setEffect(new DropShadow(15, Color.HOTPINK));
-            r.setMouseTransparent(true);
-            glows.add(r);
-        }
+        for (int i = 0; i < BoardSide.MAX; i++)
+            if (free(i)) glows.add(glow(BoardView.SLOT_X + i * BoardView.SLOT_STEP, BoardView.YOUR_Y, 118, 160));
+        for (int i = 0; i < 20; i++) glows.add(mote(DECK.getMinX() + Math.random() * DECK.getWidth(), DECK.getMaxY() - Math.random() * DECK.getHeight()));
         getChildren().addAll(0, glows);
+    }
+
+    private static Rectangle glow(double x, double y, double w, double h) {
+        Rectangle r = new Rectangle(x, y, w, h);
+        r.setArcWidth(12);
+        r.setArcHeight(12);
+        r.setFill(Color.HOTPINK.deriveColor(0, 1, 1, 0.12));
+        r.setStroke(Color.HOTPINK.deriveColor(0, 1, 1, 0.5));
+        r.setEffect(new DropShadow(15, Color.HOTPINK));
+        r.setMouseTransparent(true);
+        return r;
+    }
+
+    /** A pink spirit mote rising and fading from (x, y), over and over until it is removed. */
+    private static Circle mote(double x, double y) {
+        Circle c = new Circle(x, y, 1.5 + Math.random() * 2.5, Color.web("#ff8ac4"));
+        c.setEffect(new DropShadow(8, Color.HOTPINK));
+        c.setMouseTransparent(true);
+        TranslateTransition rise = new TranslateTransition(Duration.seconds(1.2 + Math.random()), c);
+        rise.setFromY(0);
+        rise.setToY(-50);
+        FadeTransition fade = new FadeTransition(rise.getDuration(), c);
+        fade.setFromValue(1);
+        fade.setToValue(0);
+        ParallelTransition t = new ParallelTransition(rise, fade);
+        t.setCycleCount(Animation.INDEFINITE);
+        t.playFrom(Duration.seconds(Math.random() * 2));
+        c.sceneProperty().addListener((o, was, now) -> { if (now == null) t.stop(); });
+        return c;
     }
 
     /** Whether slot i of your row is empty. */
