@@ -1,10 +1,12 @@
 package fr.onishintan.ui;
 
 import javafx.animation.Animation;
+import javafx.animation.AnimationTimer;
 import javafx.animation.Interpolator;
 import javafx.animation.TranslateTransition;
 import javafx.beans.InvalidationListener;
 import javafx.geometry.Pos;
+import javafx.geometry.Rectangle2D;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
@@ -20,6 +22,7 @@ import javafx.util.Duration;
 import javafx.scene.media.AudioClip;
 import javafx.scene.control.Label;
 import javafx.scene.control.Tooltip;
+import javafx.scene.Group;
 
 /** The Home screen on a 1600 x 900 grid, scaled to the window. Layers, back to front:
  *  background, clouds, pines, sakura, waves, then banners, scroll and buttons. */
@@ -32,7 +35,7 @@ public class HomeView extends Pane {
     private final Pane grid = new Pane();
     private final SceneRouter router;
 
-    private static final AudioClip CLICK = new AudioClip(HomeView.class.getResource("/sounds/button-click.wav").toExternalForm());
+    static final AudioClip CLICK = new AudioClip(HomeView.class.getResource("/sounds/button-click.wav").toExternalForm());
     static { CLICK.play(0); }   // silent warm-up so the first click has no delay
 
     public HomeView(SceneRouter router) {
@@ -71,7 +74,7 @@ public class HomeView extends Pane {
         add("scroll", 175, 20, 170);
         add("scroll", 175, 20, 170);
         profile(175, 20, PLAYER_NAME, PLAYER_REI);
-        button("adventure", 480, 610, 300, Screen.ADVENTURE_SELECT);
+        button("adventure", 480, 610, 300, Screen.CLASS_SELECT);
         button("pvp", 820, 610, 300, Screen.MATCH);
         String[] bar = { "deck-builder", "inventory", "profile", "settings" };
         Screen[] to = { Screen.DECK_BUILDER, Screen.INVENTORY, Screen.PROFILE, Screen.SETTINGS };
@@ -93,13 +96,15 @@ public class HomeView extends Pane {
         clickable(add("button-" + name, x, y, w), false, () -> router.goTo(to));
     }
 
-    /** A class banner: same hover shadow, opens the Deck Builder for now (its class later). */
     private void banner(String heroClass, double x, double y, double w) {
-        clickable(add("banner-" + heroClass, x, y, w), true, () -> router.goTo(Screen.DECK_BUILDER));
+        Group g = Fx.waving(new Image(getClass().getResourceAsStream("/images/home/banner-" + heroClass + ".png")), w, 45);
+        g.relocate(x, y);
+        grid.getChildren().add(g);
+        clickable(g, true, () -> router.goTo(Screen.DECK_BUILDER));
     }
 
     /** Hover: small dark shadow and 4 % bigger (hanging items grow down from their top). Press: click sound, then the action. */
-    private static void clickable(ImageView v, boolean hanging, Runnable action) {
+    static void clickable(Node v, boolean hanging, Runnable action) {
         double s = 1.04;
         v.setOnMouseEntered(e -> {
             double down = hanging ? (s - 1) * v.getBoundsInLocal().getHeight() / 2 : 0;

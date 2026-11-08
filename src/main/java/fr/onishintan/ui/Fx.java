@@ -1,10 +1,12 @@
 package fr.onishintan.ui;
 
+import javafx.animation.AnimationTimer;
 import javafx.animation.Interpolator;
 import javafx.animation.KeyFrame;
 import javafx.animation.KeyValue;
 import javafx.animation.Timeline;
 import javafx.geometry.Bounds;
+import javafx.geometry.Rectangle2D;
 import javafx.scene.Node;
 import javafx.scene.SnapshotParameters;
 import javafx.scene.control.Label;
@@ -17,6 +19,7 @@ import javafx.scene.shape.Circle;
 import javafx.scene.shape.Line;
 import javafx.scene.shape.Polygon;
 import javafx.util.Duration;
+import javafx.scene.Group;
 
 /** Combat effects on the board (GDD, "Match: cards on the board"). Positions are in the layer's own space. */
 final class Fx {
@@ -137,5 +140,31 @@ final class Fx {
                 new KeyFrame(Duration.millis(770), new KeyValue(g.rotateProperty(), 4)),
                 new KeyFrame(Duration.millis(830), new KeyValue(g.rotateProperty(), -2)),
                 new KeyFrame(Duration.millis(890), new KeyValue(g.rotateProperty(), 0))).play();
+    }
+
+    /** A hanging banner, w wide: the top `rod` px of the image (the rod) stay still, the cloth below is cut in 10 px
+     *  strips that sway side to side, more towards the bottom, like a light breeze. Stops when removed from the screen. */
+    static Group waving(Image img, double w, double rod) {
+        double k = w / img.getWidth(), step = 10, phase = Math.random() * 10;
+        Group g = new Group();
+        for (double sy = 0; sy < img.getHeight(); sy += sy == 0 ? rod : step) {
+            ImageView s = new ImageView(img);
+            s.setViewport(new Rectangle2D(0, sy, img.getWidth(), Math.min((sy == 0 ? rod : step) + 1, img.getHeight() - sy)));
+            s.setFitWidth(w);
+            s.setPreserveRatio(true);
+            s.setY(sy * k);
+            g.getChildren().add(s);
+        }
+        AnimationTimer wave = new AnimationTimer() {
+            @Override public void handle(long now) {
+                for (Node s : g.getChildren()) {
+                    double d = Math.max(0, (((ImageView) s).getY() / k - rod) / (img.getHeight() - rod));   // 0 under the rod, 1 at the bottom
+                    s.setTranslateX(5 * d * Math.sin(now / 5e8 + phase - d * 4));
+                }
+            }
+        };
+        wave.start();
+        g.sceneProperty().addListener((o, was, now) -> { if (now == null) wave.stop(); });
+        return g;
     }
 }
