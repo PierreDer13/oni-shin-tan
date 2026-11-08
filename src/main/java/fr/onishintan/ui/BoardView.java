@@ -1,6 +1,7 @@
 package fr.onishintan.ui;
 
 import fr.onishintan.model.Hero;
+import fr.onishintan.model.HeroClass;
 import fr.onishintan.model.Card;
 import fr.onishintan.model.Combatant;
 import fr.onishintan.model.Minion;
@@ -8,13 +9,17 @@ import fr.onishintan.model.Player;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.function.BiConsumer;
 
 import javafx.animation.Animation;
+import javafx.animation.FadeTransition;
 import javafx.animation.KeyFrame;
 import javafx.animation.KeyValue;
+import javafx.animation.ParallelTransition;
 import javafx.animation.ScaleTransition;
 import javafx.animation.Timeline;
+import javafx.animation.TranslateTransition;
 import javafx.beans.InvalidationListener;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -23,15 +28,24 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.Labeled;
 import javafx.scene.control.Tooltip;
+import javafx.scene.effect.ColorAdjust;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.effect.GaussianBlur;
+import javafx.scene.effect.Glow;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
+
+import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
+import javafx.scene.paint.CycleMethod;
+import javafx.scene.paint.LinearGradient;
+import javafx.scene.paint.Paint;
+import javafx.scene.paint.Stop;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.transform.Scale;
+import javafx.scene.shape.Circle;
 import javafx.scene.shape.Line;
 import javafx.util.Duration;
 
@@ -46,6 +60,7 @@ public class BoardView extends Pane {
     private final Pane table = new Pane();
     private final ImageView bg;
     private final Rectangle kiPreview = new Rectangle(KI_X, 0, KI_W, 0);
+    private final FadeTransition kiPulse = new FadeTransition(Duration.millis(700), kiPreview);
     private Combatant selected;
     private BiConsumer<Combatant, Combatant> onAttack = (a, t) -> {};
 
@@ -54,11 +69,20 @@ public class BoardView extends Pane {
 
     private final Pane live = new Pane();
     private final Button endTurn = hud(new Button("END TURN"), 1381, 392, 190, 84, 26);
-    private final Button yourPower = hud(new Button("HERO\nPOWER"), 948, 639, 158, 113, 18);
-    private final Button enemyPower = hud(new Button("HERO\nPOWER"), 948, 112, 158, 113, 18);
     private final Label yourClock = hud(new Label(), 1381, 500, 190, 71, 30);
     private final Label enemyClock = hud(new Label(), 1381, 301, 190, 71, 30);
     private BiConsumer<Card, Integer> onPlay = (c, slot) -> {};
+
+    /** Hero powers until the engine has them: the GDD names, and a placeholder Ki cost (still to be balanced). */
+    private static final Map<HeroClass, String[]> POWER = Map.of(
+            HeroClass.NINJA, new String[] { "Shuriken", "手裏剣", "Deal 6 damage to any character" },
+            HeroClass.SAMURAI, new String[] { "Katana", "刀", "Equip a weapon: more Ki, stronger blade" },
+            HeroClass.KANNUSHI, new String[] { "Miko", "巫女", "Summon a 3/3 Miko" },
+            HeroClass.ONI, new String[] { "Jikininki", "食人鬼", "Drain 4 HP from a character to heal your hero" });
+    public static final int POWER_COST = 2;
+
+    private boolean powerUsed;
+    private Runnable onPower = () -> {};
 
     public BoardView(String board, Player enemy, String enemyPortrait, Player you, String yourPortrait) {
         this.enemy = enemy;
@@ -79,10 +103,13 @@ public class BoardView extends Pane {
         widthProperty().addListener(fit);
         heightProperty().addListener(fit);
         endTurn.setEffect(new DropShadow(25, Color.GOLD));
-        enemyPower.setMouseTransparent(true);
-        table.getChildren().addAll(bg, live, endTurn, yourPower, enemyPower, yourClock, enemyClock);
+        table.getChildren().addAll(bg, live, endTurn, yourClock, enemyClock);
         getChildren().add(table);
         setStyle("-fx-background-color: black;");
+        kiPulse.setFromValue(0.9);
+        kiPulse.setToValue(0.35);
+        kiPulse.setAutoReverse(true);
+        kiPulse.setCycleCount(Animation.INDEFINITE);
         render();
     }
 
@@ -91,6 +118,8 @@ public class BoardView extends Pane {
         live.getChildren().clear();
         hero(enemy.getHero(), enemyPortrait, 107, false);
         hero(you.getHero(), yourPortrait, 637, true);
+        power(enemy, 112, false);
+        power(you, 639, true);
         row(enemy, ENEMY_Y);
         row(you, YOUR_Y);
         kiBar(you);
@@ -115,21 +144,30 @@ public class BoardView extends Pane {
         render();
     }
 
+    /** What happens when you use your hero power (the match will call the engine here). */
+    public void setOnPower(Runnable onPower) { this.onPower = onPower; }
+
+    /** Start of your turn: the hero power can be used again. */
+    public void resetPower() {
+        powerUsed = false;
+        render();
+    }
+
     /** What happens when you pick an attacker and then a target (the match will call the engine here). */
     public void setOnAttack(BiConsumer<Combatant, Combatant> onAttack) { this.onAttack = onAttack; }
 
-    /** Fades the part of your available Ki that a hovered card would cost (0 = nothing hovered). */
+    /** Dims, with a slow pulse, the part of your available Ki that a hovered card or power would cost (0 = none). */
     public void previewCost(int cost) {
         int c = Math.min(cost, you.getKi());
-        if (c > 0) {
-            kiPreview.setY(KI_TOP + KI_H - you.getKi() * KI_STEP);
-            kiPreview.setHeight(c * KI_STEP);
-        }
-        Anim.to(kiPreview, Anim.ease(kiPreview.opacityProperty(), c > 0 ? 1.0 : 0.0));
+        kiPulse.stop();
+        kiPreview.setOpacity(0);
+        if (c == 0) return;
+        kiPreview.setY(KI_TOP + KI_H - you.getKi() * KI_STEP);
+        kiPreview.setHeight(c * KI_STEP);
+        kiPulse.playFromStart();
     }
 
     public Button getEndTurn() { return endTurn; }
-    public Button getYourPower() { return yourPower; }
 
     private static void clock(Label l, boolean active) {
         l.setOpacity(active ? 1 : 0.5);
@@ -137,32 +175,78 @@ public class BoardView extends Pane {
         l.setScaleY(active ? 1 : 0.8);
     }
 
-    /** Your Ki as a vertical bar filling from the bottom, with a marker every 1 Ki.
-     *  Bright pink = available, pale pink = spent this turn, empty = not unlocked yet. */
+    /** Your Ki: a glowing rounded capsule filling from the bottom, a faint mark per Ki, and pink spirit motes
+     *  rising beside the filled part. Bright = available, pale = spent this turn, empty = locked. */
     private void kiBar(Player p) {
-        Label bar = hud(new Label("KI\n(MAX 12)"), 48, 220, 113, 546, 16);
-        bar.setStyle(bar.getStyle() + " -fx-alignment: top-center; -fx-padding: 8 0 0 0;");
-        double x = KI_X, top = KI_TOP, w = KI_W, h = KI_H, step = KI_STEP;
-        Rectangle track = new Rectangle(x, top, w, h);
-        track.setFill(Color.TRANSPARENT);
-        track.setStroke(Color.web("#f3ede1", 0.4));
-        track.setStrokeWidth(2);
-        Rectangle unlocked = new Rectangle(x, top + h - p.getMaxKi() * step, w, p.getMaxKi() * step);
-        unlocked.setFill(Color.HOTPINK.deriveColor(0, 1, 1, 0.25));
-        Rectangle ki = new Rectangle(x, top + h - p.getKi() * step, w, p.getKi() * step);
-        ki.setFill(Color.HOTPINK);
-        ki.setEffect(new DropShadow(15, Color.HOTPINK));
-        kiPreview.setFill(Color.web("#140c08", 0.6));
+        double x = KI_X, top = KI_TOP, w = KI_W, h = KI_H, step = KI_STEP, kiH = p.getKi() * step;
+        Rectangle track = capsule(x, top, w, h, Color.rgb(20, 10, 15, 0.35));
+        track.setStroke(Color.HOTPINK.deriveColor(0, 1, 1, 0.5));
+        track.setStrokeWidth(1.5);
+        track.setEffect(new DropShadow(6, Color.HOTPINK.deriveColor(0, 1, 1, 0.4)));
+        Rectangle unlocked = capsule(x, top + h - p.getMaxKi() * step, w, p.getMaxKi() * step, Color.HOTPINK.deriveColor(0, 1, 1, 0.22));
+        Rectangle ki = capsule(x, top + h - kiH, w, kiH, new LinearGradient(0, 0, 1, 0, true, CycleMethod.NO_CYCLE,
+                new Stop(0, Color.web("#ff4fa3")), new Stop(0.5, Color.web("#ffb3d6")), new Stop(1, Color.web("#ff4fa3"))));
+        DropShadow halo = new DropShadow(10, Color.HOTPINK);
+        halo.setInput(new Glow(0.2));
+        ki.setEffect(halo);
+        live.getChildren().addAll(track, unlocked, ki);
+        kiPulse.stop();
+        kiPreview.setFill(Color.rgb(45, 15, 30, 0.6));
+        kiPreview.setEffect(null);
+        kiPreview.setArcWidth(0);
+        kiPreview.setArcHeight(0);
+        kiPreview.setClip(capsule(x, top + h - kiH, w, kiH, Color.BLACK));   // only inside the glowing Ki: rounded top, flat cut below
         kiPreview.setMouseTransparent(true);
         kiPreview.setOpacity(0);
-        live.getChildren().addAll(bar, track, unlocked, ki, kiPreview);
-        for (int i = 1; i < Player.KI_CAP; i++) {
-            Line mark = new Line(x - 5, top + i * step, x + w + 5, top + i * step);
-            mark.setStroke(Color.web("#f3ede1", 0.6));
-            mark.setStrokeWidth(1.5);
-            live.getChildren().add(mark);
+        live.getChildren().add(kiPreview);
+        motes(top + h, kiH, p.getKi());
+        place(spiritText("気 KI", 22), 48, 240);
+        place(spiritText(p.getKi() + " / " + Player.KI_CAP, 20), 48, 715);
+    }
+
+    /** A rounded capsule: both ends fully round. */
+    private static Rectangle capsule(double x, double y, double w, double h, Paint fill) {
+        Rectangle r = new Rectangle(x, y, w, h);
+        r.setArcWidth(w);
+        r.setArcHeight(w);
+        r.setFill(fill);
+        r.setMouseTransparent(true);
+        return r;
+    }
+
+    /** Pink spirit motes rising and fading on both sides of the filled part of the Ki bar. */
+    private void motes(double bottom, double height, int count) {
+        for (int i = 0; i < count; i++) {
+            Circle c = new Circle(1.5 + Math.random() * 2, Color.web("#ff8ac4"));
+            c.setEffect(new DropShadow(6, Color.HOTPINK));
+            c.setMouseTransparent(true);
+            double side = Math.random() < 0.5 ? KI_X - 6 - Math.random() * 12 : KI_X + KI_W + 6 + Math.random() * 12;
+            c.setCenterX(side);
+            c.setCenterY(bottom - Math.random() * height);
+            TranslateTransition rise = new TranslateTransition(Duration.seconds(2 + Math.random() * 2), c);
+            rise.setFromY(0);
+            rise.setToY(-40 - Math.random() * 40);
+            rise.setFromX(0);
+            rise.setToX(Math.random() * 10 - 5);
+            FadeTransition fade = new FadeTransition(rise.getDuration(), c);
+            fade.setFromValue(0.9);
+            fade.setToValue(0);
+            ParallelTransition t = new ParallelTransition(rise, fade);
+            t.setCycleCount(Animation.INDEFINITE);
+            t.playFrom(Duration.seconds(Math.random() * 3));
+            c.sceneProperty().addListener((o, was, now) -> { if (now == null) t.stop(); });
+            live.getChildren().add(c);
         }
-        live.getChildren().add(hud(new Label(p.getKi() + " / " + Player.KI_CAP), 59, 713, 92, 38, 18));
+    }
+
+    /** Cream text with a soft pink glow, centred over the Ki bar's zone. */
+    private static Label spiritText(String s, double size) {
+        Label l = new Label(s);
+        l.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: " + size + "; -fx-font-weight: bold;"
+                + " -fx-text-fill: #ffe6f2; -fx-alignment: center; -fx-text-alignment: center;");
+        l.setPrefWidth(113);
+        l.setEffect(new DropShadow(10, Color.HOTPINK));
+        return l;
     }
 
     /** A deck as a stack of card backs (one layer per 5 cards) with the count on the top card; it shrinks as you draw. */
@@ -228,7 +312,9 @@ public class BoardView extends Pane {
         img.setFitHeight(hgt);
         img.setPreserveRatio(true);
         Label hp = new Label(String.valueOf(h.getHealth()));
-        hp.setStyle("-fx-background-color: #7d1a1e; -fx-text-fill: white; -fx-font-size: 18; -fx-font-weight: bold; -fx-padding: 2 10; -fx-background-radius: 3;");
+        boolean hurt = h.getHealth() < h.getMaxHealth();   // damaged hero: dark badge, red numbers
+        hp.setStyle("-fx-background-color: " + (hurt ? "#1f1b17" : "#7d1a1e") + "; -fx-text-fill: " + (hurt ? "#ff4a3d" : "white")
+                + "; -fx-font-size: 18; -fx-font-weight: bold; -fx-padding: 2 10; -fx-background-radius: 3;");
         throb(hp);
         StackPane box = new StackPane(img, hp);
         StackPane.setAlignment(hp, Pos.BOTTOM_RIGHT);
@@ -309,5 +395,51 @@ public class BoardView extends Pane {
             t.getKeyFrames().add(new KeyFrame(Duration.millis(i * 35), moves.toArray(KeyValue[]::new)));
         }
         t.play();
+    }
+
+        /** A hero power in its mock-up zone: Ki cost in the circle, name below. Yours: hover shadow, press to use
+     *  (pays the Ki), then it stays dimmed for the turn. The opponent's is only shown. */
+    private void power(Player p, double zoneY, boolean mine) {
+        double size = 160;
+        ImageView frame = image("/images/hud/hero-power.png");
+        frame.setFitWidth(size);
+        frame.setPreserveRatio(true);
+        Label cost = new Label(String.valueOf(POWER_COST));
+        cost.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 26; -fx-font-weight: bold; -fx-text-fill: #1f1b17;");
+        cost.setTranslateY(-size * 0.28);
+        String[] info = POWER.get(p.getHero().getHeroClass());   // English name, Japanese name, effect
+        VBox text = new VBox(1, powerText(info[0], 15), powerText(info[1], 12), powerText(info[2], 9.5));
+        text.setAlignment(Pos.CENTER);
+        text.setMaxWidth(size * 0.7);
+        text.setTranslateY(size * 0.12);
+        StackPane box = new StackPane(frame, cost, text);
+        boolean used = mine && powerUsed;
+        if (used) box.setEffect(new ColorAdjust(0, -0.3, -0.5, 0));
+        if (mine && !used && you.canAfford(POWER_COST)) {
+            box.setOnMouseEntered(e -> {
+                previewCost(POWER_COST);
+                box.setEffect(new DropShadow(12, Color.BLACK));
+                Anim.to(box, Anim.ease(box.scaleXProperty(), 1.04), Anim.ease(box.scaleYProperty(), 1.04));
+            });
+            box.setOnMouseExited(e -> {
+                previewCost(0);
+                box.setEffect(null);
+                Anim.to(box, Anim.ease(box.scaleXProperty(), 1.0), Anim.ease(box.scaleYProperty(), 1.0));
+            });
+            box.setOnMousePressed(e -> {
+                powerUsed = true;
+                onPower.run();
+                render();
+            });
+        }
+        place(box, 948 + (158 - size) / 2, zoneY + (113 - size) / 2);
+    }
+
+    /** Dark ink text for the hero power panel, centred and wrapping. */
+    private static Label powerText(String s, double size) {
+        Label l = new Label(s);
+        l.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: " + size + "; -fx-font-weight: bold; -fx-text-fill: #1f1b17; -fx-text-alignment: center;");
+        l.setWrapText(true);
+        return l;
     }
 }
