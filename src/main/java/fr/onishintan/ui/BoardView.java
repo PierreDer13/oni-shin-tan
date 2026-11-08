@@ -1,7 +1,7 @@
 package fr.onishintan.ui;
 
 import fr.onishintan.model.Hero;
-import fr.onishintan.model.HeroClass;
+import fr.onishintan.model.Keyword;
 import fr.onishintan.model.Card;
 import fr.onishintan.model.Combatant;
 import fr.onishintan.model.Minion;
@@ -9,21 +9,16 @@ import fr.onishintan.model.Player;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.BiConsumer;
 import javafx.util.Duration;
 
 import javafx.animation.Animation;
-import javafx.animation.FadeTransition;
 import javafx.animation.Interpolator;
 import javafx.animation.KeyFrame;
 import javafx.animation.KeyValue;
-import javafx.animation.ParallelTransition;
 import javafx.animation.PauseTransition;
-import javafx.animation.ScaleTransition;
 import javafx.animation.Timeline;
 import javafx.animation.TranslateTransition;
 
@@ -41,20 +36,13 @@ import javafx.scene.effect.BlurType;
 import javafx.scene.effect.ColorAdjust;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.effect.GaussianBlur;
-import javafx.scene.effect.Glow;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
-import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
-import javafx.scene.paint.CycleMethod;
-import javafx.scene.paint.LinearGradient;
-import javafx.scene.paint.Paint;
-import javafx.scene.paint.Stop;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.transform.Scale;
-import javafx.scene.shape.Circle;
 import javafx.scene.layout.Region;
 import javafx.scene.input.MouseEvent;
 
@@ -64,36 +52,25 @@ import javafx.event.EventHandler;
 public class BoardView extends Pane {
     public static final double W = 1600, H = 900;
     public static final double SLOT_X = 352, SLOT_STEP = 130.5, ENEMY_Y = 257, YOUR_Y = 443, MINION_W = 114;
-    public static final double KI_X = 89, KI_TOP = 285, KI_W = 30, KI_H = 420, KI_STEP = KI_H / Player.KI_CAP;
 
     private final Player enemy, you;
     private final String enemyPortrait, yourPortrait;
     private final Pane table = new Pane();
     private final ImageView bg;
-    private final Rectangle kiPreview = new Rectangle(KI_X, 0, KI_W, 0);
-    private final FadeTransition kiPulse = new FadeTransition(Duration.millis(700), kiPreview);
     private Combatant selected;
     private BiConsumer<Combatant, Combatant> onAttack = (a, t) -> {};
     private final Map<Combatant, Node> nodes = new HashMap<>();
-    private final Set<Minion> toriiShown = new HashSet<>();
-    private final Map<Minion, ImageView> toriiNodes = new HashMap<>();
 
     private static final String HUD = "-fx-background-color: rgba(20,12,8,0.75); -fx-text-fill: #f3ede1; -fx-font-weight: bold;"
         + " -fx-background-radius: 10; -fx-alignment: center; -fx-text-alignment: center;";
 
     private final Pane live = new Pane();
+    private final StatusOverlay status = new StatusOverlay(live, () -> impact(0, true));
+    private KiBarView ki;
     private final Button endTurn = hud(new Button("END TURN"), 1381, 392, 190, 84, 26);
     private final Label yourClock = hud(new Label(), 1381, 500, 190, 71, 30);
     private final Label enemyClock = hud(new Label(), 1381, 301, 190, 71, 30);
     private BiConsumer<Card, Integer> onPlay = (c, slot) -> {};
-
-    /** Hero powers until the engine has them: the GDD names, and a placeholder Ki cost (still to be balanced). */
-    private static final Map<HeroClass, String[]> POWER = Map.of(
-            HeroClass.NINJA, new String[] { "Shuriken", "手裏剣", "Deal 6 damage to any character" },
-            HeroClass.SAMURAI, new String[] { "Katana", "刀", "Equip a weapon: more Ki, stronger blade" },
-            HeroClass.KANNUSHI, new String[] { "Miko", "巫女", "Summon a 3/3 Miko" },
-            HeroClass.ONI, new String[] { "Jikininki", "食人鬼", "Drain 4 HP from a character to heal your hero" });
-    public static final int POWER_COST = 2;
 
     private boolean powerUsed;
     private Runnable onPower = () -> {};
@@ -121,10 +98,6 @@ public class BoardView extends Pane {
         table.getChildren().addAll(bg, live, endTurn, yourClock, enemyClock);
         getChildren().add(table);
         setStyle("-fx-background-color: black;");
-        kiPulse.setFromValue(0.9);
-        kiPulse.setToValue(0.35);
-        kiPulse.setAutoReverse(true);
-        kiPulse.setCycleCount(Animation.INDEFINITE);
         render();
     }
 
@@ -132,15 +105,14 @@ public class BoardView extends Pane {
     public void render() {
         live.getChildren().clear();
         nodes.clear();
-        toriiShown.removeIf(m -> !m.hasTorii());
-        toriiNodes.clear();
+        status.clear();
         hero(enemy.getHero(), enemyPortrait, 107, false);
         hero(you.getHero(), yourPortrait, 637, true);
         power(enemy, 112, false);
         power(you, 639, true);
         row(enemy, ENEMY_Y);
         row(you, YOUR_Y);
-        kiBar(you);
+        place(ki = new KiBarView(you), 0, 0);
         live.getChildren().add(hud(new Label("OPPONENT KI\n" + enemy.getKi() + " / " + Player.KI_CAP), 1452, 14, 132, 67, 16));
         deck(enemy, 182, 239);
         deck(you, 1227, 632);
@@ -175,15 +147,7 @@ public class BoardView extends Pane {
     public void setOnAttack(BiConsumer<Combatant, Combatant> onAttack) { this.onAttack = onAttack; }
 
     /** Dims, with a slow pulse, the part of your available Ki that a hovered card or power would cost (0 = none). */
-    public void previewCost(int cost) {
-        int c = Math.min(cost, you.getKi());
-        kiPulse.stop();
-        kiPreview.setOpacity(0);
-        if (c == 0) return;
-        kiPreview.setY(KI_TOP + KI_H - you.getKi() * KI_STEP);
-        kiPreview.setHeight(c * KI_STEP);
-        kiPulse.playFromStart();
-    }
+    public void previewCost(int cost) { ki.preview(cost); }
 
     public Button getEndTurn() { return endTurn; }
 
@@ -191,80 +155,6 @@ public class BoardView extends Pane {
         l.setOpacity(active ? 1 : 0.5);
         l.setScaleX(active ? 1 : 0.8);
         l.setScaleY(active ? 1 : 0.8);
-    }
-
-    /** Your Ki: a glowing rounded capsule filling from the bottom, a faint mark per Ki, and pink spirit motes
-     *  rising beside the filled part. Bright = available, pale = spent this turn, empty = locked. */
-    private void kiBar(Player p) {
-        double x = KI_X, top = KI_TOP, w = KI_W, h = KI_H, step = KI_STEP, kiH = p.getKi() * step;
-        Rectangle track = capsule(x, top, w, h, Color.rgb(20, 10, 15, 0.35));
-        track.setStroke(Color.HOTPINK.deriveColor(0, 1, 1, 0.5));
-        track.setStrokeWidth(1.5);
-        track.setEffect(new DropShadow(6, Color.HOTPINK.deriveColor(0, 1, 1, 0.4)));
-        Rectangle unlocked = capsule(x, top + h - p.getMaxKi() * step, w, p.getMaxKi() * step, Color.HOTPINK.deriveColor(0, 1, 1, 0.22));
-        Rectangle ki = capsule(x, top + h - kiH, w, kiH, new LinearGradient(0, 0, 1, 0, true, CycleMethod.NO_CYCLE,
-                new Stop(0, Color.web("#ff4fa3")), new Stop(0.5, Color.web("#ffb3d6")), new Stop(1, Color.web("#ff4fa3"))));
-        DropShadow halo = new DropShadow(10, Color.HOTPINK);
-        halo.setInput(new Glow(0.2));
-        ki.setEffect(halo);
-        live.getChildren().addAll(track, unlocked, ki);
-        kiPulse.stop();
-        kiPreview.setFill(Color.rgb(45, 15, 30, 0.6));
-        kiPreview.setEffect(null);
-        kiPreview.setArcWidth(0);
-        kiPreview.setArcHeight(0);
-        kiPreview.setClip(capsule(x, top + h - kiH, w, kiH, Color.BLACK));   // only inside the glowing Ki: rounded top, flat cut below
-        kiPreview.setMouseTransparent(true);
-        kiPreview.setOpacity(0);
-        live.getChildren().add(kiPreview);
-        motes(top + h, kiH, p.getKi());
-        place(spiritText("気 KI", 22), 48, 240);
-        place(spiritText(p.getKi() + " / " + Player.KI_CAP, 20), 48, 715);
-    }
-
-    /** A rounded capsule: both ends fully round. */
-    private static Rectangle capsule(double x, double y, double w, double h, Paint fill) {
-        Rectangle r = new Rectangle(x, y, w, h);
-        r.setArcWidth(w);
-        r.setArcHeight(w);
-        r.setFill(fill);
-        r.setMouseTransparent(true);
-        return r;
-    }
-
-    /** Pink spirit motes rising and fading on both sides of the filled part of the Ki bar. */
-    private void motes(double bottom, double height, int count) {
-        for (int i = 0; i < count; i++) {
-            Circle c = new Circle(1.5 + Math.random() * 2, Color.web("#ff8ac4"));
-            c.setEffect(new DropShadow(6, Color.HOTPINK));
-            c.setMouseTransparent(true);
-            double side = Math.random() < 0.5 ? KI_X - 6 - Math.random() * 12 : KI_X + KI_W + 6 + Math.random() * 12;
-            c.setCenterX(side);
-            c.setCenterY(bottom - Math.random() * height);
-            TranslateTransition rise = new TranslateTransition(Duration.seconds(2 + Math.random() * 2), c);
-            rise.setFromY(0);
-            rise.setToY(-40 - Math.random() * 40);
-            rise.setFromX(0);
-            rise.setToX(Math.random() * 10 - 5);
-            FadeTransition fade = new FadeTransition(rise.getDuration(), c);
-            fade.setFromValue(0.9);
-            fade.setToValue(0);
-            ParallelTransition t = new ParallelTransition(rise, fade);
-            t.setCycleCount(Animation.INDEFINITE);
-            t.playFrom(Duration.seconds(Math.random() * 3));
-            c.sceneProperty().addListener((o, was, now) -> { if (now == null) t.stop(); });
-            live.getChildren().add(c);
-        }
-    }
-
-    /** Cream text with a soft pink glow, centred over the Ki bar's zone. */
-    private static Label spiritText(String s, double size) {
-        Label l = new Label(s);
-        l.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: " + size + "; -fx-font-weight: bold;"
-                + " -fx-text-fill: #ffe6f2; -fx-alignment: center; -fx-text-alignment: center;");
-        l.setPrefWidth(113);
-        l.setEffect(new DropShadow(10, Color.HOTPINK));
-        return l;
     }
 
     /** A deck as a stack of card backs (one layer per 5 cards) with the count on the top card; it shrinks as you draw. */
@@ -322,8 +212,9 @@ public class BoardView extends Pane {
             if (minions.get(i).isHidden() && v.getEffect() == null) v.setEffect(new ColorAdjust(0, -0.4, -0.45, 0));
             readable(v, minions.get(i), x, y, i >= 4);
             place(v, x, y);
-            if (minions.get(i).hasTorii()) torii(minions.get(i), x, y);
-            if (minions.get(i).isHidden()) shinobiClouds(x, y);
+            if (minions.get(i).hasTorii()) status.gate("torii", minions.get(i), x, y);
+            if (minions.get(i).hasKeyword(Keyword.SHIRODU)) status.gate("shirodu", minions.get(i), x, y);
+            if (minions.get(i).isHidden()) status.shinobi(x, y);
         }
     }
 
@@ -354,7 +245,7 @@ public class BoardView extends Pane {
         live.getChildren().add(n);
     }
 
-    private ImageView image(String path) { return new ImageView(new Image(getClass().getResourceAsStream(path))); }
+    static ImageView image(String path) { return new ImageView(new Image(BoardView.class.getResourceAsStream(path))); }
 
     /** Attack selection on one character. Yours that can attack: yellow border (thicker on hover, gold glow when picked),
      *  click to pick or unpick. Once one is picked: legal enemies glow red and attack on click; anything else cancels. */
@@ -379,7 +270,7 @@ public class BoardView extends Pane {
     }
 
     /** The yellow "ready to attack" border: a crisp outline whose thickness grows with the radius. */
-    private static DropShadow border(double radius) {
+    static DropShadow border(double radius) {
         return new DropShadow(BlurType.GAUSSIAN, Color.web("#ffd84a"), radius, 0.8, 0, 0);
     }
 
@@ -401,17 +292,6 @@ public class BoardView extends Pane {
         live.getChildren().add(r);
     }
 
-    /** A gentle heartbeat: grows 6 % and back, forever; stops once the node leaves the screen. */
-    private static void throb(Node n) {
-        ScaleTransition t = new ScaleTransition(Duration.millis(450), n);
-        t.setToX(1.06);
-        t.setToY(1.06);
-        t.setAutoReverse(true);
-        t.setCycleCount(Animation.INDEFINITE);
-        t.play();
-        n.sceneProperty().addListener((o, was, now) -> { if (now == null) t.stop(); });
-    } 
-
     /** Screen shake when a card lands: 6+ Ki shakes; 10+ Ki shakes longer and harder, and every minion on the board wobbles. */
     private void impact(int ki, boolean attack) {
         if (ki < 6 && !attack) return;
@@ -431,62 +311,23 @@ public class BoardView extends Pane {
         t.play();
     }
 
-        /** A hero power in its mock-up zone: Ki cost in the circle, name below. Yours: hover shadow, press to use
-     *  (pays the Ki), then it stays dimmed for the turn. The opponent's is only shown. */
+    /** A hero power in its mock-up zone; yours can be pressed once per turn (pays the Ki), the opponent's is only shown. */
     private void power(Player p, double zoneY, boolean mine) {
-        double size = 120, k = size / 160;
-        ImageView frame = image("/images/hud/hero-power.png");
-        frame.setFitWidth(size);
-        frame.setPreserveRatio(true);
-        Label cost = new Label(String.valueOf(POWER_COST));
-        cost.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: " + 26 * k + "; -fx-font-weight: bold; -fx-text-fill: #1f1b17;");
-        cost.setTranslateY(-size * 0.28);
-        String[] info = POWER.get(p.getHero().getHeroClass());   // English name, Japanese name, effect
-        VBox text = new VBox(1, powerText(info[0], 15 * k), powerText(info[1], 12 * k), powerText(info[2], 9.5 * k));
-        text.setAlignment(Pos.CENTER);
-        text.setMaxWidth(size * 0.7);
-        text.setTranslateY(size * 0.12);
-        StackPane box = new StackPane(frame, cost, text);
-        boolean used = mine && powerUsed;
-        if (used) box.setEffect(new ColorAdjust(0, -0.3, -0.5, 0));
-        if (mine && !used && you.canAfford(POWER_COST)) {
-            box.setEffect(border(8));   // usable: yellow outline like a minion that can attack
-            box.setOnMouseEntered(e -> {
-                previewCost(POWER_COST);
-                box.setEffect(border(14));
-                Anim.to(box, Anim.ease(box.scaleXProperty(), 1.04), Anim.ease(box.scaleYProperty(), 1.04));
-            });
-            box.setOnMouseExited(e -> {
-                previewCost(0);
-                box.setEffect(border(8));
-                Anim.to(box, Anim.ease(box.scaleXProperty(), 1.0), Anim.ease(box.scaleYProperty(), 1.0));
-            });
-            box.setOnMousePressed(e -> {
-                powerUsed = true;
-                onPower.run();
-                render();
-            });
-        }
-        place(box, 948 + (158 - size) / 2, zoneY + (113 - size) / 2);
+        boolean usable = mine && !powerUsed && you.canAfford(HeroPowerView.COST);
+        HeroPowerView v = new HeroPowerView(p.getHero().getHeroClass(), mine && powerUsed, usable, this::previewCost,
+                () -> { powerUsed = true; onPower.run(); render(); });
+        place(v, 948 + (158 - HeroPowerView.SIZE) / 2, zoneY + (113 - HeroPowerView.SIZE) / 2);
     }
 
-    /** Dark ink text for the hero power panel, centred and wrapping. */
-    private static Label powerText(String s, double size) {
-        Label l = new Label(s);
-        l.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: " + size + "; -fx-font-weight: bold; -fx-text-fill: #1f1b17; -fx-text-alignment: center;");
-        l.setWrapText(true);
-        return l;
-    }
-
-        /** Plays an attack (GDD): lunge, slash, red damage on both, dead minions cut in half; the board redraws after. */
+    /** Plays an attack (GDD): lunge, slash, red damage on both, dead minions cut in half; the board redraws after. */
     private void fight(Combatant attacker, Combatant target) {
         Node a = nodes.get(attacker), t = nodes.get(target);
         if (a.getProperties().get("float") instanceof Animation f) { f.stop(); a.setTranslateY(0); }
         int aHp = attacker.getHealth(), tHp = target.getHealth();
         Fx.attack(a, t, () -> {
             onAttack.accept(attacker, target);
-            breakTorii(target);
-            breakTorii(attacker);
+            status.broken(target);
+            status.broken(attacker);
             Fx.slash(live, t);
             impact(attacker instanceof Minion m ? m.getSource().getKiCost() : 0, true);
             Fx.damageNumber(live, t, tHp - target.getHealth());
@@ -496,7 +337,6 @@ public class BoardView extends Pane {
             PauseTransition wait = new PauseTransition(Duration.millis(1100));
             wait.setOnFinished(e -> render());
             wait.play();
-
         });
     }
 
@@ -518,7 +358,7 @@ public class BoardView extends Pane {
         v.addEventHandler(MouseEvent.MOUSE_PRESSED, hide);
     }
 
-        /** A slow float for a character that can attack: rises 6 px and back, about every 3 seconds; stops when removed. */
+    /** A slow float for a character that can attack: rises 6 px and back, about every 3 seconds; stops when removed. */
     private static void floatReady(Node n) {
         TranslateTransition t = new TranslateTransition(Duration.seconds(1.4), n);
         t.setFromY(0);
@@ -529,43 +369,5 @@ public class BoardView extends Pane {
         t.playFrom(Duration.seconds(Math.random() * 1.4));
         n.getProperties().put("float", t);
         n.sceneProperty().addListener((o, was, now) -> { if (now == null) t.stop(); });
-    }
-
-        /** Shinobi: two ink clouds drift slowly in opposite directions over a hidden card, on top of its darkening. */
-    private void shinobiClouds(double x, double y) {
-        for (int k = 0; k < 2; k++) {
-            ImageView c = image("/images/fx/shinobi-cloud-" + (1 + (int) (Math.random() * 5)) + ".png");
-            c.setFitWidth(100);
-            c.setPreserveRatio(true);
-            c.setOpacity(0.9);
-            c.setMouseTransparent(true);
-            place(c, x + (k == 0 ? -10 : 20), y + (k == 0 ? 20 : 95));
-            double dir = k == 0 ? 1 : -1;
-            TranslateTransition t = new TranslateTransition(Duration.seconds(3 + Math.random() * 2), c);
-            t.setFromX(-10 * dir);
-            t.setToX(10 * dir);
-            t.setAutoReverse(true);
-            t.setCycleCount(Animation.INDEFINITE);
-            t.setInterpolator(Interpolator.EASE_BOTH);
-            t.playFrom(Duration.seconds(Math.random() * 3));
-            c.sceneProperty().addListener((o, was, now) -> { if (now == null) t.stop(); });
-        }
-    }
-
-    /** A Torii gate across a protected card: drops in and shakes the first time it appears, then stays still. */
-    private void torii(Minion m, double x, double y) {
-        ImageView g = image("/images/fx/torii.png");
-        g.setFitWidth(190);
-        g.setPreserveRatio(true);
-        g.setOpacity(0.8);
-        g.setMouseTransparent(true);
-        place(g, x + MINION_W / 2 - 95, y + 15);
-        toriiNodes.put(m, g);
-        if (toriiShown.add(m)) Fx.drop(g, () -> impact(0, true));
-    }
-
-    /** If a character has just lost its Torii (it blocked the hit), its gate is cut in half and vanishes. */
-    private void breakTorii(Combatant c) {
-        if (c instanceof Minion m && toriiShown.remove(m) && !m.hasTorii()) Fx.deathCut(live, toriiNodes.get(m));
     }
 }
