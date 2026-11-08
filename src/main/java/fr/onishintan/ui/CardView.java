@@ -12,6 +12,7 @@ import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
 import javafx.scene.Group;
 import javafx.scene.control.Label;
+import javafx.scene.effect.BlurType;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
@@ -83,6 +84,9 @@ public class CardView extends Group {
     /** Whether the HP should show in red (a damaged minion). Printed cards never are; MinionView decides. */
     protected boolean damaged() { return false; }
 
+    /** True for minions on the board: bigger, heavier numbers and no captions. */
+    protected boolean onBoard() { return false; }
+
     protected int[] stats() {
         if (card instanceof MinionCard m) return new int[] { m.getBaseAttack(), m.getBaseHealth() };
         if (card instanceof WeaponCard w) return new int[] { w.getAttack(), w.getDurability() };
@@ -115,8 +119,14 @@ public class CardView extends Group {
     }
 
     private void stat(int value, String caption, double x, Color color) {
-        text(String.valueOf(value), 50, x, 600, 100, 82).setTextFill(color);
-        text(caption, 14, x, 665, 100, 20);
+        if (!onBoard()) {
+            text(String.valueOf(value), 50, x, 600, 100, 82).setTextFill(color);
+            text(caption, 14, x, 665, 100, 20);
+            return;
+        }
+        Label n = text(String.valueOf(value), 72, x, 604, 100, 82);
+        n.setTextFill(color);
+        n.setEffect(new DropShadow(BlurType.ONE_PASS_BOX, color, 3, 1.0, 0, 0));
     }
 
     /** A centred bold label in the box (x, y, w, h), in card coordinates. */

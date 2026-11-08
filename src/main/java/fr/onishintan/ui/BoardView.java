@@ -8,26 +8,34 @@ import fr.onishintan.model.Minion;
 import fr.onishintan.model.Player;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
+import javafx.util.Duration;
 
 import javafx.animation.Animation;
 import javafx.animation.FadeTransition;
+import javafx.animation.Interpolator;
 import javafx.animation.KeyFrame;
 import javafx.animation.KeyValue;
 import javafx.animation.ParallelTransition;
+import javafx.animation.PauseTransition;
 import javafx.animation.ScaleTransition;
 import javafx.animation.Timeline;
 import javafx.animation.TranslateTransition;
+
 import javafx.beans.InvalidationListener;
+
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+
 import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.Labeled;
 import javafx.scene.control.Tooltip;
+import javafx.scene.effect.BlurType;
 import javafx.scene.effect.ColorAdjust;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.effect.GaussianBlur;
@@ -36,7 +44,6 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
-
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.paint.CycleMethod;
@@ -46,9 +53,10 @@ import javafx.scene.paint.Stop;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.transform.Scale;
 import javafx.scene.shape.Circle;
-import javafx.scene.shape.Line;
-import javafx.util.Duration;
 import javafx.scene.layout.Region;
+import javafx.scene.input.MouseEvent;
+
+import javafx.event.EventHandler;
 
 /** The match table on a 1600 x 900 grid (zones from the Izakaya mock-up), scaled to fit the window. */
 public class BoardView extends Pane {
@@ -64,6 +72,7 @@ public class BoardView extends Pane {
     private final FadeTransition kiPulse = new FadeTransition(Duration.millis(700), kiPreview);
     private Combatant selected;
     private BiConsumer<Combatant, Combatant> onAttack = (a, t) -> {};
+    private final Map<Combatant, Node> nodes = new HashMap<>();
 
     private static final String HUD = "-fx-background-color: rgba(20,12,8,0.75); -fx-text-fill: #f3ede1; -fx-font-weight: bold;"
         + " -fx-background-radius: 10; -fx-alignment: center; -fx-text-alignment: center;";
@@ -84,6 +93,7 @@ public class BoardView extends Pane {
 
     private boolean powerUsed;
     private Runnable onPower = () -> {};
+    private Node preview;
 
     public BoardView(String board, Player enemy, String enemyPortrait, Player you, String yourPortrait) {
         this.enemy = enemy;
@@ -117,6 +127,7 @@ public class BoardView extends Pane {
     /** Redraws everything that changes during a match: heroes, minions, Ki and decks. */
     public void render() {
         live.getChildren().clear();
+        nodes.clear();
         hero(enemy.getHero(), enemyPortrait, 107, false);
         hero(you.getHero(), yourPortrait, 637, true);
         power(enemy, 112, false);
@@ -128,7 +139,7 @@ public class BoardView extends Pane {
         deck(enemy, 182, 239);
         deck(you, 1227, 632);
         enemyHand(enemy);
-        live.getChildren().add(new HandView(you, (card, slot) -> { onPlay.accept(card, slot); impact(card.getKiCost()); }, this::previewCost));
+        live.getChildren().add(new HandView(you, (card, slot) -> { onPlay.accept(card, slot); impact(card.getKiCost(), false); }, this::previewCost));
     }
 
     /** Both chess clocks: the active one is big and bright, the other small and grey (GDD). */
@@ -302,7 +313,10 @@ public class BoardView extends Pane {
             groundShadow(x, y);
             MinionView v = new MinionView(minions.get(i), MINION_W);
             clickable(v, minions.get(i), p == you);
+            if (minions.get(i).isHidden() && v.getEffect() == null) v.setEffect(new ColorAdjust(0, -0.4, -0.45, 0));
+            readable(v, minions.get(i), x, y, i >= 4);
             place(v, x, y);
+            if (minions.get(i).isHidden()) shinobiClouds(x, y);
         }
     }
 
@@ -335,23 +349,31 @@ public class BoardView extends Pane {
 
     private ImageView image(String path) { return new ImageView(new Image(getClass().getResourceAsStream(path))); }
 
-    /** Attack selection on one character: yours can be picked as attacker (shadow on hover, gold when picked);
-     *  once one is picked, the enemies it may hit glow red and attack on click. */
+    /** Attack selection on one character. Yours that can attack: yellow border (thicker on hover, gold glow when picked),
+     *  click to pick or unpick. Once one is picked: legal enemies glow red and attack on click; anything else cancels. */
     private void clickable(Node n, Combatant c, boolean mine) {
+        nodes.put(c, n);
         if (mine && c.canAttack()) {
-            n.setEffect(c == selected ? new DropShadow(30, Color.GOLD) : null);
-            n.setOnMouseEntered(e -> { if (c != selected) n.setEffect(new DropShadow(20, Color.BLACK)); });
-            n.setOnMouseExited(e -> { if (c != selected) n.setEffect(null); });
+            if (c == selected) floatReady(n);
+            n.setEffect(c == selected ? new DropShadow(BlurType.GAUSSIAN, Color.GOLD, 28, 0.45, 0, 0) : border(8));
+            n.setOnMouseEntered(e -> { if (c != selected) n.setEffect(border(14)); });
+            n.setOnMouseExited(e -> { if (c != selected) n.setEffect(border(8)); });
             n.setOnMouseClicked(e -> { selected = c == selected ? null : c; render(); });
         } else if (!mine && selected != null && canTarget(c)) {
             n.setEffect(new DropShadow(30, Color.CRIMSON));
             n.setOnMouseClicked(e -> {
                 Combatant attacker = selected;
                 selected = null;
-                onAttack.accept(attacker, c);
-                render();
+                fight(attacker, c);
             });
+        } else if (selected != null) {
+            n.setOnMouseClicked(e -> { selected = null; render(); });
         }
+    }
+
+    /** The yellow "ready to attack" border: a crisp outline whose thickness grows with the radius. */
+    private static DropShadow border(double radius) {
+        return new DropShadow(BlurType.GAUSSIAN, Color.web("#ffd84a"), radius, 0.8, 0, 0);
     }
 
     /** Stand-in for the engine's validTargets: Shirodu minions must be hit first, hidden Shinobi can't be targeted. */
@@ -384,10 +406,10 @@ public class BoardView extends Pane {
     } 
 
     /** Screen shake when a card lands: 6+ Ki shakes; 10+ Ki shakes longer and harder, and every minion on the board wobbles. */
-    private void impact(int ki) {
-        if (ki < 6) return;
-        double strength = ki >= 10 ? 14 : 6;
-        int jolts = ki >= 10 ? 15 : 10;
+    private void impact(int ki, boolean attack) {
+        if (ki < 6 && !attack) return;
+        double strength = ki >= 10 ? 14 : ki >= 6 ? 6 : 3;
+        int jolts = ki >= 10 ? 15 : ki >= 6 ? 10 : 6;
         List<MinionView> cards = ki < 10 ? List.of()
                 : live.getChildren().stream().filter(MinionView.class::isInstance).map(MinionView.class::cast).toList();
         Timeline t = new Timeline();
@@ -421,14 +443,15 @@ public class BoardView extends Pane {
         boolean used = mine && powerUsed;
         if (used) box.setEffect(new ColorAdjust(0, -0.3, -0.5, 0));
         if (mine && !used && you.canAfford(POWER_COST)) {
+            box.setEffect(border(8));   // usable: yellow outline like a minion that can attack
             box.setOnMouseEntered(e -> {
                 previewCost(POWER_COST);
-                box.setEffect(new DropShadow(12, Color.BLACK));
+                box.setEffect(border(14));
                 Anim.to(box, Anim.ease(box.scaleXProperty(), 1.04), Anim.ease(box.scaleYProperty(), 1.04));
             });
             box.setOnMouseExited(e -> {
                 previewCost(0);
-                box.setEffect(null);
+                box.setEffect(border(8));
                 Anim.to(box, Anim.ease(box.scaleXProperty(), 1.0), Anim.ease(box.scaleYProperty(), 1.0));
             });
             box.setOnMousePressed(e -> {
@@ -446,5 +469,77 @@ public class BoardView extends Pane {
         l.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: " + size + "; -fx-font-weight: bold; -fx-text-fill: #1f1b17; -fx-text-alignment: center;");
         l.setWrapText(true);
         return l;
+    }
+
+        /** Plays an attack (GDD): lunge, slash, red damage on both, dead minions cut in half; the board redraws after. */
+    private void fight(Combatant attacker, Combatant target) {
+        Node a = nodes.get(attacker), t = nodes.get(target);
+        if (a.getProperties().get("float") instanceof Animation f) { f.stop(); a.setTranslateY(0); }
+        int aHp = attacker.getHealth(), tHp = target.getHealth();
+        Fx.attack(a, t, () -> {
+            onAttack.accept(attacker, target);
+            Fx.slash(live, t);
+            impact(attacker instanceof Minion m ? m.getSource().getKiCost() : 0, true);
+            Fx.damageNumber(live, t, tHp - target.getHealth());
+            Fx.damageNumber(live, a, aHp - attacker.getHealth());
+            if (target.isDead()) Fx.deathCut(live, t);
+            if (attacker.isDead()) Fx.deathCut(live, a);
+            PauseTransition wait = new PauseTransition(Duration.millis(1100));
+            wait.setOnFinished(e -> render());
+            wait.play();
+
+        });
+    }
+
+    /** Hovering a board card for half a second shows a big readable copy beside it: on the left for the three
+     *  right-hand slots, on the right otherwise. Leaving or clicking cancels or hides it. */
+    private void readable(MinionView v, Minion m, double x, double y, boolean left) {
+        double w = 280, h = w * CardView.H / CardView.W;
+        PauseTransition delay = new PauseTransition(Duration.millis(500));
+        delay.setOnFinished(e -> {
+            preview = new MinionView(m, w);
+            preview.setMouseTransparent(true);
+            preview.setViewOrder(-4);
+            preview.relocate(left ? x - 20 - w : x + MINION_W + 20, Math.max(10, Math.min(H - h - 10, y + 80 - h / 2)));
+            live.getChildren().add(preview);
+        });
+        EventHandler<MouseEvent> hide = e -> { delay.stop(); live.getChildren().remove(preview); };
+        v.addEventHandler(MouseEvent.MOUSE_ENTERED, e -> delay.playFromStart());
+        v.addEventHandler(MouseEvent.MOUSE_EXITED, hide);
+        v.addEventHandler(MouseEvent.MOUSE_PRESSED, hide);
+    }
+
+        /** A slow float for a character that can attack: rises 6 px and back, about every 3 seconds; stops when removed. */
+    private static void floatReady(Node n) {
+        TranslateTransition t = new TranslateTransition(Duration.seconds(1.4), n);
+        t.setFromY(0);
+        t.setToY(-6);
+        t.setAutoReverse(true);
+        t.setCycleCount(Animation.INDEFINITE);
+        t.setInterpolator(Interpolator.EASE_BOTH);
+        t.playFrom(Duration.seconds(Math.random() * 1.4));
+        n.getProperties().put("float", t);
+        n.sceneProperty().addListener((o, was, now) -> { if (now == null) t.stop(); });
+    }
+
+        /** Shinobi: two ink clouds drift slowly in opposite directions over a hidden card, on top of its darkening. */
+    private void shinobiClouds(double x, double y) {
+        for (int k = 0; k < 2; k++) {
+            ImageView c = image("/images/fx/shinobi-cloud-" + (1 + (int) (Math.random() * 5)) + ".png");
+            c.setFitWidth(100);
+            c.setPreserveRatio(true);
+            c.setOpacity(0.9);
+            c.setMouseTransparent(true);
+            place(c, x + (k == 0 ? -10 : 20), y + (k == 0 ? 20 : 95));
+            double dir = k == 0 ? 1 : -1;
+            TranslateTransition t = new TranslateTransition(Duration.seconds(3 + Math.random() * 2), c);
+            t.setFromX(-10 * dir);
+            t.setToX(10 * dir);
+            t.setAutoReverse(true);
+            t.setCycleCount(Animation.INDEFINITE);
+            t.setInterpolator(Interpolator.EASE_BOTH);
+            t.playFrom(Duration.seconds(Math.random() * 3));
+            c.sceneProperty().addListener((o, was, now) -> { if (now == null) t.stop(); });
+        }
     }
 }
