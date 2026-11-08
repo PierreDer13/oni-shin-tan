@@ -13,6 +13,7 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
+import javafx.scene.shape.Circle;
 import javafx.scene.shape.Line;
 import javafx.scene.shape.Polygon;
 import javafx.util.Duration;
@@ -81,7 +82,7 @@ final class Fx {
 
     /** The card is cut in half diagonally: both halves slide apart, tilt and fade, then the card is gone. */
     static void deathCut(Pane layer, Node card) {
-        Bounds b = card.getBoundsInParent();
+        Bounds b = layer.sceneToLocal(card.localToScene(card.getBoundsInLocal()));
         SnapshotParameters sp = new SnapshotParameters();
         sp.setFill(Color.TRANSPARENT);
         Image img = card.snapshot(sp, null);
@@ -98,6 +99,25 @@ final class Fx {
                     new KeyValue(half.translateXProperty(), 25 * dir), new KeyValue(half.translateYProperty(), 25 * dir),
                     new KeyValue(half.rotateProperty(), 8 * dir), new KeyValue(half.opacityProperty(), 0)));
             tl.setOnFinished(e -> layer.getChildren().remove(half));
+            tl.play();
+        }
+    }
+
+    /** A burst of hot sparks from the middle of a node: glowing dots fly out in every direction, drop a little and fade. */
+    static void sparks(Pane layer, Node over) {
+        Bounds b = layer.sceneToLocal(over.localToScene(over.getBoundsInLocal()));
+        for (int i = 0; i < 28; i++) {
+            Circle s = new Circle(b.getCenterX(), b.getCenterY(), 1.5 + Math.random() * 2.5, Color.web(Math.random() < 0.5 ? "#ffd84a" : "#ff8a1f"));
+            s.setEffect(new DropShadow(8, Color.ORANGE));
+            s.setMouseTransparent(true);
+            s.setViewOrder(-3);
+            layer.getChildren().add(s);
+            double angle = Math.random() * 2 * Math.PI, dist = 40 + Math.random() * 70;
+            Timeline tl = new Timeline(new KeyFrame(Duration.millis(400 + Math.random() * 300),
+                    new KeyValue(s.translateXProperty(), Math.cos(angle) * dist, Interpolator.EASE_OUT),
+                    new KeyValue(s.translateYProperty(), Math.sin(angle) * dist + 30, Interpolator.EASE_IN),
+                    new KeyValue(s.opacityProperty(), 0)));
+            tl.setOnFinished(e -> layer.getChildren().remove(s));
             tl.play();
         }
     }

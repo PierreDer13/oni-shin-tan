@@ -1,6 +1,7 @@
 package fr.onishintan.ui;
 
 import fr.onishintan.model.Hero;
+import fr.onishintan.model.HeroClass;
 import fr.onishintan.model.Keyword;
 import fr.onishintan.model.Card;
 import fr.onishintan.model.Combatant;
@@ -12,6 +13,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+
 import javafx.util.Duration;
 
 import javafx.animation.Animation;
@@ -50,6 +53,7 @@ import javafx.event.EventHandler;
 
 /** The match table on a 1600 x 900 grid (zones from the Izakaya mock-up), scaled to fit the window. */
 public class BoardView extends Pane {
+    public static final double DECK_X = 1227, DECK_Y = 632;
     public static final double W = 1600, H = 900;
     public static final double SLOT_X = 352, SLOT_STEP = 130.5, ENEMY_Y = 257, YOUR_Y = 443, MINION_W = 114;
 
@@ -69,6 +73,7 @@ public class BoardView extends Pane {
     private KiBarView ki;
     private final Button endTurn = hud(new Button("END TURN"), 1381, 392, 190, 84, 26);
     private final Label yourClock = hud(new Label(), 1381, 500, 190, 71, 30);
+    private Consumer<Card> onTrade = c -> {};
     private final Label enemyClock = hud(new Label(), 1381, 301, 190, 71, 30);
     private BiConsumer<Card, Integer> onPlay = (c, slot) -> {};
 
@@ -113,11 +118,20 @@ public class BoardView extends Pane {
         row(enemy, ENEMY_Y);
         row(you, YOUR_Y);
         place(ki = new KiBarView(you), 0, 0);
-        live.getChildren().add(hud(new Label("OPPONENT KI\n" + enemy.getKi() + " / " + Player.KI_CAP), 1452, 14, 132, 67, 16));
+        deck(you, DECK_X, DECK_Y);
         deck(enemy, 182, 239);
-        deck(you, 1227, 632);
+        live.getChildren().add(new HandView(you, (card, slot) -> { onPlay.accept(card, slot); impact(card.getKiCost(), false); }, c -> onTrade.accept(c), this::previewCost));
         enemyHand(enemy);
-        live.getChildren().add(new HandView(you, (card, slot) -> { onPlay.accept(card, slot); impact(card.getKiCost(), false); }, this::previewCost));
+        if (enemy.getHero().isDead() || you.getHero().isDead()) gameOver(enemy.getHero().isDead());
+    }
+
+    /** Game over: a dark veil over the whole table blocks every click, with VICTORY or DEFEAT in the middle. */
+    private void gameOver(boolean won) {
+        Label text = new Label(won ? "勝利\nVICTORY" : "敗北\nDEFEAT");
+        text.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 96; -fx-font-weight: bold; -fx-text-alignment: center; -fx-text-fill: "
+                + (won ? "#ffd84a" : "#c41e1e") + ";");
+        text.setEffect(new DropShadow(30, Color.BLACK));
+        table.getChildren().add(new StackPane(new Rectangle(W, H, Color.rgb(0, 0, 0, 0.6)), text));
     }
 
     /** Both chess clocks: the active one is big and bright, the other small and grey (GDD). */
@@ -129,6 +143,8 @@ public class BoardView extends Pane {
     }
 
     /** What happens when you drop a card on your row (the match will call the engine here). */
+    /** What happens when you drop a card from your hand on your deck: it goes back in and you draw another. */
+    public void setOnTrade(Consumer<Card> onTrade) { this.onTrade = onTrade; }
     public void setOnPlay(BiConsumer<Card, Integer> onPlay) {
         this.onPlay = onPlay;
         render();
@@ -212,6 +228,7 @@ public class BoardView extends Pane {
             if (minions.get(i).isHidden() && v.getEffect() == null) v.setEffect(new ColorAdjust(0, -0.4, -0.45, 0));
             readable(v, minions.get(i), x, y, i >= 4);
             place(v, x, y);
+            if (minions.get(i).hasKeyword(Keyword.PASSIVE)) status.flag(minions.get(i), x, y);
             if (minions.get(i).hasTorii()) status.gate("torii", minions.get(i), x, y);
             if (minions.get(i).hasKeyword(Keyword.SHIRODU)) status.gate("shirodu", minions.get(i), x, y);
             if (minions.get(i).isHidden()) status.shinobi(x, y);
@@ -236,8 +253,52 @@ public class BoardView extends Pane {
         StackPane box = new StackPane(img, hp);
         StackPane.setAlignment(hp, Pos.BOTTOM_RIGHT);
         StackPane.setMargin(hp, new Insets(0, wid * 0.08, hgt * 0.06, 0));
+        if (h.getArmour() > 0) {
+            ImageView plate = image("/images/hud/armour.png");
+            plate.setFitWidth(60);
+            plate.setPreserveRatio(true);
+            Label value = new Label(String.valueOf(h.getArmour()));
+            value.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 15; -fx-font-weight: bold; -fx-text-fill: #1f1b17;");
+            StackPane armour = new StackPane(plate, value);
+            armour.setMaxSize(Region.USE_PREF_SIZE, Region.USE_PREF_SIZE);
+            box.getChildren().add(armour);
+            box.getProperties().put("armour", armour);
+            StackPane.setAlignment(armour, Pos.BOTTOM_RIGHT);
+            StackPane.setMargin(armour, new Insets(0, wid * 0.08 - 3, hgt * 0.06 + 34, 0));
+        }
+        if (h.getWeapon() != null) {
+            ImageView ring = image("/images/hud/atk-frame.png");
+            ring.setFitWidth(50);
+            ring.setPreserveRatio(true);
+            Label atk = new Label(String.valueOf(h.getAttack()));
+            atk.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 18; -fx-font-weight: bold; -fx-text-fill: #1f1b17;");
+            atk.setTranslateY(-4);   // centre of the circle, above the waves
+            StackPane badge = new StackPane(ring, atk);
+            badge.setMaxSize(Region.USE_PREF_SIZE, Region.USE_PREF_SIZE);
+            box.getChildren().add(badge);
+            StackPane.setAlignment(badge, Pos.BOTTOM_LEFT);
+            StackPane.setMargin(badge, new Insets(0, 0, hgt * 0.06, wid * 0.08));
+        }
         clickable(box, h, mine);
         place(box, W / 2 - wid / 2, zoneY + (119 - hgt) / 2);
+        if (h.getHeroClass() == HeroClass.SAMURAI) weaponSlot(h, box, zoneY);
+    }
+
+    /** Samurai: the sword rack on the left of the hero, always there; the equipped weapon rests on its pegs. */
+    private void weaponSlot(Hero h, Node box, double zoneY) {
+        ImageView rack = image("/images/weapons/weapon-slot.png");
+        rack.setFitWidth(180);
+        rack.setPreserveRatio(true);
+        StackPane slot = new StackPane(rack);
+        if (h.getWeapon() != null) {
+            ImageView w = image("/images/weapons/" + h.getWeapon().getSource().getId() + ".png");
+            w.setFitWidth(150);
+            w.setPreserveRatio(true);
+            w.setTranslateY(4);   // down onto the pegs
+            slot.getChildren().add(w);
+            box.getProperties().put("weapon", w);
+        }
+        place(slot, W / 2 - 120 - 195, zoneY + (119 - 83) / 2);
     }
 
     private void place(Node n, double x, double y) {
@@ -323,22 +384,38 @@ public class BoardView extends Pane {
     private void fight(Combatant attacker, Combatant target) {
         Node a = nodes.get(attacker), t = nodes.get(target);
         if (a.getProperties().get("float") instanceof Animation f) { f.stop(); a.setTranslateY(0); }
-        int aHp = attacker.getHealth(), tHp = target.getHealth();
+        int aHp = life(attacker), tHp = life(target);
         Fx.attack(a, t, () -> {
             onAttack.accept(attacker, target);
             status.broken(target);
             status.broken(attacker);
+            crack(target, t);
+            crack(attacker, a);
             Fx.slash(live, t);
             impact(attacker instanceof Minion m ? m.getSource().getKiCost() : 0, true);
-            Fx.damageNumber(live, t, tHp - target.getHealth());
-            Fx.damageNumber(live, a, aHp - attacker.getHealth());
+            Fx.damageNumber(live, t, tHp - life(target));
+            Fx.damageNumber(live, a, aHp - life(attacker));
             if (target.isDead()) Fx.deathCut(live, t);
             if (attacker.isDead()) Fx.deathCut(live, a);
-            PauseTransition wait = new PauseTransition(Duration.millis(1100));
+            PauseTransition wait = new PauseTransition(Duration.millis(attacker instanceof Hero ? 1300 : 1100));
             wait.setOnFinished(e -> render());
             wait.play();
         });
     }
+
+    /** If a hero's armour or weapon just ran out, it breaks with the diagonal cut. */
+    private void crack(Combatant c, Node n) {
+        if (!(c instanceof Hero h)) return;
+        if (h.getArmour() == 0 && n.getProperties().get("armour") instanceof Node plate) Fx.deathCut(live, plate);
+        if (h.getWeapon() == null && n.getProperties().get("weapon") instanceof Node blade) {
+            PauseTransition back = new PauseTransition(Duration.millis(650));   // once the hero has glided back
+            back.setOnFinished(e -> { Fx.sparks(live, blade); Fx.deathCut(live, blade); impact(0, true); });
+            back.play();
+        }
+    }
+
+    /** What a hit can take away: HP, plus armour for a hero. */
+    private static int life(Combatant c) { return c.getHealth() + (c instanceof Hero h ? h.getArmour() : 0); }
 
     /** Hovering a board card for half a second shows a big readable copy beside it: on the left for the three
      *  right-hand slots, on the right otherwise. Leaving or clicking cancels or hides it. */

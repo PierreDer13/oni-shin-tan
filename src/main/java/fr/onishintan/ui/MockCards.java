@@ -17,18 +17,21 @@ import fr.onishintan.model.Player;
 /** Hand-made cards to test the views until cards.json is loaded. Japanese texts are placeholders. */
 public final class MockCards {
     public static final List<Card> ALL = List.of(
-        new MinionCard("saru", "Saru", "猿", "さる", 1, Rarity.COMMON, HeroClass.NEUTRAL, "", "", 4, 4, Set.of()),
         new MinionCard("genin", "Genin", "下忍", "げにん", 1, Rarity.COMMON, HeroClass.NINJA, "Shinobi", "忍び", 3, 2, Set.of(Keyword.SHINOBI)),
         new MinionCard("kappa", "Kappa", "河童", "かっぱ", 3, Rarity.COMMON, HeroClass.ONI,
             "Banzai: deal 4 damage to the enemy hero", "万歳：敵の英雄に四の傷を与える", 5, 7, Set.of(Keyword.BANZAI)),
         new MinionCard("gravedigger", "Gravedigger", "墓守", "はかもり", 3, Rarity.COMMON, HeroClass.ONI,
             "Passive: when a friendly minion dies, +2 ATK", "常時：味方の手下が死ぬと攻撃＋２", 4, 6, Set.of(Keyword.PASSIVE)),
+        new MinionCard("tsuru", "Tsuru", "鶴", "つる", 2, Rarity.COMMON, HeroClass.NEUTRAL, "Torii", "", 4, 3, Set.of(Keyword.TORII)),
+        new MinionCard("kame", "Kame", "亀", "かめ", 3, Rarity.COMMON, HeroClass.NEUTRAL, "Shirodu", "", 2, 6, Set.of(Keyword.SHIRODU)),
+        new MinionCard("ronin", "Ronin", "浪人", "ろうにん", 3, Rarity.COMMON, HeroClass.SAMURAI, "Tatakae", "", 4, 2, Set.of(Keyword.TATAKAE)),
+        new MinionCard("ashigaru", "Ashigaru", "足軽", "あしがる", 2, Rarity.COMMON, HeroClass.SAMURAI,
+            "Seppuku: deal 2 damage to the enemy hero", "", 2, 3, Set.of(Keyword.SEPPUKU)),
+        new MinionCard("saru", "Saru", "猿", "さる", 1, Rarity.COMMON, HeroClass.NEUTRAL, "", "", 4, 4, Set.of()),
         new MinionCard("fuma-kotaro", "Fūma Kotarō", "風魔小太郎", "ふうまこたろう", 7, Rarity.LEGENDARY, HeroClass.NINJA,
             "Shinobi. Yogake: each enemy minion attacks another random enemy minion", "忍び。夜駆け：敵の手下が互いに襲い合う", 9, 6, Set.of(Keyword.SHINOBI)),
         new MinionCard("amaterasu-omikami", "Amaterasu Ōmikami", "天照大神", "あまてらすおおみかみ", 10, Rarity.MYTHIC, HeroClass.NEUTRAL,
-            "Banzai: restore your hero to full HP", "", 17, 17, Set.of(Keyword.BANZAI)),
-        new MinionCard("tsuru", "Tsuru", "鶴", "つる", 2, Rarity.COMMON, HeroClass.NEUTRAL, "Torii", "", 4, 3, Set.of(Keyword.TORII)),
-        new MinionCard("kame", "Kame", "亀", "かめ", 3, Rarity.COMMON, HeroClass.NEUTRAL, "Shirodu", "", 2, 6, Set.of(Keyword.SHIRODU))
+            "Banzai: restore your hero to full HP", "", 17, 17, Set.of(Keyword.BANZAI))
     );
 
     private MockCards() {}
