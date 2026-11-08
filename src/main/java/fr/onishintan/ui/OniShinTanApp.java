@@ -6,15 +6,21 @@ import fr.onishintan.model.MinionCard;
 import fr.onishintan.model.Player;
 import javafx.application.Application;
 import javafx.geometry.Pos;
-import javafx.scene.control.Button;
 import javafx.scene.layout.FlowPane;
-import javafx.scene.layout.VBox;
+import javafx.scene.media.MediaPlayer;
 import javafx.stage.Stage;
+import javafx.scene.media.Media;
 
 public class OniShinTanApp extends Application {
+    private MediaPlayer music;
+
     @Override
     public void start(Stage stage) {
         SceneRouter router = new SceneRouter(stage);
+        music = new MediaPlayer(new Media(getClass().getResource("/sounds/music.mp3").toExternalForm()));
+        music.setCycleCount(MediaPlayer.INDEFINITE);
+        music.setVolume(0.35);
+        music.play();
         router.register(Screen.HOME, () -> new HomeView(router));
         router.register(Screen.INVENTORY, () -> {
             FlowPane grid = new FlowPane(20, 20);
