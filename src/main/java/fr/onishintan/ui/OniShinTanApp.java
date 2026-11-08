@@ -15,17 +15,7 @@ public class OniShinTanApp extends Application {
     @Override
     public void start(Stage stage) {
         SceneRouter router = new SceneRouter(stage);
-        router.register(Screen.HOME, () -> {
-            VBox menu = new VBox(10);
-            menu.setAlignment(Pos.CENTER);
-            for (Screen s : Screen.values()) {
-                if (s == Screen.HOME) continue;
-                Button b = new Button(s.name());
-                b.setOnMousePressed(e -> router.goTo(s));
-                menu.getChildren().add(b);
-            }
-            return menu;
-        });
+        router.register(Screen.HOME, () -> new HomeView(router));
         router.register(Screen.INVENTORY, () -> {
             FlowPane grid = new FlowPane(20, 20);
             grid.setAlignment(Pos.CENTER);
@@ -38,7 +28,8 @@ public class OniShinTanApp extends Application {
             you.getSide().getMinions().get(0).takeDamage(2);
             for (int i = 0; i < 5; i++) { you.refillKi(); enemy.refillKi(); }
             you.spendKi(2);
-            for (int i = 0; i < 5; i++) { you.draw(); enemy.draw(); }
+            for (int i = 0; i < 7; i++) { if (i < 6) you.draw(); enemy.draw(); }
+            enemy.gainTemporaryKi(1);
             you.getSide().getMinions().forEach(Minion::onTurnStart);
             BoardView board = new BoardView("izakaya", enemy, "shuten-doji", you, "yasuke");
             board.showClocks("1:30", "1:12", true);

@@ -36,7 +36,7 @@ public class HandView extends Group {
             boolean playable = player.canAfford(c.getKiCost());
             v.setPlayable(playable);
             v.setOnMouseEntered(e -> { hovered = v; fan(true, true); onHover.accept(c.getKiCost()); });
-            v.setOnMouseExited(e -> { hovered = null; fan(true, true); onHover.accept(0); });
+            v.setOnMouseExited(e -> { hovered = null; fan(isHover(), true); onHover.accept(0); });
             if (playable) drag(v);
             cards.add(v);
         }

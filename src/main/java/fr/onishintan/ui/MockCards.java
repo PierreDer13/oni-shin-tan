@@ -7,6 +7,8 @@ import fr.onishintan.model.MinionCard;
 import fr.onishintan.model.Rarity;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.IntStream;
+
 import fr.onishintan.model.Deck;
 import fr.onishintan.model.Hero;
 import fr.onishintan.model.Minion;
@@ -31,7 +33,7 @@ public final class MockCards {
 
         /** A test player whose board holds n mock minions (cycling through ALL). */
     public static Player player(String name, HeroClass heroClass, int minions) {
-        Player p = new Player(name, new Hero(heroClass), new Deck(ALL));
+        Player p = new Player(name, new Hero(heroClass), new Deck(IntStream.range(0, Deck.SIZE).mapToObj(i -> ALL.get(i % ALL.size())).toList()));
         for (int i = 0; i < minions; i++) p.getSide().place(new Minion((MinionCard) ALL.get(i % ALL.size())), i);
         return p;
     }

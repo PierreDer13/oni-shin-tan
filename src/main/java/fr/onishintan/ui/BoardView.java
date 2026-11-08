@@ -7,6 +7,9 @@ import fr.onishintan.model.Minion;
 import fr.onishintan.model.Player;
 import java.util.List;
 import java.util.function.BiConsumer;
+
+import javafx.animation.Animation;
+import javafx.animation.ScaleTransition;
 import javafx.beans.InvalidationListener;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -16,6 +19,7 @@ import javafx.scene.control.Label;
 import javafx.scene.control.Labeled;
 import javafx.scene.control.Tooltip;
 import javafx.scene.effect.DropShadow;
+import javafx.scene.effect.GaussianBlur;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.Pane;
@@ -24,6 +28,7 @@ import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.transform.Scale;
 import javafx.scene.shape.Line;
+import javafx.util.Duration;
 
 /** The match table on a 1600 x 900 grid (zones from the Izakaya mock-up), scaled to fit the window. */
 public class BoardView extends Pane {
@@ -107,10 +112,14 @@ public class BoardView extends Pane {
     /** What happens when you pick an attacker and then a target (the match will call the engine here). */
     public void setOnAttack(BiConsumer<Combatant, Combatant> onAttack) { this.onAttack = onAttack; }
 
-    /** Dims the top of your available Ki by what a hovered card costs (0 = nothing hovered). */
+    /** Fades the part of your available Ki that a hovered card would cost (0 = nothing hovered). */
     public void previewCost(int cost) {
-        kiPreview.setY(KI_TOP + KI_H - you.getKi() * KI_STEP);
-        Anim.to(kiPreview, Anim.ease(kiPreview.heightProperty(), Math.min(cost, you.getKi()) * KI_STEP));
+        int c = Math.min(cost, you.getKi());
+        if (c > 0) {
+            kiPreview.setY(KI_TOP + KI_H - you.getKi() * KI_STEP);
+            kiPreview.setHeight(c * KI_STEP);
+        }
+        Anim.to(kiPreview, Anim.ease(kiPreview.opacityProperty(), c > 0 ? 1.0 : 0.0));
     }
 
     public Button getEndTurn() { return endTurn; }
@@ -139,7 +148,7 @@ public class BoardView extends Pane {
         ki.setEffect(new DropShadow(15, Color.HOTPINK));
         kiPreview.setFill(Color.web("#140c08", 0.6));
         kiPreview.setMouseTransparent(true);
-        kiPreview.setHeight(0);
+        kiPreview.setOpacity(0);
         live.getChildren().addAll(bar, track, unlocked, ki, kiPreview);
         for (int i = 1; i < Player.KI_CAP; i++) {
             Line mark = new Line(x - 5, top + i * step, x + w + 5, top + i * step);
@@ -150,11 +159,15 @@ public class BoardView extends Pane {
         live.getChildren().add(hud(new Label(p.getKi() + " / " + Player.KI_CAP), 59, 713, 92, 38, 18));
     }
 
-    /** A deck as a card back, centred in its zone; hovering shows how many cards are left (GDD). */
+    /** A deck as a stack of card backs (one layer per 5 cards) with the count on the top card; it shrinks as you draw. */
     private void deck(Player p, double x, double y) {
-        ImageView back = cardBack(MINION_W);
-        Tooltip.install(back, new Tooltip(p.getDeck().size() + " cards left"));
-        place(back, x + (115 - MINION_W) / 2, y + (127 - MINION_W * CardView.H / CardView.W) / 2);
+        int n = p.getDeck().size(), layers = (n + 4) / 5;
+        double cardH = MINION_W * CardView.H / CardView.W, bx = x + (115 - MINION_W) / 2, by = y + (127 - cardH) / 2;
+        ImageView top = null;
+        for (int i = 0; i < layers; i++) place(top = cardBack(MINION_W), bx - i * 1.5, by - i * 1.5);
+        if (top != null) Tooltip.install(top, new Tooltip(n + " cards left"));
+        double tx = bx - (layers - 1) * 1.5, ty = by - (layers - 1) * 1.5;
+        place(hud(new Label(String.valueOf(n)), 0, 0, 44, 30, 18), tx + MINION_W / 2 - 22, ty + cardH - 40);
     }
 
     /** A card back w wide, with the cards' rounded corners. */
@@ -194,9 +207,11 @@ public class BoardView extends Pane {
     private void row(Player p, double y) {
         List<Minion> minions = p.getSide().getMinions();
         for (int i = 0; i < minions.size(); i++) {
+            double x = SLOT_X + 2 + i * SLOT_STEP;
+            groundShadow(x, y);
             MinionView v = new MinionView(minions.get(i), MINION_W);
             clickable(v, minions.get(i), p == you);
-            place(v, SLOT_X + 2 + i * SLOT_STEP, y);
+            place(v, x, y);
         }
     }
 
@@ -207,7 +222,8 @@ public class BoardView extends Pane {
         img.setFitHeight(hgt);
         img.setPreserveRatio(true);
         Label hp = new Label(String.valueOf(h.getHealth()));
-        hp.setStyle("-fx-background-color: #7d1a1e; -fx-text-fill: white; -fx-font-size: 18; -fx-font-weight: bold; -fx-padding: 2 10; -fx-background-radius: 12;");
+        hp.setStyle("-fx-background-color: #7d1a1e; -fx-text-fill: white; -fx-font-size: 18; -fx-font-weight: bold; -fx-padding: 2 10; -fx-background-radius: 3;");
+        throb(hp);
         StackPane box = new StackPane(img, hp);
         StackPane.setAlignment(hp, Pos.BOTTOM_RIGHT);
         StackPane.setMargin(hp, new Insets(0, wid * 0.05, hgt * 0.06, 0));
@@ -247,4 +263,26 @@ public class BoardView extends Pane {
         if (t instanceof Minion m) return !m.isHidden() && (walls.isEmpty() || walls.contains(m));
         return walls.isEmpty();
     }
+
+    /** A soft dark patch under a card so it looks like it lies on the table. */
+    private void groundShadow(double x, double y) {
+        Rectangle r = new Rectangle(x - 4, y - 1, MINION_W + 8, MINION_W * CardView.H / CardView.W + 9);
+        r.setArcWidth(16);
+        r.setArcHeight(16);
+        r.setFill(Color.rgb(0, 0, 0, 0.45));
+        r.setEffect(new GaussianBlur(10));
+        r.setMouseTransparent(true);
+        live.getChildren().add(r);
+    }
+
+    /** A gentle heartbeat: grows 6 % and back, forever; stops once the node leaves the screen. */
+    private static void throb(Node n) {
+        ScaleTransition t = new ScaleTransition(Duration.millis(450), n);
+        t.setToX(1.06);
+        t.setToY(1.06);
+        t.setAutoReverse(true);
+        t.setCycleCount(Animation.INDEFINITE);
+        t.play();
+        n.sceneProperty().addListener((o, was, now) -> { if (now == null) t.stop(); });
+    } 
 }
