@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 import javafx.util.Duration;
 
@@ -30,6 +31,7 @@ import javafx.beans.InvalidationListener;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 
+import javafx.scene.Group;
 import javafx.scene.Node;
 import javafx.scene.control.Label;
 import javafx.scene.control.Labeled;
@@ -43,6 +45,7 @@ import javafx.scene.image.ImageView;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
+import javafx.scene.shape.Circle;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.transform.Rotate;
 import javafx.scene.transform.Scale;
@@ -55,6 +58,8 @@ import javafx.event.EventHandler;
 public class BoardView extends Pane {
     public static final double DECK_X = 1227, DECK_Y = 632;
     public static final double W = 1600, H = 900;
+    /** The shadow every object on the table casts: down and to the right. */
+    static final DropShadow SHADOW = new DropShadow(15, 8, 6, Color.rgb(0, 0, 0, 0.6));
     public static final double SLOT_X = 352, SLOT_STEP = 130.5, ENEMY_Y = 257, YOUR_Y = 443, MINION_W = 114;
 
     private Player enemy, you;
@@ -74,6 +79,14 @@ public class BoardView extends Pane {
     private final Pane live = new Pane();
     private final StatusOverlay status = new StatusOverlay(live, () -> impact(0, true));
     private KiBarView ki;
+    private HandView hand;
+    private boolean dealt;   // the hand stays hidden until the opening deal
+    /** Opening hand: deals the bottom player's cards in from their deck. */
+    public void dealHand() {
+        dealt = true;
+        hand.setVisible(true);
+        hand.deal();
+    }
     private Player kiOwner;   // who the Ki bar showed at the last redraw, and how much Ki they had
     private int kiBefore;
     private static final Image SWITCH_ON = new Image(BoardView.class.getResourceAsStream("/images/hud/end-turn.png")),
@@ -112,7 +125,7 @@ public class BoardView extends Pane {
         heightProperty().addListener(fit);
         endTurn.setFitHeight(200);
         endTurn.setPreserveRatio(true);
-        endTurn.setEffect(new DropShadow(15, 8, 6, Color.rgb(0, 0, 0, 0.6)));
+        endTurn.setEffect(SHADOW);
         endTurn.relocate(1415, 335);
         endTurn.setOnMousePressed(e -> {
             endTurn.setDisable(true);   // one press per turn
@@ -135,6 +148,9 @@ public class BoardView extends Pane {
         nodes.clear();
         status.clear();
         hero(enemy.getHero(), enemyPortrait, 107, false);
+        oath(enemy, 107);
+        oath(you, 637);
+        stackCounter();
         hero(you.getHero(), yourPortrait, 637, true);
         power(enemy, 112, false);
         power(you, 639, true);
@@ -145,7 +161,8 @@ public class BoardView extends Pane {
         kiBefore = you.getKi();
         deck(you, DECK_X, DECK_Y);
         deck(enemy, 182, 239);
-        live.getChildren().add(new HandView(you, (card, slot) -> { onPlay.accept(card, slot); impact(card.getKiCost(), false); }, c -> onTrade.accept(c), this::previewCost));
+        live.getChildren().add(hand = new HandView(you, (card, slot) -> { onPlay.accept(card, slot); impact(card.getKiCost(), false); }, c -> onTrade.accept(c), this::previewCost));
+        hand.setVisible(dealt);
         enemyHand(enemy);
         if (enemy.getHero().isDead() || you.getHero().isDead()) gameOver(enemy.getHero().isDead());
     }
@@ -194,6 +211,39 @@ public class BoardView extends Pane {
 
     public void setOnEndTurn(Runnable r) { onEndTurn = r; }
 
+    /** Start of a match: the class's Oath choice covers the table until one is sworn (GDD, Oaths). */
+    public void chooseOath(HeroClass c, Consumer<String> onSworn) { table.getChildren().add(new OathView(c, onSworn)); }
+
+    private final Map<Player, String> oaths = new HashMap<>();
+    private final Map<Player, Integer> stacks = new HashMap<>();
+    /** Records the Oath a player swore; it then shows next to their hero. */
+    public void swear(Player p, String oath) { oaths.put(p, oath); render(); }
+    /** +1 Oath stack (max 9) for a player who kept their rule this turn. */
+    public void addStack(Player p) { stacks.merge(p, 1, (a, b) -> Math.min(9, a + b)); }
+
+    /** The sworn Oath as a small stamped scroll right of the hero power; hover it to reread it (an enemy Ninja's stays hidden below 3 stacks). */
+    private void oath(Player p, double zoneY) {
+        if (!oaths.containsKey(p)) return;
+        HeroClass c = p.getHero().getHeroClass();
+        boolean hidden = p == enemy && c == HeroClass.NINJA && stacks.getOrDefault(p, 0) < 3;
+        StackPane mini = OathView.mini(c, oaths.get(p), hidden);
+        place(mini, 1120, zoneY - 15);
+        bigOnHover(mini, () -> OathView.sworn(c, oaths.get(p)), 850, 80);
+    }
+
+    /** Your Oath stacks, bottom left: 9 marks, the 3 / 6 / 9 reward marks bigger with a gold ring; earned marks are red. */
+    private void stackCounter() {
+        if (!oaths.containsKey(you)) return;
+        int n = stacks.getOrDefault(you, 0);
+        for (int i = 1; i <= 9; i++) {
+            Circle c = new Circle(i % 3 == 0 ? 11 : 7, i <= n ? Color.web("#c41e1e") : Color.rgb(0, 0, 0, 0.35));
+            c.setStroke(i % 3 == 0 ? Color.GOLD : Color.web("#f3ede1"));
+            c.setStrokeWidth(2);
+            place(c, 40 + i * 30, 840);
+        }
+        place(hud(new Label("誓 " + n + " / 9"), 0, 0, 90, 30, 16), 340, 829);
+    }
+
     /** Hotseat: the other player now sits at the bottom (their hand, Ki and hero power) and the board flips. */
     public void swapSides() {
         endTurn.setImage(SWITCH_ON);
@@ -210,11 +260,11 @@ public class BoardView extends Pane {
     }
 
     /** Hotseat: a dark veil hides the table until the next player clicks, so nobody sees the other's hand (GDD). */
-    public void passTo(String name) {
+public void passTo(String name, Runnable onReady) {
         Label text = new Label("次の番\nPass to " + name + "\n\nclick when ready");
         text.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 56; -fx-font-weight: bold; -fx-text-alignment: center; -fx-text-fill: #f3ede1;");
         StackPane veil = new StackPane(new Rectangle(W, H, Color.rgb(0, 0, 0, 0.95)), text);
-        veil.setOnMousePressed(e -> table.getChildren().remove(veil));
+        veil.setOnMousePressed(e -> { table.getChildren().remove(veil); onReady.run(); });
         table.getChildren().add(veil);
     }
 
@@ -229,7 +279,12 @@ public class BoardView extends Pane {
         int n = p.getDeck().size(), layers = (n + 4) / 5;
         double cardH = MINION_W * CardView.H / CardView.W, bx = x + (115 - MINION_W) / 2, by = y + (127 - cardH) / 2;
         ImageView top = null;
-        for (int i = 0; i < layers; i++) place(top = cardBack(MINION_W), bx - i * 1.5, by - i * 1.5);
+        for (int i = 0; i < layers; i++) {
+            top = cardBack(MINION_W);
+            Node layer = i == 0 ? new Group(top) : top;   // the bottom card carries the stack's shadow; in a Group so its rounded clip doesn't cut the shadow off
+            layer.setEffect(i == 0 ? SHADOW : null);
+            place(layer, bx - i * 1.5, by - i * 1.5);
+        }
         if (top != null) Tooltip.install(top, new Tooltip(n + " cards left"));
         double tx = bx - (layers - 1) * 1.5, ty = by - (layers - 1) * 1.5;
         place(hud(new Label(String.valueOf(n)), 0, 0, 44, 30, 18), tx + MINION_W / 2 - 22, ty + cardH - 40);
@@ -279,10 +334,12 @@ public class BoardView extends Pane {
             if (minions.get(i).isHidden() && v.getEffect() == null) v.setEffect(new ColorAdjust(0, -0.4, -0.45, 0));
             readable(v, minions.get(i), x, y, i >= 4);
             place(v, x, y);
+            status.follow(v);
             if (minions.get(i).hasKeyword(Keyword.PASSIVE)) status.flag(minions.get(i), x, y);
             if (minions.get(i).hasTorii()) status.gate("torii", minions.get(i), x, y);
             if (minions.get(i).hasKeyword(Keyword.SHIRODU)) status.gate("shirodu", minions.get(i), x, y);
             if (minions.get(i).isHidden()) status.shinobi(x, y);
+            if (minions.get(i).hasKeyword(Keyword.SEPPUKU)) status.seppuku(x, y);
         }
     }
 
@@ -428,6 +485,12 @@ public class BoardView extends Pane {
         boolean usable = mine && !powerUsed && you.canAfford(HeroPowerView.COST);
         HeroPowerView v = new HeroPowerView(p.getHero().getHeroClass(), mine && powerUsed, usable, this::previewCost,
                 () -> { powerUsed = true; onPower.run(); render(); });
+        bigOnHover(v, () -> {
+            Node b = new HeroPowerView(p.getHero().getHeroClass(), mine && powerUsed, false, c -> {}, () -> {});
+            b.setScaleX(2.5);
+            b.setScaleY(2.5);
+            return b;
+        }, 900, 330);
         place(v, 948 + (158 - HeroPowerView.SIZE) / 2, zoneY + (113 - HeroPowerView.SIZE) / 2);
     }
 
@@ -468,22 +531,26 @@ public class BoardView extends Pane {
     /** What a hit can take away: HP, plus armour for a hero. */
     private static int life(Combatant c) { return c.getHealth() + (c instanceof Hero h ? h.getArmour() : 0); }
 
-    /** Hovering a board card for half a second shows a big readable copy beside it: on the left for the three
-     *  right-hand slots, on the right otherwise. Leaving or clicking cancels or hides it. */
-    private void readable(MinionView v, Minion m, double x, double y, boolean left) {
-        double w = 280, h = w * CardView.H / CardView.W;
+    /** Hovering a node for half a second shows a big copy at (x, y); leaving or clicking hides it. */
+    private void bigOnHover(Node n, Supplier<Node> big, double x, double y) {
         PauseTransition delay = new PauseTransition(Duration.millis(500));
         delay.setOnFinished(e -> {
-            preview = new MinionView(m, w);
+            preview = big.get();
             preview.setMouseTransparent(true);
             preview.setViewOrder(-4);
-            preview.relocate(left ? x - 20 - w : x + MINION_W + 20, Math.max(10, Math.min(H - h - 10, y + 80 - h / 2)));
+            preview.relocate(x, y);
             live.getChildren().add(preview);
         });
         EventHandler<MouseEvent> hide = e -> { delay.stop(); live.getChildren().remove(preview); };
-        v.addEventHandler(MouseEvent.MOUSE_ENTERED, e -> delay.playFromStart());
-        v.addEventHandler(MouseEvent.MOUSE_EXITED, hide);
-        v.addEventHandler(MouseEvent.MOUSE_PRESSED, hide);
+        n.addEventHandler(MouseEvent.MOUSE_ENTERED, e -> delay.playFromStart());
+        n.addEventHandler(MouseEvent.MOUSE_EXITED, hide);
+        n.addEventHandler(MouseEvent.MOUSE_PRESSED, hide);
+    }
+
+    /** A board card's big copy: on the left for the three right-hand slots, on the right otherwise. */
+    private void readable(MinionView v, Minion m, double x, double y, boolean left) {
+        double w = 280, h = w * CardView.H / CardView.W;
+        bigOnHover(v, () -> new MinionView(m, w), left ? x - 20 - w : x + MINION_W + 20, Math.max(10, Math.min(H - h - 10, y + 80 - h / 2)));
     }
 
     /** A slow float for a character that can attack: rises 6 px and back, about every 3 seconds; stops when removed. */
