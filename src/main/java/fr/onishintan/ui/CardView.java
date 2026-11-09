@@ -68,7 +68,7 @@ public class CardView extends Group {
         }
         int[] s = stats();
         if (s != null) { stat(s[0], "攻撃 ATK", 27, INK); stat(s[1], card instanceof WeaponCard ? "耐久 DUR" : "体力 HP", 402, damaged() ? DAMAGED : INK); }
-        text(desc, 17, 154 + 24 * kw, 32, 208 - 24 * kw, 210).setFont(Font.font(SERIF, 17)); // description, top middle
+        text(desc, 22, 154 + 24 * kw, 32, 208 - 24 * kw, 210).setFont(Font.font(SERIF, 22)); // description, top middle
         if (card.getRarity() == Rarity.LEGENDARY)
             rarityTag("伝説 LEGENDARY", 190, "#8a6a1c, #f7e08a 30%, #fff6c8 50%, #d4ab4a 70%, #8a6a1c", "#3a2a05", Color.GOLD);
         if (card.getRarity() == Rarity.MYTHIC)
