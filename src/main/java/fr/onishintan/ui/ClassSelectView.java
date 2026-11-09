@@ -38,9 +38,8 @@ public class ClassSelectView extends Pane {
         };
         widthProperty().addListener(fit);
         heightProperty().addListener(fit);
-        ImageView bg = new ImageView(new Image(getClass().getResourceAsStream("/images/home/background.png")));
+        ImageView bg = new ImageView(new Image(getClass().getResourceAsStream("/images/class-select.png")));
         bg.setFitWidth(W);
-        bg.setFitHeight(H);
         Label title = new Label("流派を選べ   CHOOSE YOUR CLASS");
         title.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 40; -fx-font-weight: bold; -fx-text-fill: #1f1b17; -fx-alignment: center;");
         title.setEffect(new DropShadow(12, Color.WHITE));
@@ -60,11 +59,8 @@ public class ClassSelectView extends Pane {
         for (int i = 0; i < CLASSES.length; i++) {
             HeroClass c = CLASSES[i];
             Group banner = Fx.waving(new Image(getClass().getResourceAsStream("/images/banners/class-" + c.name().toLowerCase() + ".png")), 250, 60);
-            banner.relocate(165 + i * 340, 110);
-            HomeView.clickable(banner, true, () -> {
-                router.register(Screen.ADVENTURE_SELECT, () -> new AdventureSelectView(router, c));
-                router.goTo(Screen.ADVENTURE_SELECT);
-            });
+            banner.relocate((212 + i * 416) * 1600 / 1672 - 125, 110);
+            HomeView.clickable(banner, true, () -> AdventureSelectView.open(router, c, 0));
             banner.addEventHandler(MouseEvent.MOUSE_ENTERED, e -> about.setText(ABOUT.get(c)));
             banner.addEventHandler(MouseEvent.MOUSE_EXITED, e -> about.setText(""));
             grid.getChildren().add(banner);

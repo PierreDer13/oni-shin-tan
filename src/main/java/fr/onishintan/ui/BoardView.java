@@ -81,6 +81,8 @@ public class BoardView extends Pane {
 
     private boolean powerUsed;
     private Runnable onPower = () -> {};
+    private Runnable onGameOver = () -> {};
+    public void setOnGameOver(Runnable r) { onGameOver = r; }
     private Node preview;
 
     public BoardView(String board, Player enemy, String enemyPortrait, Player you, String yourPortrait) {
@@ -135,7 +137,9 @@ public class BoardView extends Pane {
         text.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 96; -fx-font-weight: bold; -fx-text-alignment: center; -fx-text-fill: "
                 + (won ? "#ffd84a" : "#c41e1e") + ";");
         text.setEffect(new DropShadow(30, Color.BLACK));
-        table.getChildren().add(new StackPane(new Rectangle(W, H, Color.rgb(0, 0, 0, 0.6)), text));
+        StackPane end = new StackPane(new Rectangle(W, H, Color.rgb(0, 0, 0, 0.6)), text);
+        end.setOnMousePressed(e -> onGameOver.run());
+        table.getChildren().add(end);
     }
 
     /** Both chess clocks: the active one is big and bright, the other small and grey (GDD). */
