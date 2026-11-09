@@ -35,8 +35,7 @@ public class HomeView extends Pane {
     private final Pane grid = new Pane();
     private final SceneRouter router;
 
-    static final AudioClip CLICK = new AudioClip(HomeView.class.getResource("/sounds/button-click.wav").toExternalForm());
-    static { CLICK.play(0); }   // silent warm-up so the first click has no delay
+    static final AudioClip CLICK = Sound.clip("button-click");
 
     public HomeView(SceneRouter router) {
         this.router = router;
@@ -115,7 +114,7 @@ public class HomeView extends Pane {
             v.setEffect(null);
             Anim.to(v, Anim.ease(v.scaleXProperty(), 1.0), Anim.ease(v.scaleYProperty(), 1.0), Anim.ease(v.translateYProperty(), 0.0));
         });
-        v.setOnMousePressed(e -> { CLICK.play(); action.run(); });
+        v.setOnMousePressed(e -> { Sound.play(CLICK); action.run(); });
     }
 
         /** Floats a node on the spot: drifts up to dx / dy each way and back, forever, one way every `seconds`.

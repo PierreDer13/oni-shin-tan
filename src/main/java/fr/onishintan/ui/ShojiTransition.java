@@ -17,7 +17,7 @@ public class ShojiTransition extends Pane {
     private static final Duration SLIDE = Duration.millis(350), HOLD = Duration.millis(400);
 
     private final ImageView left = door("left"), right = door("right");
-    private final AudioClip closeSound = sound("door-close"), tapSound = sound("door-tap"), openSound = sound("door-open");
+    private final AudioClip closeSound = Sound.clip("door-close"), tapSound = Sound.clip("door-tap"), openSound = Sound.clip("door-open");
 
     public ShojiTransition() {
         for (ImageView d : List.of(left, right)) {
@@ -27,7 +27,6 @@ public class ShojiTransition extends Pane {
         right.layoutXProperty().bind(widthProperty().divide(2));
         getChildren().addAll(left, right);
         setVisible(false);
-        for (AudioClip c : List.of(closeSound, tapSound, openSound)) c.play(0);   // silent warm-up so the first real play has no delay
     }
 
     /** Closes the doors, runs swap while the screen is hidden, then opens them again. */
@@ -35,12 +34,12 @@ public class ShojiTransition extends Pane {
         double half = getWidth() / 2;
         left.setTranslateX(-half);
         right.setTranslateX(half);
-        closeSound.play();
+        Sound.play(closeSound);
         setVisible(true);
         Duration shut = SLIDE, reopen = SLIDE.add(HOLD);
         new Timeline(
-            new KeyFrame(shut, e -> { tapSound.play(); swap.run(); }, slide(left, 0, Interpolator.EASE_IN), slide(right, 0, Interpolator.EASE_IN)),
-            new KeyFrame(reopen, e -> openSound.play(), slide(left, 0, Interpolator.LINEAR), slide(right, 0, Interpolator.LINEAR)),
+            new KeyFrame(shut, e -> { Sound.play(tapSound); swap.run(); }, slide(left, 0, Interpolator.EASE_IN), slide(right, 0, Interpolator.EASE_IN)),
+            new KeyFrame(reopen, e -> Sound.play(openSound), slide(left, 0, Interpolator.LINEAR), slide(right, 0, Interpolator.LINEAR)),
             new KeyFrame(reopen.add(SLIDE), e -> setVisible(false), slide(left, -half, Interpolator.EASE_OUT), slide(right, half, Interpolator.EASE_OUT))
         ).play();
     }
@@ -49,10 +48,5 @@ public class ShojiTransition extends Pane {
 
     private ImageView door(String side) {
         return new ImageView(new Image(getClass().getResourceAsStream("/images/sliding-doors/edo_sliding_door_" + side + ".png")));
-    }
-
-    /** A short sound effect from /sounds/ (AudioClip needs a URL, not a stream). */
-    private AudioClip sound(String name) {
-        return new AudioClip(getClass().getResource("/sounds/" + name + ".wav").toExternalForm());
     }
 }

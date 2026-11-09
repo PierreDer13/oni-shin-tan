@@ -15,7 +15,6 @@ import javafx.geometry.Pos;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.media.MediaPlayer;
 import javafx.stage.Stage;
-import javafx.scene.media.Media;
 
 public class OniShinTanApp extends Application {
     private MediaPlayer music;
@@ -23,10 +22,7 @@ public class OniShinTanApp extends Application {
     @Override
     public void start(Stage stage) {
         SceneRouter router = new SceneRouter(stage);
-        music = new MediaPlayer(new Media(getClass().getResource("/sounds/music.mp3").toExternalForm()));
-        music.setCycleCount(MediaPlayer.INDEFINITE);
-        music.setVolume(0.35);
-        music.play();
+        music = Sound.music("music", 0.35);
         router.register(Screen.HOME, () -> new HomeView(router));
         router.register(Screen.CLASS_SELECT, () -> new ClassSelectView(router));
         router.register(Screen.INVENTORY, () -> {
