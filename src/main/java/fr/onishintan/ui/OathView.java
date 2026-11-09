@@ -84,7 +84,7 @@ final class OathView extends StackPane {
         ImageView bg = new ImageView(SCROLL);
         bg.setFitHeight(150);
         bg.setPreserveRatio(true);
-        Label stamp = label("受諾", 11, RED, JP);
+        ImageView stamp = image("stamp-seal", 26);
         StackPane m = new StackPane(bg, label(hidden ? "?" : find(c, name)[1], 22, INK, JP), stamp);
         StackPane.setAlignment(stamp, Pos.BOTTOM_CENTER);
         StackPane.setMargin(stamp, new Insets(0, 0, 14, 0));
@@ -95,7 +95,7 @@ final class OathView extends StackPane {
         return Arrays.stream(OATHS.get(c)).filter(o -> o[0].equals(name)).findFirst().orElseThrow();
     }
 
-    /** One Oath on a scroll in brush lettering, with the red painted frame where the 受諾 stamp lands (children: bg, text, frame, stamp). */
+    /** One Oath on a scroll in brush lettering, with the painted frame where the 承認 seal lands (children: bg, text, frame, stamp). */
     private static StackPane scroll(String[] o) {
         ImageView bg = new ImageView(SCROLL);
         bg.setFitHeight(740);
@@ -105,23 +105,23 @@ final class OathView extends StackPane {
         text.setAlignment(Pos.TOP_CENTER);
         text.setMaxWidth(190);
         text.setPadding(new Insets(50, 0, 0, 0));
-        Rectangle frame = new Rectangle(130, 100, Color.TRANSPARENT);
-        frame.setStroke(Color.web(RED));
-        frame.setStrokeWidth(6);
-        frame.setArcWidth(18);
-        frame.setArcHeight(18);
-        frame.setOpacity(0.8);
-        frame.setRotate(2);
-        Label stamp = label("受諾", 40, RED, JP);
-        stamp.setStyle(stamp.getStyle() + " -fx-border-color: " + RED + "; -fx-border-width: 4; -fx-padding: 2 8;");
-        stamp.setRotate(-8);
+        ImageView frame = image("stamp-frame", 120), stamp = image("stamp-seal", 100);
+        stamp.setRotate(-6);
         StackPane s = new StackPane(bg, text, frame, stamp);
         StackPane.setAlignment(text, Pos.TOP_CENTER);
         StackPane.setAlignment(frame, Pos.BOTTOM_CENTER);
         StackPane.setAlignment(stamp, Pos.BOTTOM_CENTER);
         StackPane.setMargin(frame, new Insets(0, 0, 45, 0));
-        StackPane.setMargin(stamp, new Insets(0, 0, 63, 0));
+        StackPane.setMargin(stamp, new Insets(0, 0, 55, 0));
         return s;
+    }
+
+    /** A HUD image from /images/hud/, w wide. */
+    private static ImageView image(String name, double w) {
+        ImageView v = new ImageView(new Image(OathView.class.getResourceAsStream("/images/hud/" + name + ".png")));
+        v.setFitWidth(w);
+        v.setPreserveRatio(true);
+        return v;
     }
 
     private static Label label(String s, double size, String color, String font) {
