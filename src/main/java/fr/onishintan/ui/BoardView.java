@@ -321,6 +321,7 @@ public class BoardView extends Pane {
             if (minions.get(i).hasTorii()) status.gate("torii", minions.get(i), x, y);
             if (minions.get(i).hasKeyword(Keyword.SHIRODU)) status.gate("shirodu", minions.get(i), x, y);
             if (minions.get(i).isHidden()) status.shinobi(x, y);
+            if (minions.get(i).hasKeyword(Keyword.SEPPUKU)) status.seppuku(x, y);
         }
     }
 

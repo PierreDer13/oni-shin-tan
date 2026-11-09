@@ -62,6 +62,29 @@ final class StatusOverlay {
         }
     }
 
+    /** Seppuku: a tiny ghost drifts around the card, turning to face the way it floats. */
+    void seppuku(double x, double y) {
+        ImageView g = BoardView.image("/images/fx/seppuku.png");
+        g.setFitWidth(34);
+        g.setPreserveRatio(true);
+        g.setOpacity(0.85);
+        add(g, x + 40, y + 57);
+        drift(g);
+    }
+
+    /** Floats to a random point around the card, then picks the next one; stops once the card has left the board. */
+    private static void drift(ImageView g) {
+        if (g.getParent() == null) return;
+        double tx = Math.random() * 120 - 60, ty = Math.random() * 140 - 70;
+        g.setScaleX(tx < g.getTranslateX() ? -1 : 1);   // the image faces right: flip it when heading left
+        TranslateTransition t = new TranslateTransition(Duration.seconds(1.5 + Math.random()), g);
+        t.setToX(tx);
+        t.setToY(ty);
+        t.setInterpolator(Interpolator.EASE_BOTH);
+        t.setOnFinished(e -> drift(g));
+        t.play();
+    }
+
     /** Passive: a war banner planted over the card's top-left corner; the cloth ripples from the pole to the tip. */
     void flag(Minion m, double x, double y) {
         Image img = BoardView.image("/images/fx/flag.png").getImage();   // 400 px wide, cloth starts at x = 125
