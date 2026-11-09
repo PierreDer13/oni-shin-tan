@@ -76,7 +76,9 @@ public class BoardView extends Pane {
     private KiBarView ki;
     private Player kiOwner;   // who the Ki bar showed at the last redraw, and how much Ki they had
     private int kiBefore;
-    private final ImageView endTurn = image("/images/hud/end-turn.png");
+    private static final Image SWITCH_ON = new Image(BoardView.class.getResourceAsStream("/images/hud/end-turn.png")),
+            SWITCH_OFF = new Image(BoardView.class.getResourceAsStream("/images/hud/end-turn-off.png"));
+    private final ImageView endTurn = new ImageView(SWITCH_ON);
     private Runnable onEndTurn = () -> {};
     private final Label yourClock = hud(new Label(), 1381, 545, 190, 71, 30);
     private Consumer<Card> onTrade = c -> {};
@@ -110,13 +112,15 @@ public class BoardView extends Pane {
         heightProperty().addListener(fit);
         endTurn.setFitHeight(200);
         endTurn.setPreserveRatio(true);
+        endTurn.setEffect(new DropShadow(15, 8, 6, Color.rgb(0, 0, 0, 0.6)));
         endTurn.relocate(1415, 335);
         endTurn.setOnMousePressed(e -> {
             endTurn.setDisable(true);   // one press per turn
             Sound.play(HomeView.CLICK);
-            Timeline flip = new Timeline(new KeyFrame(Duration.millis(200), new KeyValue(endTurn.scaleYProperty(), -1)));
-            flip.setOnFinished(f -> onEndTurn.run());
-            flip.play();
+            endTurn.setImage(SWITCH_OFF);   // the paddle and the lights switch over
+            PauseTransition wait = new PauseTransition(Duration.millis(200));
+            wait.setOnFinished(f -> onEndTurn.run());
+            wait.play();
         });
         table.getChildren().addAll(bg, live, endTurn, yourClock, enemyClock);
         getChildren().add(table);
@@ -192,7 +196,7 @@ public class BoardView extends Pane {
 
     /** Hotseat: the other player now sits at the bottom (their hand, Ki and hero power) and the board flips. */
     public void swapSides() {
-        endTurn.setScaleY(1);
+        endTurn.setImage(SWITCH_ON);
         endTurn.setDisable(false);
         Player p = you;
         you = enemy;
