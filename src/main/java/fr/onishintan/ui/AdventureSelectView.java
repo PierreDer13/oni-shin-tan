@@ -3,6 +3,7 @@ package fr.onishintan.ui;
 import fr.onishintan.model.Card;
 import fr.onishintan.model.HeroClass;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -11,6 +12,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import javafx.beans.InvalidationListener;
+import javafx.geometry.Pos;
 import javafx.scene.Group;
 import javafx.scene.control.Label;
 import javafx.scene.effect.ColorAdjust;
@@ -19,7 +21,10 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.Pane;
+import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
+import javafx.scene.shape.Rectangle;
 import javafx.scene.transform.Scale;
 
 /** The Adventure run map on the 1600 x 900 grid, scaled to the window: three battles in order (Town, Ocean, Fuji),
@@ -35,10 +40,13 @@ public class AdventureSelectView extends Pane {
             HeroClass.NINJA, new HeroClass[] { HeroClass.ONI, HeroClass.KANNUSHI, HeroClass.SAMURAI },
             HeroClass.KANNUSHI, new HeroClass[] { HeroClass.SAMURAI, HeroClass.NINJA, HeroClass.ONI },
             HeroClass.ONI, new HeroClass[] { HeroClass.NINJA, HeroClass.SAMURAI, HeroClass.KANNUSHI });
+    /** The run's upgrades (GDD): name, effect. */
+    private static final String[][] UPGRADES = { { "命 Inochi", "Hero max HP +30" },
+            { "力 Chikara", "Minions and weapons +3 ATK, spells +3 damage" }, { "速さ Hayasa", "Your cards cost 1 Ki less (min 1)" } };
 
     /** Shows the run map for this class after `won` victories. */
-    static void open(SceneRouter router, HeroClass c, int won) {
-        router.register(Screen.ADVENTURE_SELECT, () -> new AdventureSelectView(router, c, won));
+    static void open(SceneRouter router, HeroClass c, int won, List<String> picked) {
+        router.register(Screen.ADVENTURE_SELECT, () -> new AdventureSelectView(router, c, won, picked));
         router.goTo(Screen.ADVENTURE_SELECT);
     }
 
@@ -46,8 +54,10 @@ public class AdventureSelectView extends Pane {
     private final GridPane list = new GridPane();
     private final int won;
     private final HeroClass heroClass;
+    private final List<String> picked;
 
-    public AdventureSelectView(SceneRouter router, HeroClass heroClass, int won) {
+    public AdventureSelectView(SceneRouter router, HeroClass heroClass, int won, List<String> picked) {
+        this.picked = picked;
         this.heroClass = heroClass;
         this.won = won;
         Scale scale = new Scale();
@@ -63,15 +73,40 @@ public class AdventureSelectView extends Pane {
         page.setFitWidth(W);
         page.setPreserveRatio(true);
         Label title = text("札  " + heroClass.name() + " DECK", 30);
+        grid.getChildren().addAll(page, title, list, HomeView.back(() -> router.goTo(Screen.CLASS_SELECT)));
+        Label held = text(String.join("   ", picked), 20);
+        held.relocate(1185, 790);
+        grid.getChildren().add(held);
+        if (picked.size() < Math.min(won, 2)) {   // one choice after win 1, one after win 2
+            Label bonus = text("恩恵  CHOOSE BONUS", 26);
+            bonus.relocate(1230, 740);
+            HomeView.clickable(bonus, false, () -> chooseBonus(router));
+            grid.getChildren().add(bonus);
+        }
         title.relocate(1185, 130);
         list.setHgap(16);
         list.setVgap(6);
         list.relocate(1185, 185);
-        grid.getChildren().addAll(page, title, list);
         deckList();
         for (int i = 0; i < ADVENTURES.length; i++) panel(router, i);
         getChildren().add(grid);
         setStyle("-fx-background-color: black;");
+    }
+
+    /** The Choose bonus pop-up: the upgrades not taken yet; picking one keeps it for the rest of the run. */
+    private void chooseBonus(SceneRouter router) {
+        VBox box = new VBox(24, text("恩恵を選べ   CHOOSE A BONUS", 36));
+        box.setAlignment(Pos.CENTER);
+        for (String[] u : UPGRADES) if (!picked.contains(u[0])) {
+            Label b = text(u[0] + "   " + u[1], 26);
+            HomeView.clickable(b, false, () -> {
+                List<String> p = new ArrayList<>(picked);
+                p.add(u[0]);
+                open(router, heroClass, won, p);
+            });
+            box.getChildren().add(b);
+        }
+        grid.getChildren().add(new StackPane(new Rectangle(W, H, Color.rgb(0, 0, 0, 0.8)), box));
     }
 
     /** Battle i: its banner over its panel. Won = red 完了 stamp, next = click to fight, later = shaded. */
@@ -82,7 +117,7 @@ public class AdventureSelectView extends Pane {
         if (i > won) banner.setEffect(new ColorAdjust(0, -0.6, -0.5, 0));
         if (i == won) HomeView.clickable(banner, true, () -> {
             router.register(Screen.ADVENTURE_BATTLE, () -> OniShinTanApp.match(BOARDS[i], heroClass, FOES.get(heroClass)[i],
-                    v -> open(router, heroClass, v ? won + 1 : 0)));   // a defeat restarts the run
+                    v -> open(router, heroClass, v ? won + 1 : 0, v ? picked : List.of())));
             router.goTo(Screen.ADVENTURE_BATTLE);
         });
         grid.getChildren().add(banner);

@@ -1,6 +1,7 @@
 package fr.onishintan.ui;
 
 import java.util.Map;
+import java.util.List;
 
 import fr.onishintan.model.HeroClass;
 
@@ -50,17 +51,13 @@ public class ClassSelectView extends Pane {
         about.setEffect(new DropShadow(10, Color.WHITE));
         about.setPrefWidth(W);
         about.relocate(0, 82);
-        Label back = new Label("← 戻る  RETURN");
-        back.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 22; -fx-font-weight: bold; -fx-text-fill: #f3ede1;"
-                + " -fx-background-color: rgba(20,12,8,0.75); -fx-background-radius: 10; -fx-padding: 8 16;");
-        back.relocate(30, 30);
-        HomeView.clickable(back, false, () -> router.goTo(Screen.HOME));
+        Label back = HomeView.back(() -> router.goTo(Screen.HOME));
         grid.getChildren().addAll(bg, title, about, back);
         for (int i = 0; i < CLASSES.length; i++) {
             HeroClass c = CLASSES[i];
             Group banner = Fx.waving(new Image(getClass().getResourceAsStream("/images/banners/class-" + c.name().toLowerCase() + ".png")), 250, 60);
             banner.relocate((212 + i * 416) * 1600 / 1672 - 125, 110);
-            HomeView.clickable(banner, true, () -> AdventureSelectView.open(router, c, 0));
+            HomeView.clickable(banner, true, () -> AdventureSelectView.open(router, c, 0, List.of()));
             banner.addEventHandler(MouseEvent.MOUSE_ENTERED, e -> about.setText(ABOUT.get(c)));
             banner.addEventHandler(MouseEvent.MOUSE_EXITED, e -> about.setText(""));
             grid.getChildren().add(banner);

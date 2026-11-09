@@ -117,7 +117,17 @@ public class HomeView extends Pane {
         v.setOnMousePressed(e -> { Sound.play(CLICK); action.run(); });
     }
 
-        /** Floats a node on the spot: drifts up to dx / dy each way and back, forever, one way every `seconds`.
+    /** The "← 戻る RETURN" box in a screen's top-left corner. */
+    static Label back(Runnable action) {
+        Label b = new Label("← 戻る  RETURN");
+        b.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 22; -fx-font-weight: bold; -fx-text-fill: #f3ede1;"
+                + " -fx-background-color: rgba(20,12,8,0.75); -fx-background-radius: 10; -fx-padding: 8 16;");
+        b.relocate(30, 30);
+        clickable(b, false, action);
+        return b;
+    }
+
+    /** Floats a node on the spot: drifts up to dx / dy each way and back, forever, one way every `seconds`.
      *  Each starts at a random point so nothing moves in sync; it stops when the screen is left. */
     private static void floatOnSpot(Node n, double dx, double dy, double seconds) {
         TranslateTransition t = new TranslateTransition(Duration.seconds(seconds), n);
