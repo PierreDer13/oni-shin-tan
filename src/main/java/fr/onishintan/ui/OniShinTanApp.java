@@ -2,9 +2,12 @@ package fr.onishintan.ui;
 
 import java.util.Random;
 
+import fr.onishintan.engine.GameState;
+import fr.onishintan.engine.TurnManager;
 import fr.onishintan.model.HeroClass;
 import fr.onishintan.model.Minion;
 import fr.onishintan.model.MinionCard;
+import fr.onishintan.model.Player;
 import fr.onishintan.model.Player;
 import fr.onishintan.model.Rarity;
 import fr.onishintan.model.Weapon;
@@ -31,21 +34,16 @@ public class OniShinTanApp extends Application {
             MockCards.ALL.forEach(c -> grid.getChildren().add(new CardView(c, 230)));
             return grid;
         });
-        router.register(Screen.MATCH, () -> {
-            Player enemy = MockCards.player("Pierre", HeroClass.ONI, 7);
-            Player you = MockCards.player("Kayne", HeroClass.SAMURAI, 7);
-            you.getSide().getMinions().get(0).takeDamage(2);
-            for (int i = 0; i < Player.KI_CAP; i++) { you.refillKi(); enemy.refillKi(); }
-            for (int i = 0; i < 7; i++) { if (i < 6) you.draw(); enemy.draw(); }
-            you.getHero().takeDamage(95);     // both heroes at 5 HP for testing
-            enemy.getHero().takeDamage(95);
-            you.getHero().gainArmour(20);   // Samurai starts with 20 armour (GDD)
-            you.getHero().equip(new Weapon(new WeaponCard("katana", "Katana", "刀", "かたな", 3, Rarity.COMMON, HeroClass.SAMURAI, "", "", 8, 1)));
-            enemy.gainTemporaryKi(1);
-            you.getSide().getMinions().forEach(Minion::onTurnStart);
-            BoardView board = new BoardView("izakaya", enemy, "shuten-doji", you, "yasuke");
-            board.showClocks("1:30", "1:12", true);
+                router.register(Screen.MATCH, () -> {
+            Player p1 = MockCards.player("Kayne", HeroClass.SAMURAI, 0), p2 = MockCards.player("Pierre", HeroClass.ONI, 0);
+            p1.getHero().gainArmour(10);   // Samurai passive Gusoku (GDD), until the engine applies it
+            TurnManager turns = new TurnManager(new GameState(p1, p2), new Random());
+            turns.startMatch();
+            turns.startTurn();
+            BoardView board = new BoardView("izakaya", p2, "shuten-doji", p1, "yasuke");
+            board.showClocks("7:00", "7:00", true);
             board.setOnPlay((card, slot) -> {
+                Player you = turns.getState().active();
                 if (!(card instanceof MinionCard m) || you.getSide().isFull()) return;
                 you.spendKi(card.getKiCost());
                 you.removeFromHand(card);
@@ -56,15 +54,15 @@ public class OniShinTanApp extends Application {
                 target.takeDamage(attacker.getAttack());
                 if (target instanceof Minion) attacker.takeDamage(target.getAttack());
                 attacker.markAttacked();
-                you.getSide().removeDead();
-                enemy.getSide().removeDead();
+                p1.getSide().removeDead();
+                p2.getSide().removeDead();
             });
-            board.setOnPower(() -> you.spendKi(HeroPowerView.COST));
-            board.setOnTrade(card -> {
-                you.removeFromHand(card);
-                you.getDeck().insertRandom(card, new Random());
-                you.draw();
-                board.render();
+            board.setOnPower(() -> turns.getState().active().spendKi(HeroPowerView.COST));
+            board.setOnTrade(card -> { turns.swapCard(card); board.render(); });
+            board.getEndTurn().setOnAction(e -> {
+                turns.endTurn();
+                board.swapSides();
+                board.passTo(turns.getState().active().getName());
             });
             return board;
         });

@@ -57,8 +57,8 @@ public class BoardView extends Pane {
     public static final double W = 1600, H = 900;
     public static final double SLOT_X = 352, SLOT_STEP = 130.5, ENEMY_Y = 257, YOUR_Y = 443, MINION_W = 114;
 
-    private final Player enemy, you;
-    private final String enemyPortrait, yourPortrait;
+    private Player enemy, you;
+    private String enemyPortrait, yourPortrait;
     private final Pane table = new Pane();
     private final ImageView bg;
     private Combatant selected;
@@ -71,6 +71,8 @@ public class BoardView extends Pane {
     private final Pane live = new Pane();
     private final StatusOverlay status = new StatusOverlay(live, () -> impact(0, true));
     private KiBarView ki;
+    private Player kiOwner;   // who the Ki bar showed at the last redraw, and how much Ki they had
+    private int kiBefore;
     private final Button endTurn = hud(new Button("END TURN"), 1381, 392, 190, 84, 26);
     private final Label yourClock = hud(new Label(), 1381, 500, 190, 71, 30);
     private Consumer<Card> onTrade = c -> {};
@@ -117,7 +119,9 @@ public class BoardView extends Pane {
         power(you, 639, true);
         row(enemy, ENEMY_Y);
         row(you, YOUR_Y);
-        place(ki = new KiBarView(you), 0, 0);
+        place(ki = new KiBarView(you, you == kiOwner ? kiBefore : you.getKi()), 0, 0);
+        kiOwner = you;
+        kiBefore = you.getKi();
         deck(you, DECK_X, DECK_Y);
         deck(enemy, 182, 239);
         live.getChildren().add(new HandView(you, (card, slot) -> { onPlay.accept(card, slot); impact(card.getKiCost(), false); }, c -> onTrade.accept(c), this::previewCost));
@@ -166,6 +170,28 @@ public class BoardView extends Pane {
     public void previewCost(int cost) { ki.preview(cost); }
 
     public Button getEndTurn() { return endTurn; }
+
+    /** Hotseat: the other player now sits at the bottom (their hand, Ki and hero power) and the board flips. */
+    public void swapSides() {
+        Player p = you;
+        you = enemy;
+        enemy = p;
+        String s = yourPortrait;
+        yourPortrait = enemyPortrait;
+        enemyPortrait = s;
+        selected = null;
+        powerUsed = false;
+        render();
+    }
+
+    /** Hotseat: a dark veil hides the table until the next player clicks, so nobody sees the other's hand (GDD). */
+    public void passTo(String name) {
+        Label text = new Label("次の番\nPass to " + name + "\n\nclick when ready");
+        text.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 56; -fx-font-weight: bold; -fx-text-alignment: center; -fx-text-fill: #f3ede1;");
+        StackPane veil = new StackPane(new Rectangle(W, H, Color.rgb(0, 0, 0, 0.95)), text);
+        veil.setOnMousePressed(e -> table.getChildren().remove(veil));
+        table.getChildren().add(veil);
+    }
 
     private static void clock(Label l, boolean active) {
         l.setOpacity(active ? 1 : 0.5);
