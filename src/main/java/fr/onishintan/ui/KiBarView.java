@@ -2,104 +2,113 @@ package fr.onishintan.ui;
 
 import fr.onishintan.model.Player;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import javafx.animation.Animation;
-import javafx.animation.FadeTransition;
-import javafx.animation.ParallelTransition;
-import javafx.animation.TranslateTransition;
+import javafx.animation.Interpolator;
+import javafx.animation.KeyFrame;
+import javafx.animation.KeyValue;
+import javafx.animation.Timeline;
 import javafx.scene.control.Label;
+import javafx.scene.effect.ColorAdjust;
 import javafx.scene.effect.DropShadow;
-import javafx.scene.effect.Glow;
+import javafx.scene.effect.GaussianBlur;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
-import javafx.scene.paint.CycleMethod;
-import javafx.scene.paint.LinearGradient;
-import javafx.scene.paint.Paint;
-import javafx.scene.paint.Stop;
 import javafx.scene.shape.Circle;
-import javafx.scene.shape.Rectangle;
+import javafx.scene.transform.Rotate;
+import javafx.scene.transform.Scale;
 import javafx.util.Duration;
 
-/** Your Ki: a glowing rounded capsule filling from the bottom, and pink spirit motes rising beside the filled part.
- *  Bright = available, pale = spent this turn, empty = locked. Drawn on the board's 1600 x 900 grid. */
+/** Your Ki as 12 flames stacked from the bottom (Hearthstone style), on the board's 1600 x 900 grid.
+ *  Lit = available (each flickers on its base), dim ember = spent this turn, faint = locked.
+ *  A flame spent since the last redraw shrinks into its base, fades and lets out a little smoke. */
 public class KiBarView extends Pane {
-    public static final double X = 89, TOP = 285, W = 30, H = 420, STEP = H / Player.KI_CAP;
+    public static final double X = 84, BOTTOM = 701, SIZE = 40, STEP = 38;
+    private static final Image FLAME = new Image(KiBarView.class.getResourceAsStream("/images/hud/ki-flame.png"));
+    private static final double FH = SIZE * FLAME.getHeight() / FLAME.getWidth();   // a flame's height on screen
 
-    private final Player p;
-    private final Rectangle shade = new Rectangle(X, 0, W, 0);
-    private final FadeTransition pulse = new FadeTransition(Duration.millis(700), shade);
+    private final List<ImageView> lit = new ArrayList<>();
+    private Timeline pulse = new Timeline();
 
-    public KiBarView(Player p) {
-        this.p = p;
-        double kiH = p.getKi() * STEP;
-        Rectangle track = capsule(X, TOP, W, H, Color.rgb(20, 10, 15, 0.35));
-        track.setStroke(Color.HOTPINK.deriveColor(0, 1, 1, 0.5));
-        track.setStrokeWidth(1.5);
-        track.setEffect(new DropShadow(6, Color.HOTPINK.deriveColor(0, 1, 1, 0.4)));
-        Rectangle unlocked = capsule(X, TOP + H - p.getMaxKi() * STEP, W, p.getMaxKi() * STEP, Color.HOTPINK.deriveColor(0, 1, 1, 0.22));
-        Rectangle ki = capsule(X, TOP + H - kiH, W, kiH, new LinearGradient(0, 0, 1, 0, true, CycleMethod.NO_CYCLE,
-                new Stop(0, Color.web("#ff4fa3")), new Stop(0.5, Color.web("#ffb3d6")), new Stop(1, Color.web("#ff4fa3"))));
-        DropShadow halo = new DropShadow(10, Color.HOTPINK);
-        halo.setInput(new Glow(0.2));
-        ki.setEffect(halo);
-        shade.setFill(Color.rgb(45, 15, 30, 0.6));
-        shade.setClip(capsule(X, TOP + H - kiH, W, kiH, Color.BLACK));   // only inside the glowing Ki: rounded top, flat cut below
-        shade.setOpacity(0);
-        pulse.setFromValue(0.9);
-        pulse.setToValue(0.35);
-        pulse.setAutoReverse(true);
-        pulse.setCycleCount(Animation.INDEFINITE);
-        getChildren().addAll(track, unlocked, ki, shade);
-        motes(TOP + H, kiH, p.getKi());
-        text("気 KI", 22, 240);
-        text(p.getKi() + " / " + Player.KI_CAP, 20, 715);
+    /** before = the Ki this player had at the last redraw: the flames between before and now are put out. */
+    public KiBarView(Player p, int before) {
+        for (int i = 0; i < Player.KI_CAP; i++) {
+            double y = BOTTOM - (i + 1) * STEP;
+            if (i < p.getKi()) lit.add(burning(y));
+            else flame(y, i < p.getMaxKi() ? 0.45 : 0.12).setEffect(new ColorAdjust(0, -0.8, -0.4, 0));
+            if (i >= p.getKi() && i < before) putOut(y);
+        }
+        text("気 KI", 22, 205);
+        text(p.getKi() + " / " + Player.KI_CAP, 20, 712);
         setMouseTransparent(true);
         sceneProperty().addListener((o, was, now) -> { if (now == null) pulse.stop(); });
     }
 
-    /** Dims, with a slow pulse, the part of your available Ki that a hovered card or power would cost (0 = none). */
+    /** Pulses the top lit flames that a hovered card or power would cost (0 = none). */
     public void preview(int cost) {
-        int c = Math.min(cost, p.getKi());
         pulse.stop();
-        shade.setOpacity(0);
-        if (c == 0) return;
-        shade.setY(TOP + H - p.getKi() * STEP);
-        shade.setHeight(c * STEP);
-        pulse.playFromStart();
+        lit.forEach(f -> f.setOpacity(1));
+        int n = Math.min(cost, lit.size());
+        if (n == 0) return;
+        pulse = new Timeline(new KeyFrame(Duration.millis(700),
+                lit.subList(lit.size() - n, lit.size()).stream().map(f -> new KeyValue(f.opacityProperty(), 0.35)).toArray(KeyValue[]::new)));
+        pulse.setAutoReverse(true);
+        pulse.setCycleCount(Animation.INDEFINITE);
+        pulse.play();
     }
 
-    /** A rounded capsule: both ends fully round. */
-    private static Rectangle capsule(double x, double y, double w, double h, Paint fill) {
-        Rectangle r = new Rectangle(x, y, w, h);
-        r.setArcWidth(w);
-        r.setArcHeight(w);
-        r.setFill(fill);
-        return r;
+    /** One flame image at height y, with the given opacity. */
+    private ImageView flame(double y, double opacity) {
+        ImageView f = new ImageView(FLAME);
+        f.setFitWidth(SIZE);
+        f.setPreserveRatio(true);
+        f.setOpacity(opacity);
+        f.relocate(X, y);
+        getChildren().add(f);
+        return f;
     }
 
-    /** Pink spirit motes rising and fading on both sides of the filled part of the bar. */
-    private void motes(double bottom, double height, int count) {
-        for (int i = 0; i < count; i++) {
-            Circle c = new Circle(1.5 + Math.random() * 2, Color.web("#ff8ac4"));
-            c.setEffect(new DropShadow(6, Color.HOTPINK));
-            c.setCenterX(Math.random() < 0.5 ? X - 6 - Math.random() * 12 : X + W + 6 + Math.random() * 12);
-            c.setCenterY(bottom - Math.random() * height);
-            TranslateTransition rise = new TranslateTransition(Duration.seconds(2 + Math.random() * 2), c);
-            rise.setFromY(0);
-            rise.setToY(-40 - Math.random() * 40);
-            rise.setFromX(0);
-            rise.setToX(Math.random() * 10 - 5);
-            FadeTransition fade = new FadeTransition(rise.getDuration(), c);
-            fade.setFromValue(0.9);
-            fade.setToValue(0);
-            ParallelTransition t = new ParallelTransition(rise, fade);
-            t.setCycleCount(Animation.INDEFINITE);
-            t.playFrom(Duration.seconds(Math.random() * 3));
-            c.sceneProperty().addListener((o, was, now) -> { if (now == null) t.stop(); });
+    /** A lit flame that flickers on its base forever: stretches up, narrows and leans, at its own random pace. */
+    private ImageView burning(double y) {
+        ImageView f = flame(y, 1);
+        f.setEffect(new DropShadow(10, Color.HOTPINK));
+        Scale s = new Scale(1, 1, SIZE / 2, FH);   // pivot on the flame's base, so it never lifts off
+        Rotate r = new Rotate(0, SIZE / 2, FH);
+        f.getTransforms().addAll(s, r);
+        Timeline t = new Timeline(new KeyFrame(Duration.millis(250 + Math.random() * 250),
+                new KeyValue(s.yProperty(), 1.12, Interpolator.EASE_BOTH),
+                new KeyValue(s.xProperty(), 0.93, Interpolator.EASE_BOTH),
+                new KeyValue(r.angleProperty(), Math.random() * 8 - 4, Interpolator.EASE_BOTH)));
+        t.setAutoReverse(true);
+        t.setCycleCount(Animation.INDEFINITE);
+        t.playFrom(Duration.millis(Math.random() * 500));
+        f.sceneProperty().addListener((o, was, now) -> { if (now == null) t.stop(); });
+        return f;
+    }
+
+    /** A flame spent a moment ago: it shrinks down into its base and fades, and a little grey smoke rises. */
+    private void putOut(double y) {
+        ImageView f = flame(y, 1);
+        Scale s = new Scale(1, 1, SIZE / 2, FH);
+        f.getTransforms().add(s);
+        new Timeline(new KeyFrame(Duration.millis(400), new KeyValue(s.yProperty(), 0, Interpolator.EASE_IN),
+                new KeyValue(s.xProperty(), 0.5), new KeyValue(f.opacityProperty(), 0))).play();
+        for (int k = 0; k < 3; k++) {
+            Circle c = new Circle(X + SIZE / 2 + Math.random() * 10 - 5, y + FH * 0.7, 2 + Math.random() * 2, Color.rgb(120, 110, 115, 0.7));
+            c.setEffect(new GaussianBlur(2));
             getChildren().add(c);
+            new Timeline(new KeyFrame(Duration.millis(700 + Math.random() * 300),
+                    new KeyValue(c.translateYProperty(), -30 - Math.random() * 20),
+                    new KeyValue(c.translateXProperty(), Math.random() * 12 - 6),
+                    new KeyValue(c.opacityProperty(), 0))).play();
         }
     }
 
-    /** Cream text with a soft pink glow, centred over the bar's zone, at height y. */
+    /** Cream text with a soft pink glow, centred over the Ki zone, at height y. */
     private void text(String s, double size, double y) {
         Label l = new Label(s);
         l.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: " + size + "; -fx-font-weight: bold;"
