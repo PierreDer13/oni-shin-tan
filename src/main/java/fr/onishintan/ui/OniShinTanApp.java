@@ -1,7 +1,5 @@
 package fr.onishintan.ui;
 
-import java.util.Random;
-
 import fr.onishintan.model.HeroClass;
 import fr.onishintan.model.Minion;
 import fr.onishintan.model.MinionCard;
@@ -60,12 +58,7 @@ public class OniShinTanApp extends Application {
                 enemy.getSide().removeDead();
             });
             board.setOnPower(() -> you.spendKi(HeroPowerView.COST));
-            board.setOnTrade(card -> {
-                you.removeFromHand(card);
-                you.getDeck().insertRandom(card, new Random());
-                you.draw();
-                board.render();
-            });
+            board.setOnTrade(card -> { you.trade(card); board.render(); });
             return board;
         });
         router.goTo(Screen.HOME);
