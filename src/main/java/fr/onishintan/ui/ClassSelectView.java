@@ -1,5 +1,7 @@
 package fr.onishintan.ui;
 
+import java.util.Map;
+
 import fr.onishintan.model.HeroClass;
 
 import javafx.beans.InvalidationListener;
@@ -11,12 +13,19 @@ import javafx.scene.image.ImageView;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
 import javafx.scene.transform.Scale;
+import javafx.scene.input.MouseEvent;
 
 /** Class Select on the 1600 x 900 grid, scaled to the window: the four class banners wave side by side;
  *  clicking one opens the Adventure page for that class (its decklist, later its match sequence). */
 public class ClassSelectView extends Pane {
     public static final double W = 1600, H = 900;
     private static final HeroClass[] CLASSES = { HeroClass.SAMURAI, HeroClass.NINJA, HeroClass.KANNUSHI, HeroClass.ONI };
+    /** Hover text for each class (GDD, Hero classes): its pace, then its passive and hero power. */
+    private static final Map<HeroClass, String> ABOUT = Map.of(
+            HeroClass.SAMURAI, "侍 Samurai: minion-heavy tempo and board control. Starts with armour; Katana equips a blade.",
+            HeroClass.NINJA, "忍者 Ninja: swift play, minions and spells balanced. Survives one lethal hit; Shuriken deals 6.",
+            HeroClass.KANNUSHI, "神主 Kannushi: spells, small minions and buffs. Heals every turn; summons a 3/3 Miko.",
+            HeroClass.ONI, "鬼 Oni: slow, large minions. Curses the enemy deck with Korori; Jikininki drains 4 HP.");
 
     public ClassSelectView(SceneRouter router) {
         Pane grid = new Pane();
@@ -37,7 +46,17 @@ public class ClassSelectView extends Pane {
         title.setEffect(new DropShadow(12, Color.WHITE));
         title.setPrefWidth(W);
         title.relocate(0, 30);
-        grid.getChildren().addAll(bg, title);
+        Label about = new Label();   // the hovered class's description, empty otherwise
+        about.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 20; -fx-font-weight: bold; -fx-text-fill: #1f1b17; -fx-alignment: center;");
+        about.setEffect(new DropShadow(10, Color.WHITE));
+        about.setPrefWidth(W);
+        about.relocate(0, 82);
+        Label back = new Label("← 戻る  RETURN");
+        back.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 22; -fx-font-weight: bold; -fx-text-fill: #f3ede1;"
+                + " -fx-background-color: rgba(20,12,8,0.75); -fx-background-radius: 10; -fx-padding: 8 16;");
+        back.relocate(30, 30);
+        HomeView.clickable(back, false, () -> router.goTo(Screen.HOME));
+        grid.getChildren().addAll(bg, title, about, back);
         for (int i = 0; i < CLASSES.length; i++) {
             HeroClass c = CLASSES[i];
             Group banner = Fx.waving(new Image(getClass().getResourceAsStream("/images/banners/class-" + c.name().toLowerCase() + ".png")), 250, 60);
@@ -46,6 +65,8 @@ public class ClassSelectView extends Pane {
                 router.register(Screen.ADVENTURE_SELECT, () -> new AdventureSelectView(router, c));
                 router.goTo(Screen.ADVENTURE_SELECT);
             });
+            banner.addEventHandler(MouseEvent.MOUSE_ENTERED, e -> about.setText(ABOUT.get(c)));
+            banner.addEventHandler(MouseEvent.MOUSE_EXITED, e -> about.setText(""));
             grid.getChildren().add(banner);
         }
         getChildren().add(grid);
