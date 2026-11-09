@@ -29,6 +29,7 @@ final class StatusOverlay {
     private final Runnable shake;
     private final Set<List<Object>> shown = new HashSet<>();          // (image, minion) pairs already dropped in
     private final Map<List<Object>, Node> gates = new HashMap<>();
+    private Group on;   // the card the effects being added belong to
 
     /** live: the board layer to draw on; shake: the small screen shake played when a gate lands. */
     StatusOverlay(Pane live, Runnable shake) {
@@ -42,6 +43,16 @@ final class StatusOverlay {
         gates.clear();
     }
 
+
+    /** The effects added next ride with this card: their group follows its position and layer, so they lunge with it when it attacks. */
+    void follow(Node card) {
+        on = new Group();
+        on.translateXProperty().bind(card.translateXProperty());
+        on.translateYProperty().bind(card.translateYProperty());
+        on.viewOrderProperty().bind(card.viewOrderProperty());
+        live.getChildren().add(on);
+    }
+
     /** Shinobi: two ink clouds drift slowly in opposite directions over a hidden card, on top of its darkening. */
     void shinobi(double x, double y) {
         for (int k = 0; k < 2; k++) {
@@ -50,39 +61,29 @@ final class StatusOverlay {
             c.setPreserveRatio(true);
             c.setOpacity(0.9);
             add(c, x + (k == 0 ? -10 : 20), y + (k == 0 ? 20 : 95));
-            double dir = k == 0 ? 1 : -1;
-            TranslateTransition t = new TranslateTransition(Duration.seconds(3 + Math.random() * 2), c);
-            t.setFromX(-10 * dir);
-            t.setToX(10 * dir);
-            t.setAutoReverse(true);
-            t.setCycleCount(Animation.INDEFINITE);
-            t.setInterpolator(Interpolator.EASE_BOTH);
-            t.playFrom(Duration.seconds(Math.random() * 3));
-            c.sceneProperty().addListener((o, was, now) -> { if (now == null) t.stop(); });
+            sway(c, k == 0 ? 1 : -1, 10);
         }
     }
 
-    /** Seppuku: a tiny ghost drifts around the card, turning to face the way it floats. */
+    /** Seppuku: a kneeling samurai, still, at the bottom middle of the card between its ATK and HP. */
     void seppuku(double x, double y) {
-        ImageView g = BoardView.image("/images/fx/seppuku.png");
-        g.setFitWidth(34);
-        g.setPreserveRatio(true);
-        g.setOpacity(0.85);
-        add(g, x + 40, y + 57);
-        drift(g);
+        ImageView s = BoardView.image("/images/fx/seppuku.png");
+        s.setFitWidth(26);
+        s.setPreserveRatio(true);
+        s.setOpacity(0.8);
+        add(s, x + BoardView.MINION_W / 2 - 13, y + 128);
     }
 
-    /** Floats to a random point around the card, then picks the next one; stops once the card has left the board. */
-    private static void drift(ImageView g) {
-        if (g.getParent() == null) return;
-        double tx = Math.random() * 120 - 60, ty = Math.random() * 140 - 70;
-        g.setScaleX(tx < g.getTranslateX() ? -1 : 1);   // the image faces right: flip it when heading left
-        TranslateTransition t = new TranslateTransition(Duration.seconds(1.5 + Math.random()), g);
-        t.setToX(tx);
-        t.setToY(ty);
+    /** Drifts a node `dist` px left and right forever, 3 to 5 s each way, from a random point; stops once it leaves the screen. */
+    private static void sway(Node n, double dir, double dist) {
+        TranslateTransition t = new TranslateTransition(Duration.seconds(3 + Math.random() * 2), n);
+        t.setFromX(-dist * dir);
+        t.setToX(dist * dir);
+        t.setAutoReverse(true);
+        t.setCycleCount(Animation.INDEFINITE);
         t.setInterpolator(Interpolator.EASE_BOTH);
-        t.setOnFinished(e -> drift(g));
-        t.play();
+        t.playFrom(Duration.seconds(Math.random() * 3));
+        n.sceneProperty().addListener((o, was, now) -> { if (now == null) t.stop(); });
     }
 
     /** Passive: a war banner planted over the card's top-left corner; the cloth ripples from the pole to the tip. */
@@ -149,6 +150,6 @@ final class StatusOverlay {
     private void add(Node n, double x, double y) {
         n.setMouseTransparent(true);
         n.relocate(x, y);
-        live.getChildren().add(n);
+        if (on != null) on.getChildren().add(n); else live.getChildren().add(n);
     }
 }

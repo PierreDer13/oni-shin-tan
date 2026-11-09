@@ -76,6 +76,14 @@ public class BoardView extends Pane {
     private final Pane live = new Pane();
     private final StatusOverlay status = new StatusOverlay(live, () -> impact(0, true));
     private KiBarView ki;
+    private HandView hand;
+    private boolean dealt;   // the hand stays hidden until the opening deal
+    /** Opening hand: deals the bottom player's cards in from their deck. */
+    public void dealHand() {
+        dealt = true;
+        hand.setVisible(true);
+        hand.deal();
+    }
     private Player kiOwner;   // who the Ki bar showed at the last redraw, and how much Ki they had
     private int kiBefore;
     private static final Image SWITCH_ON = new Image(BoardView.class.getResourceAsStream("/images/hud/end-turn.png")),
@@ -150,7 +158,8 @@ public class BoardView extends Pane {
         kiBefore = you.getKi();
         deck(you, DECK_X, DECK_Y);
         deck(enemy, 182, 239);
-        live.getChildren().add(new HandView(you, (card, slot) -> { onPlay.accept(card, slot); impact(card.getKiCost(), false); }, c -> onTrade.accept(c), this::previewCost));
+        live.getChildren().add(hand = new HandView(you, (card, slot) -> { onPlay.accept(card, slot); impact(card.getKiCost(), false); }, c -> onTrade.accept(c), this::previewCost));
+        hand.setVisible(dealt);
         enemyHand(enemy);
         if (enemy.getHero().isDead() || you.getHero().isDead()) gameOver(enemy.getHero().isDead());
     }
@@ -248,11 +257,11 @@ public class BoardView extends Pane {
     }
 
     /** Hotseat: a dark veil hides the table until the next player clicks, so nobody sees the other's hand (GDD). */
-    public void passTo(String name) {
+public void passTo(String name, Runnable onReady) {
         Label text = new Label("次の番\nPass to " + name + "\n\nclick when ready");
         text.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 56; -fx-font-weight: bold; -fx-text-alignment: center; -fx-text-fill: #f3ede1;");
         StackPane veil = new StackPane(new Rectangle(W, H, Color.rgb(0, 0, 0, 0.95)), text);
-        veil.setOnMousePressed(e -> table.getChildren().remove(veil));
+        veil.setOnMousePressed(e -> { table.getChildren().remove(veil); onReady.run(); });
         table.getChildren().add(veil);
     }
 
@@ -317,6 +326,7 @@ public class BoardView extends Pane {
             if (minions.get(i).isHidden() && v.getEffect() == null) v.setEffect(new ColorAdjust(0, -0.4, -0.45, 0));
             readable(v, minions.get(i), x, y, i >= 4);
             place(v, x, y);
+            status.follow(v);
             if (minions.get(i).hasKeyword(Keyword.PASSIVE)) status.flag(minions.get(i), x, y);
             if (minions.get(i).hasTorii()) status.gate("torii", minions.get(i), x, y);
             if (minions.get(i).hasKeyword(Keyword.SHIRODU)) status.gate("shirodu", minions.get(i), x, y);
