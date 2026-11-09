@@ -69,12 +69,13 @@ public class OniShinTanApp extends Application {
         board.setOnPower(() -> turns.getState().active().spendKi(HeroPowerView.COST));
         board.setOnTrade(card -> { turns.swapCard(card); board.render(); });
         board.setOnEndTurn(() -> {
+            board.addStack(turns.getState().active());   // mock: the rule counts as kept until the engine checks Oaths
             turns.endTurn();
             board.swapSides();
             board.passTo(turns.getState().active().getName());
         });
         board.setOnGameOver(() -> onEnd.accept(!p1.getHero().isDead()));
-        board.chooseOath(yours, o1 -> { board.chooseOath(theirs, o2 -> board.passTo(p1.getName())); board.passTo(p2.getName()); });
+        board.chooseOath(yours, o1 -> { board.swear(p1, o1); board.chooseOath(theirs, o2 -> { board.swear(p2, o2); board.passTo(p1.getName()); }); board.passTo(p2.getName()); });
         return board;
     }
 

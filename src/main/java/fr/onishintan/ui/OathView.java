@@ -2,6 +2,7 @@ package fr.onishintan.ui;
 
 import fr.onishintan.model.HeroClass;
 
+import java.util.Arrays;
 import java.util.Map;
 import java.util.function.Consumer;
 
@@ -11,6 +12,7 @@ import javafx.animation.KeyValue;
 import javafx.animation.Timeline;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.control.Label;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
@@ -20,12 +22,17 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
+import javafx.scene.text.Font;
 import javafx.util.Duration;
 
-/** Oath choice at the start of a match (GDD, Oaths): the class's three Oaths on scrolls; clicking one stamps it 受諾 and swears it. */
+/** Oaths on scrolls (GDD, Oaths): the choice at the start of a match, the stamped scroll to reread, the small one by the hero. */
 final class OathView extends StackPane {
     private static final Image SCROLL = new Image(OathView.class.getResourceAsStream("/images/hud/oath-scroll.png"));
-    private static final String INK = "#1f1b17";
+    private static final String INK = "#1f1b17", RED = "#c41e1e", BRUSH = "Kaushan Script", JP = "Yuji Syuku";
+    static {   // the brush fonts of the scrolls (OFL, Google Fonts)
+        Font.loadFont(OathView.class.getResourceAsStream("/fonts/KaushanScript-Regular.ttf"), 12);
+        Font.loadFont(OathView.class.getResourceAsStream("/fonts/YujiSyuku-Regular.ttf"), 12);
+    }
     /** name, kanji, rule, 3 / 6 / 9 rewards, break. */
     private static final Map<HeroClass, String[][]> OATHS = Map.of(
             HeroClass.SAMURAI, new String[][] {
@@ -48,46 +55,78 @@ final class OathView extends StackPane {
     OathView(HeroClass c, Consumer<String> onSworn) {
         HBox row = new HBox(80);
         row.setAlignment(Pos.CENTER);
-        for (String[] o : OATHS.get(c)) row.getChildren().add(scroll(o, onSworn));
-        VBox box = new VBox(20, label("誓いを立てよ   SWEAR YOUR OATH", 34, "#f3ede1"), row);
+        for (String[] o : OATHS.get(c)) {
+            StackPane s = scroll(o);
+            Node stamp = s.getChildren().get(3);
+            stamp.setOpacity(0);
+            HomeView.clickable(s, false, () -> {
+                setMouseTransparent(true);   // one Oath only
+                stamp.setScaleX(3);
+                stamp.setScaleY(3);
+                Timeline t = new Timeline(new KeyFrame(Duration.millis(160), new KeyValue(stamp.opacityProperty(), 1),
+                        new KeyValue(stamp.scaleXProperty(), 1, Interpolator.EASE_IN), new KeyValue(stamp.scaleYProperty(), 1, Interpolator.EASE_IN)),
+                        new KeyFrame(Duration.millis(1100)));
+                t.setOnFinished(e -> { ((Pane) getParent()).getChildren().remove(this); onSworn.accept(o[0]); });
+                t.play();
+            });
+            row.getChildren().add(s);
+        }
+        VBox box = new VBox(20, label("誓いを立てよ   SWEAR YOUR OATH", 34, "#f3ede1", JP), row);
         box.setAlignment(Pos.CENTER);
         getChildren().addAll(new Rectangle(BoardView.W, BoardView.H, Color.rgb(0, 0, 0, 0.95)), box);
     }
 
-    /** One Oath on a scroll; clicking it slams the 受諾 stamp on, then swears it a second later. */
-    private StackPane scroll(String[] o, Consumer<String> onSworn) {
+    /** A sworn Oath's full scroll, stamped, to reread it. */
+    static StackPane sworn(HeroClass c, String name) { return scroll(find(c, name)); }
+
+    /** The small scroll next to the hero: the Oath's kanji ("?" while hidden) and its stamp. */
+    static StackPane mini(HeroClass c, String name, boolean hidden) {
+        ImageView bg = new ImageView(SCROLL);
+        bg.setFitHeight(150);
+        bg.setPreserveRatio(true);
+        Label stamp = label("受諾", 11, RED, JP);
+        StackPane m = new StackPane(bg, label(hidden ? "?" : find(c, name)[1], 22, INK, JP), stamp);
+        StackPane.setAlignment(stamp, Pos.BOTTOM_CENTER);
+        StackPane.setMargin(stamp, new Insets(0, 0, 14, 0));
+        return m;
+    }
+
+    private static String[] find(HeroClass c, String name) {
+        return Arrays.stream(OATHS.get(c)).filter(o -> o[0].equals(name)).findFirst().orElseThrow();
+    }
+
+    /** One Oath on a scroll in brush lettering, with the red painted frame where the 受諾 stamp lands (children: bg, text, frame, stamp). */
+    private static StackPane scroll(String[] o) {
         ImageView bg = new ImageView(SCROLL);
         bg.setFitHeight(740);
         bg.setPreserveRatio(true);
-        VBox text = new VBox(10, label("Oath of\n" + o[0], 26, INK), label(o[1], 60, INK), label(o[2], 14, INK),
-                label("3 — " + o[3] + "\n6 — " + o[4] + "\n9 — " + o[5], 13, INK), label("Break — " + o[6], 13, "#8f1d1d"));
+        VBox text = new VBox(8, label("Oath of\n" + o[0], 30, INK, BRUSH), label(o[1], 54, INK, JP), label(o[2], 14, INK, BRUSH),
+                label("3 — " + o[3] + "\n6 — " + o[4] + "\n9 — " + o[5], 13, INK, BRUSH), label("Break — " + o[6], 13, "#8f1d1d", BRUSH));
         text.setAlignment(Pos.TOP_CENTER);
         text.setMaxWidth(190);
-        text.setPadding(new Insets(60, 0, 0, 0));
-        Label stamp = label("受諾", 40, "#c41e1e");
-        stamp.setStyle(stamp.getStyle() + " -fx-border-color: #c41e1e; -fx-border-width: 4; -fx-padding: 4 10;");
-        stamp.setOpacity(0);
+        text.setPadding(new Insets(50, 0, 0, 0));
+        Rectangle frame = new Rectangle(130, 100, Color.TRANSPARENT);
+        frame.setStroke(Color.web(RED));
+        frame.setStrokeWidth(6);
+        frame.setArcWidth(18);
+        frame.setArcHeight(18);
+        frame.setOpacity(0.8);
+        frame.setRotate(2);
+        Label stamp = label("受諾", 40, RED, JP);
+        stamp.setStyle(stamp.getStyle() + " -fx-border-color: " + RED + "; -fx-border-width: 4; -fx-padding: 2 8;");
         stamp.setRotate(-8);
-        StackPane s = new StackPane(bg, text, stamp);
+        StackPane s = new StackPane(bg, text, frame, stamp);
         StackPane.setAlignment(text, Pos.TOP_CENTER);
+        StackPane.setAlignment(frame, Pos.BOTTOM_CENTER);
         StackPane.setAlignment(stamp, Pos.BOTTOM_CENTER);
-        StackPane.setMargin(stamp, new Insets(0, 0, 80, 0));
-        HomeView.clickable(s, false, () -> {
-            setMouseTransparent(true);   // one Oath only
-            stamp.setScaleX(3);
-            stamp.setScaleY(3);
-            Timeline t = new Timeline(new KeyFrame(Duration.millis(160), new KeyValue(stamp.opacityProperty(), 1),
-                    new KeyValue(stamp.scaleXProperty(), 1, Interpolator.EASE_IN), new KeyValue(stamp.scaleYProperty(), 1, Interpolator.EASE_IN)),
-                    new KeyFrame(Duration.millis(1100)));
-            t.setOnFinished(e -> { ((Pane) getParent()).getChildren().remove(this); onSworn.accept(o[0]); });
-            t.play();
-        });
+        StackPane.setMargin(frame, new Insets(0, 0, 45, 0));
+        StackPane.setMargin(stamp, new Insets(0, 0, 63, 0));
         return s;
     }
 
-    private static Label label(String s, double size, String color) {
+    private static Label label(String s, double size, String color, String font) {
         Label l = new Label(s);
-        l.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: " + size + "; -fx-font-weight: bold; -fx-text-fill: " + color + "; -fx-text-alignment: center;");
+        l.setStyle("-fx-font-family: '" + font + "'; -fx-font-size: " + size + "; -fx-text-fill: " + color + "; -fx-text-alignment: center;");
         l.setWrapText(true);
         return l;
     }
