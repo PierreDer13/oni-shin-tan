@@ -73,7 +73,7 @@ final class OathView extends StackPane {
         }
         VBox box = new VBox(20, label("誓いを立てよ   SWEAR YOUR OATH", 34, "#f3ede1", JP), row);
         box.setAlignment(Pos.CENTER);
-        getChildren().addAll(new Rectangle(BoardView.W, BoardView.H, Color.rgb(0, 0, 0, 0.95)), box);
+        getChildren().addAll(new Rectangle(BoardView.W, BoardView.H, Color.rgb(0, 0, 0, 0.5)), box);
     }
 
     /** A sworn Oath's full scroll, stamped, to reread it. */
@@ -84,6 +84,7 @@ final class OathView extends StackPane {
         ImageView bg = new ImageView(SCROLL);
         bg.setFitHeight(150);
         bg.setPreserveRatio(true);
+        bg.setEffect(BoardView.SHADOW);
         ImageView stamp = image("stamp-seal", 26);
         StackPane m = new StackPane(bg, label(hidden ? "?" : find(c, name)[1], 22, INK, JP), stamp);
         StackPane.setAlignment(stamp, Pos.BOTTOM_CENTER);
@@ -100,19 +101,20 @@ final class OathView extends StackPane {
         ImageView bg = new ImageView(SCROLL);
         bg.setFitHeight(740);
         bg.setPreserveRatio(true);
+        bg.setEffect(BoardView.SHADOW);
         VBox text = new VBox(8, label("Oath of\n" + o[0], 30, INK, BRUSH), label(o[1], 54, INK, JP), label(o[2], 14, INK, BRUSH),
                 label("3 — " + o[3] + "\n6 — " + o[4] + "\n9 — " + o[5], 13, INK, BRUSH), label("Break — " + o[6], 13, "#8f1d1d", BRUSH));
         text.setAlignment(Pos.TOP_CENTER);
         text.setMaxWidth(190);
         text.setPadding(new Insets(50, 0, 0, 0));
-        ImageView frame = image("stamp-frame", 120), stamp = image("stamp-seal", 100);
+        ImageView frame = image("stamp-frame", 120), stamp = image("stamp-seal", 140);
         stamp.setRotate(-6);
         StackPane s = new StackPane(bg, text, frame, stamp);
         StackPane.setAlignment(text, Pos.TOP_CENTER);
         StackPane.setAlignment(frame, Pos.BOTTOM_CENTER);
         StackPane.setAlignment(stamp, Pos.BOTTOM_CENTER);
         StackPane.setMargin(frame, new Insets(0, 0, 45, 0));
-        StackPane.setMargin(stamp, new Insets(0, 0, 55, 0));
+        StackPane.setMargin(stamp, new Insets(0, 0, 34, 0));
         return s;
     }
 

@@ -31,6 +31,7 @@ import javafx.beans.InvalidationListener;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 
+import javafx.scene.Group;
 import javafx.scene.Node;
 import javafx.scene.control.Label;
 import javafx.scene.control.Labeled;
@@ -57,6 +58,8 @@ import javafx.event.EventHandler;
 public class BoardView extends Pane {
     public static final double DECK_X = 1227, DECK_Y = 632;
     public static final double W = 1600, H = 900;
+    /** The shadow every object on the table casts: down and to the right. */
+    static final DropShadow SHADOW = new DropShadow(15, 8, 6, Color.rgb(0, 0, 0, 0.6));
     public static final double SLOT_X = 352, SLOT_STEP = 130.5, ENEMY_Y = 257, YOUR_Y = 443, MINION_W = 114;
 
     private Player enemy, you;
@@ -122,7 +125,7 @@ public class BoardView extends Pane {
         heightProperty().addListener(fit);
         endTurn.setFitHeight(200);
         endTurn.setPreserveRatio(true);
-        endTurn.setEffect(new DropShadow(15, 8, 6, Color.rgb(0, 0, 0, 0.6)));
+        endTurn.setEffect(SHADOW);
         endTurn.relocate(1415, 335);
         endTurn.setOnMousePressed(e -> {
             endTurn.setDisable(true);   // one press per turn
@@ -276,7 +279,12 @@ public void passTo(String name, Runnable onReady) {
         int n = p.getDeck().size(), layers = (n + 4) / 5;
         double cardH = MINION_W * CardView.H / CardView.W, bx = x + (115 - MINION_W) / 2, by = y + (127 - cardH) / 2;
         ImageView top = null;
-        for (int i = 0; i < layers; i++) place(top = cardBack(MINION_W), bx - i * 1.5, by - i * 1.5);
+        for (int i = 0; i < layers; i++) {
+            top = cardBack(MINION_W);
+            Node layer = i == 0 ? new Group(top) : top;   // the bottom card carries the stack's shadow; in a Group so its rounded clip doesn't cut the shadow off
+            layer.setEffect(i == 0 ? SHADOW : null);
+            place(layer, bx - i * 1.5, by - i * 1.5);
+        }
         if (top != null) Tooltip.install(top, new Tooltip(n + " cards left"));
         double tx = bx - (layers - 1) * 1.5, ty = by - (layers - 1) * 1.5;
         place(hud(new Label(String.valueOf(n)), 0, 0, 44, 30, 18), tx + MINION_W / 2 - 22, ty + cardH - 40);
