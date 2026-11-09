@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 import javafx.util.Duration;
 
@@ -215,13 +216,7 @@ public class BoardView extends Pane {
         boolean hidden = p == enemy && c == HeroClass.NINJA && stacks.getOrDefault(p, 0) < 3;
         StackPane mini = OathView.mini(c, oaths.get(p), hidden);
         place(mini, 1120, zoneY - 15);
-        if (hidden) { Tooltip.install(mini, new Tooltip("Ninja Oath sworn")); return; }
-        Node big = OathView.sworn(c, oaths.get(p));
-        big.setMouseTransparent(true);
-        big.setViewOrder(-5);
-        big.relocate(850, 80);
-        mini.setOnMouseEntered(e -> live.getChildren().add(big));
-        mini.setOnMouseExited(e -> live.getChildren().remove(big));
+        bigOnHover(mini, () -> OathView.sworn(c, oaths.get(p)), 850, 80);
     }
 
     /** Your Oath stacks, bottom left: 9 marks, the 3 / 6 / 9 reward marks bigger with a gold ring; earned marks are red. */
@@ -471,6 +466,12 @@ public class BoardView extends Pane {
         boolean usable = mine && !powerUsed && you.canAfford(HeroPowerView.COST);
         HeroPowerView v = new HeroPowerView(p.getHero().getHeroClass(), mine && powerUsed, usable, this::previewCost,
                 () -> { powerUsed = true; onPower.run(); render(); });
+        bigOnHover(v, () -> {
+            Node b = new HeroPowerView(p.getHero().getHeroClass(), mine && powerUsed, false, c -> {}, () -> {});
+            b.setScaleX(2.5);
+            b.setScaleY(2.5);
+            return b;
+        }, 900, 330);
         place(v, 948 + (158 - HeroPowerView.SIZE) / 2, zoneY + (113 - HeroPowerView.SIZE) / 2);
     }
 
@@ -511,22 +512,26 @@ public class BoardView extends Pane {
     /** What a hit can take away: HP, plus armour for a hero. */
     private static int life(Combatant c) { return c.getHealth() + (c instanceof Hero h ? h.getArmour() : 0); }
 
-    /** Hovering a board card for half a second shows a big readable copy beside it: on the left for the three
-     *  right-hand slots, on the right otherwise. Leaving or clicking cancels or hides it. */
-    private void readable(MinionView v, Minion m, double x, double y, boolean left) {
-        double w = 280, h = w * CardView.H / CardView.W;
+    /** Hovering a node for half a second shows a big copy at (x, y); leaving or clicking hides it. */
+    private void bigOnHover(Node n, Supplier<Node> big, double x, double y) {
         PauseTransition delay = new PauseTransition(Duration.millis(500));
         delay.setOnFinished(e -> {
-            preview = new MinionView(m, w);
+            preview = big.get();
             preview.setMouseTransparent(true);
             preview.setViewOrder(-4);
-            preview.relocate(left ? x - 20 - w : x + MINION_W + 20, Math.max(10, Math.min(H - h - 10, y + 80 - h / 2)));
+            preview.relocate(x, y);
             live.getChildren().add(preview);
         });
         EventHandler<MouseEvent> hide = e -> { delay.stop(); live.getChildren().remove(preview); };
-        v.addEventHandler(MouseEvent.MOUSE_ENTERED, e -> delay.playFromStart());
-        v.addEventHandler(MouseEvent.MOUSE_EXITED, hide);
-        v.addEventHandler(MouseEvent.MOUSE_PRESSED, hide);
+        n.addEventHandler(MouseEvent.MOUSE_ENTERED, e -> delay.playFromStart());
+        n.addEventHandler(MouseEvent.MOUSE_EXITED, hide);
+        n.addEventHandler(MouseEvent.MOUSE_PRESSED, hide);
+    }
+
+    /** A board card's big copy: on the left for the three right-hand slots, on the right otherwise. */
+    private void readable(MinionView v, Minion m, double x, double y, boolean left) {
+        double w = 280, h = w * CardView.H / CardView.W;
+        bigOnHover(v, () -> new MinionView(m, w), left ? x - 20 - w : x + MINION_W + 20, Math.max(10, Math.min(H - h - 10, y + 80 - h / 2)));
     }
 
     /** A slow float for a character that can attack: rises 6 px and back, about every 3 seconds; stops when removed. */

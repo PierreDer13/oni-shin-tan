@@ -18,6 +18,7 @@ import javafx.scene.input.MouseEvent;
 import javafx.animation.Animation;
 import javafx.animation.FadeTransition;
 import javafx.animation.ParallelTransition;
+import javafx.animation.PauseTransition;
 import javafx.animation.TranslateTransition;
 import javafx.scene.Node;
 import javafx.scene.shape.Circle;
@@ -36,6 +37,8 @@ public class HandView extends Group {
     private final List<Node> glows = new ArrayList<>();
     private final IntConsumer onHover;
     private CardView hovered;
+    private final PauseTransition delay = new PauseTransition(Duration.millis(500));
+    private CardView big;
 
     public HandView(Player player, BiConsumer<Card, Integer> onPlay, Consumer<Card> onTrade, IntConsumer onHover) {
         this.player = player;
@@ -57,7 +60,7 @@ public class HandView extends Group {
         getChildren().add(0, zone);
         setOnMouseEntered(e -> fan(true, true));
         setOnMouseMoved(this::pick);
-        setOnMouseExited(e -> { hovered = null; fan(false, true); onHover.accept(0); });
+        setOnMouseExited(e -> {showBig(null);hovered = null; fan(false, true); onHover.accept(0); });
         fan(false, false);
     }
 
@@ -80,6 +83,7 @@ public class HandView extends Group {
     /** The card follows the mouse; released over your row, onPlay gets the card and the slot under the mouse. */
     private void drag(CardView v) {
         v.setOnMousePressed(e -> {
+            showBig(null);
             Anim.stop(v);
             hovered = null;
             v.setRotate(0);
@@ -156,7 +160,21 @@ public class HandView extends Group {
         CardView v = cards.get(Math.max(0, Math.min(cards.size() - 1, i)));
         if (v == hovered) return;
         hovered = v;
+        showBig(null);
+        delay.setOnFinished(f -> showBig(v));
+        delay.playFromStart();
         fan(true, true);
         onHover.accept(v.getCard().getKiCost());
+    }
+
+    /** The big readable copy of a hovered card, just above it; null hides it (and cancels the wait). */
+    private void showBig(CardView v) {
+        getChildren().remove(big);
+        big = null;
+        if (v == null) { delay.stop(); return; }
+        big = new CardView(v.getCard(), 280);
+        big.setMouseTransparent(true);
+        big.relocate(v.getLayoutX() + CARD_W / 2 - 140, 200);
+        getChildren().add(big);
     }
 }
