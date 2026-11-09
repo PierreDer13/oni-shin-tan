@@ -31,7 +31,6 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 
 import javafx.scene.Node;
-import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.Labeled;
 import javafx.scene.control.Tooltip;
@@ -45,6 +44,7 @@ import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
+import javafx.scene.transform.Rotate;
 import javafx.scene.transform.Scale;
 import javafx.scene.layout.Region;
 import javafx.scene.input.MouseEvent;
@@ -61,6 +61,9 @@ public class BoardView extends Pane {
     private String enemyPortrait, yourPortrait;
     private final Pane table = new Pane();
     private final ImageView bg;
+    private final boolean izakaya;
+    /** Izakaya props cut out of the table: file, x, y. */
+    private static final String[] PROPS = { "cup-1 130 46", "dice-1 306 105", "pot 1274 13", "dice-2 1271 681", "cup-2 1376 602" };
     private Combatant selected;
     private BiConsumer<Combatant, Combatant> onAttack = (a, t) -> {};
     private final Map<Combatant, Node> nodes = new HashMap<>();
@@ -73,14 +76,19 @@ public class BoardView extends Pane {
     private KiBarView ki;
     private Player kiOwner;   // who the Ki bar showed at the last redraw, and how much Ki they had
     private int kiBefore;
-    private final Button endTurn = hud(new Button("END TURN"), 1381, 392, 190, 84, 26);
-    private final Label yourClock = hud(new Label(), 1381, 500, 190, 71, 30);
+    private static final Image SWITCH_ON = new Image(BoardView.class.getResourceAsStream("/images/hud/end-turn.png")),
+            SWITCH_OFF = new Image(BoardView.class.getResourceAsStream("/images/hud/end-turn-off.png"));
+    private final ImageView endTurn = new ImageView(SWITCH_ON);
+    private Runnable onEndTurn = () -> {};
+    private final Label yourClock = hud(new Label(), 1381, 545, 190, 71, 30);
     private Consumer<Card> onTrade = c -> {};
-    private final Label enemyClock = hud(new Label(), 1381, 301, 190, 71, 30);
+    private final Label enemyClock = hud(new Label(), 1381, 255, 190, 71, 30);
     private BiConsumer<Card, Integer> onPlay = (c, slot) -> {};
 
     private boolean powerUsed;
     private Runnable onPower = () -> {};
+    private Runnable onGameOver = () -> {};
+    public void setOnGameOver(Runnable r) { onGameOver = r; }
     private Node preview;
 
     public BoardView(String board, Player enemy, String enemyPortrait, Player you, String yourPortrait) {
@@ -89,6 +97,7 @@ public class BoardView extends Pane {
         this.enemyPortrait = enemyPortrait;
         this.yourPortrait = yourPortrait;
         bg = image("/images/boards/" + board + ".png");
+        izakaya = board.equals("izakaya");
         bg.setFitWidth(W);
         bg.setFitHeight(H);
         bg.setOnMouseClicked(e -> { selected = null; render(); });
@@ -101,7 +110,18 @@ public class BoardView extends Pane {
         };
         widthProperty().addListener(fit);
         heightProperty().addListener(fit);
-        endTurn.setEffect(new DropShadow(25, Color.GOLD));
+        endTurn.setFitHeight(200);
+        endTurn.setPreserveRatio(true);
+        endTurn.setEffect(new DropShadow(15, 8, 6, Color.rgb(0, 0, 0, 0.6)));
+        endTurn.relocate(1415, 335);
+        endTurn.setOnMousePressed(e -> {
+            endTurn.setDisable(true);   // one press per turn
+            Sound.play(HomeView.CLICK);
+            endTurn.setImage(SWITCH_OFF);   // the paddle and the lights switch over
+            PauseTransition wait = new PauseTransition(Duration.millis(200));
+            wait.setOnFinished(f -> onEndTurn.run());
+            wait.play();
+        });
         table.getChildren().addAll(bg, live, endTurn, yourClock, enemyClock);
         getChildren().add(table);
         setStyle("-fx-background-color: black;");
@@ -111,6 +131,7 @@ public class BoardView extends Pane {
     /** Redraws everything that changes during a match: heroes, minions, Ki and decks. */
     public void render() {
         live.getChildren().clear();
+        if (izakaya) props();
         nodes.clear();
         status.clear();
         hero(enemy.getHero(), enemyPortrait, 107, false);
@@ -135,7 +156,9 @@ public class BoardView extends Pane {
         text.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 96; -fx-font-weight: bold; -fx-text-alignment: center; -fx-text-fill: "
                 + (won ? "#ffd84a" : "#c41e1e") + ";");
         text.setEffect(new DropShadow(30, Color.BLACK));
-        table.getChildren().add(new StackPane(new Rectangle(W, H, Color.rgb(0, 0, 0, 0.6)), text));
+        StackPane end = new StackPane(new Rectangle(W, H, Color.rgb(0, 0, 0, 0.6)), text);
+        end.setOnMousePressed(e -> onGameOver.run());
+        table.getChildren().add(end);
     }
 
     /** Both chess clocks: the active one is big and bright, the other small and grey (GDD). */
@@ -169,10 +192,12 @@ public class BoardView extends Pane {
     /** Dims, with a slow pulse, the part of your available Ki that a hovered card or power would cost (0 = none). */
     public void previewCost(int cost) { ki.preview(cost); }
 
-    public Button getEndTurn() { return endTurn; }
+    public void setOnEndTurn(Runnable r) { onEndTurn = r; }
 
     /** Hotseat: the other player now sits at the bottom (their hand, Ki and hero power) and the board flips. */
     public void swapSides() {
+        endTurn.setImage(SWITCH_ON);
+        endTurn.setDisable(false);
         Player p = you;
         you = enemy;
         enemy = p;
@@ -472,5 +497,20 @@ public class BoardView extends Pane {
         t.playFrom(Duration.seconds(Math.random() * 1.4));
         n.getProperties().put("float", t);
         n.sceneProperty().addListener((o, was, now) -> { if (now == null) t.stop(); });
+    }
+
+    /** Izakaya: the dice, sake flask and cups lie on the table; click one to make it jiggle. */
+    private void props() {
+        for (String p : PROPS) {
+            String[] a = p.split(" ");
+            ImageView v = image("/images/boards/izakaya/" + a[0] + ".png");
+            Rotate r = new Rotate(0, v.getImage().getWidth() / 2, v.getImage().getHeight());   // tilts on its base
+            v.getTransforms().add(r);
+            v.setOnMouseClicked(e -> new Timeline(new KeyFrame(Duration.millis(80), new KeyValue(r.angleProperty(), -5)),
+                    new KeyFrame(Duration.millis(170), new KeyValue(r.angleProperty(), 4)),
+                    new KeyFrame(Duration.millis(250), new KeyValue(r.angleProperty(), -2)),
+                    new KeyFrame(Duration.millis(320), new KeyValue(r.angleProperty(), 0))).play());
+            place(v, Double.parseDouble(a[1]), Double.parseDouble(a[2]));
+        }
     }
 }
