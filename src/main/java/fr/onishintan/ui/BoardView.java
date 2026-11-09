@@ -193,6 +193,8 @@ public class BoardView extends Pane {
     public void previewCost(int cost) { ki.preview(cost); }
 
     public void setOnEndTurn(Runnable r) { onEndTurn = r; }
+    /** Start of a match: the class's Oath choice covers the table until one is sworn (GDD, Oaths). */
+    public void chooseOath(HeroClass c, Consumer<String> onSworn) { table.getChildren().add(new OathView(c, onSworn)); }
 
     /** Hotseat: the other player now sits at the bottom (their hand, Ki and hero power) and the board flips. */
     public void swapSides() {

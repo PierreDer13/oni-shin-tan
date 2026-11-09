@@ -95,7 +95,8 @@ public class CardView extends Group {
 
     /** The card's art, or the blank frame of its class while the art is missing. */
     private Image art() {
-        InputStream in = getClass().getResourceAsStream("/images/cards/" + card.getId() + ".png");
+        String folder = card.getHeroClass().name().charAt(0) + card.getHeroClass().name().substring(1).toLowerCase();
+        InputStream in = getClass().getResourceAsStream("/images/cards/" + folder + "/" + card.getId() + ".png");
         if (in == null) in = getClass().getResourceAsStream("/images/frames/" + card.getHeroClass().name().toLowerCase() + "-base-card.png");
         return new Image(in);
     }

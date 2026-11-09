@@ -74,6 +74,7 @@ public class OniShinTanApp extends Application {
             board.passTo(turns.getState().active().getName());
         });
         board.setOnGameOver(() -> onEnd.accept(!p1.getHero().isDead()));
+        board.chooseOath(yours, o1 -> { board.chooseOath(theirs, o2 -> board.passTo(p1.getName())); board.passTo(p2.getName()); });
         return board;
     }
 
