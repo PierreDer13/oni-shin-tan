@@ -31,7 +31,6 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 
 import javafx.scene.Node;
-import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.Labeled;
 import javafx.scene.control.Tooltip;
@@ -77,10 +76,11 @@ public class BoardView extends Pane {
     private KiBarView ki;
     private Player kiOwner;   // who the Ki bar showed at the last redraw, and how much Ki they had
     private int kiBefore;
-    private final Button endTurn = hud(new Button("END TURN"), 1381, 392, 190, 84, 26);
-    private final Label yourClock = hud(new Label(), 1381, 500, 190, 71, 30);
+    private final ImageView endTurn = image("/images/hud/end-turn.png");
+    private Runnable onEndTurn = () -> {};
+    private final Label yourClock = hud(new Label(), 1381, 545, 190, 71, 30);
     private Consumer<Card> onTrade = c -> {};
-    private final Label enemyClock = hud(new Label(), 1381, 301, 190, 71, 30);
+    private final Label enemyClock = hud(new Label(), 1381, 255, 190, 71, 30);
     private BiConsumer<Card, Integer> onPlay = (c, slot) -> {};
 
     private boolean powerUsed;
@@ -108,7 +108,16 @@ public class BoardView extends Pane {
         };
         widthProperty().addListener(fit);
         heightProperty().addListener(fit);
-        endTurn.setEffect(new DropShadow(25, Color.GOLD));
+        endTurn.setFitHeight(200);
+        endTurn.setPreserveRatio(true);
+        endTurn.relocate(1415, 335);
+        endTurn.setOnMousePressed(e -> {
+            endTurn.setDisable(true);   // one press per turn
+            Sound.play(HomeView.CLICK);
+            Timeline flip = new Timeline(new KeyFrame(Duration.millis(200), new KeyValue(endTurn.scaleYProperty(), -1)));
+            flip.setOnFinished(f -> onEndTurn.run());
+            flip.play();
+        });
         table.getChildren().addAll(bg, live, endTurn, yourClock, enemyClock);
         getChildren().add(table);
         setStyle("-fx-background-color: black;");
@@ -179,10 +188,12 @@ public class BoardView extends Pane {
     /** Dims, with a slow pulse, the part of your available Ki that a hovered card or power would cost (0 = none). */
     public void previewCost(int cost) { ki.preview(cost); }
 
-    public Button getEndTurn() { return endTurn; }
+    public void setOnEndTurn(Runnable r) { onEndTurn = r; }
 
     /** Hotseat: the other player now sits at the bottom (their hand, Ki and hero power) and the board flips. */
     public void swapSides() {
+        endTurn.setScaleY(1);
+        endTurn.setDisable(false);
         Player p = you;
         you = enemy;
         enemy = p;

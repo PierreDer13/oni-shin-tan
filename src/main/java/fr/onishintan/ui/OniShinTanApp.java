@@ -68,7 +68,7 @@ public class OniShinTanApp extends Application {
         });
         board.setOnPower(() -> turns.getState().active().spendKi(HeroPowerView.COST));
         board.setOnTrade(card -> { turns.swapCard(card); board.render(); });
-        board.getEndTurn().setOnAction(e -> {
+        board.setOnEndTurn(() -> {
             turns.endTurn();
             board.swapSides();
             board.passTo(turns.getState().active().getName());
