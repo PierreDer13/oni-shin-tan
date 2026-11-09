@@ -2,15 +2,21 @@ package fr.onishintan.ui;
 
 import fr.onishintan.model.Card;
 import fr.onishintan.model.HeroClass;
+import fr.onishintan.model.Keyword;
+import fr.onishintan.model.MinionCard;
+import fr.onishintan.model.Rarity;
 
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import javafx.util.Duration;
 
+import javafx.animation.ScaleTransition;
 import javafx.beans.InvalidationListener;
 import javafx.geometry.Pos;
 import javafx.scene.Group;
@@ -43,6 +49,16 @@ public class AdventureSelectView extends Pane {
     /** The run's upgrades (GDD): name, effect. */
     private static final String[][] UPGRADES = { { "命 Inochi", "Hero max HP +30" },
             { "力 Chikara", "Minions and weapons +3 ATK, spells +3 damage" }, { "速さ Hayasa", "Your cards cost 1 Ki less (min 1)" } };
+    /** Each class's reward for finishing its Adventure (GDD, Yokai and kami). */
+    private static final Map<HeroClass, Card> KAMI = Map.of(
+            HeroClass.NINJA, new MinionCard("tsukuyomi", "Tsukuyomi", "月読", "つくよみ", 8, Rarity.LEGENDARY, HeroClass.NINJA,
+                    "Shinobi. Banzai: your other minions gain Shinobi", "", 12, 10, Set.of(Keyword.SHINOBI, Keyword.BANZAI)),
+            HeroClass.SAMURAI, new MinionCard("takemikazuchi", "Takemikazuchi", "建御雷", "たけみかづち", 8, Rarity.LEGENDARY, HeroClass.SAMURAI,
+                    "Tatakae. Banzai: equip your hero with Futsu-no-mitama (10/2)", "", 10, 9, Set.of(Keyword.TATAKAE, Keyword.BANZAI)),
+            HeroClass.KANNUSHI, new MinionCard("okuninushi", "Ōkuninushi", "大国主", "おおくにぬし", 8, Rarity.LEGENDARY, HeroClass.KANNUSHI,
+                    "Banzai: heal all friendly characters for 10", "", 11, 12, Set.of(Keyword.BANZAI)),
+            HeroClass.ONI, new MinionCard("izanami", "Izanami", "伊邪那美", "いざなみ", 9, Rarity.LEGENDARY, HeroClass.ONI,
+                    "Banzai: return your 2 highest-cost dead minions to the board", "", 11, 11, Set.of(Keyword.BANZAI)));
 
     /** Shows the run map for this class after `won` victories. */
     static void open(SceneRouter router, HeroClass c, int won, List<String> picked) {
@@ -89,6 +105,7 @@ public class AdventureSelectView extends Pane {
         list.relocate(1185, 185);
         deckList();
         for (int i = 0; i < ADVENTURES.length; i++) panel(router, i);
+        if (won == 3) reward(router);
         getChildren().add(grid);
         setStyle("-fx-background-color: black;");
     }
@@ -106,6 +123,22 @@ public class AdventureSelectView extends Pane {
             });
             box.getChildren().add(b);
         }
+        grid.getChildren().add(new StackPane(new Rectangle(W, H, Color.rgb(0, 0, 0, 0.8)), box));
+    }
+
+    /** Finishing the run: the class's kami grows into view (GDD, Reward); Claim goes back Home. */
+    private void reward(SceneRouter router) {
+        CardView card = new CardView(KAMI.get(heroClass), 300);
+        ScaleTransition grow = new ScaleTransition(Duration.millis(700), card);
+        grow.setFromX(0);
+        grow.setFromY(0);
+        grow.setToX(1);
+        grow.setToY(1);
+        grow.play();
+        Label claim = text("受領  CLAIM", 30);
+        HomeView.clickable(claim, false, () -> router.goTo(Screen.HOME));
+        VBox box = new VBox(24, text("報酬  REWARD", 40), card, claim);
+        box.setAlignment(Pos.CENTER);
         grid.getChildren().add(new StackPane(new Rectangle(W, H, Color.rgb(0, 0, 0, 0.8)), box));
     }
 
