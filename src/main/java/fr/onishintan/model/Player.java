@@ -26,6 +26,7 @@ public class Player {
     private int ki;
     private int maxKi;
     private Oath oath;          // null in Adventure, or before the Oath is sworn
+    private final List<TrapCard> traps = new ArrayList<>();   // face down, no limit (GDD)
 
 
     public Player(String name, Hero hero, Deck deck) {
@@ -98,6 +99,34 @@ public class Player {
         if (hand.size() < MAX_HAND)
             hand.add(c);
     }
+
+        /** False if the same trap is already set: one copy per trap (GDD). */
+    public boolean canSetTrap(TrapCard trap) {
+        return traps.stream().noneMatch(t -> t.getId().equals(trap.getId()));
+    }
+
+    public boolean setTrap(TrapCard trap) {
+        if (!canSetTrap(trap)) return false;
+        traps.add(trap);
+        return true;
+    }
+
+    /** Removes and returns the first set trap with this trigger, if any. */
+    public Optional<TrapCard> takeTrap(TrapTrigger when) {
+        for (TrapCard t : traps) {
+            if (t.getTrigger() == when) {
+                traps.remove(t);
+                return Optional.of(t);
+            }
+        }
+        return Optional.empty();
+    }
+
+    /** What the enemy may see: how many, not which. */
+    public int trapCount() { return traps.size(); }
+
+    /** The owner's traps. The enemy (UI or AI) must only use trapCount(). */
+    public List<TrapCard> getTraps() { return Collections.unmodifiableList(traps); }
 
     public String getName() {
         return name;
