@@ -226,17 +226,14 @@ public class BoardView extends Pane {
     public void chooseOath(HeroClass c, Consumer<String> onSworn) { table.getChildren().add(new OathView(c, onSworn)); }
 
     private final Map<Player, String> oaths = new HashMap<>();
-    private final Map<Player, Integer> stacks = new HashMap<>();
     /** Records the Oath a player swore; it then shows next to their hero. */
     public void swear(Player p, String oath) { oaths.put(p, oath); render(); }
-    /** +1 Oath stack (max 9) for a player who kept their rule this turn. */
-    public void addStack(Player p) { stacks.merge(p, 1, (a, b) -> Math.min(9, a + b)); }
 
     /** The sworn Oath as a small stamped scroll right of the hero power; hover it to reread it (an enemy Ninja's stays hidden below 3 stacks). */
     private void oath(Player p, double zoneY) {
         if (!oaths.containsKey(p)) return;
         HeroClass c = p.getHero().getHeroClass();
-        boolean hidden = p == enemy && c == HeroClass.NINJA && stacks.getOrDefault(p, 0) < 3;
+        boolean hidden = p == enemy && c == HeroClass.NINJA && stacksOf(p) < 3;
         StackPane mini = OathView.mini(c, oaths.get(p), hidden);
         place(mini, 1120, zoneY - 15);
         bigOnHover(mini, () -> OathView.sworn(c, oaths.get(p)), 850, 80);
@@ -245,7 +242,7 @@ public class BoardView extends Pane {
     /** Your Oath stacks, bottom left: 9 marks, the 3 / 6 / 9 reward marks bigger with a gold ring; earned marks are red. */
     private void stackCounter() {
         if (!oaths.containsKey(you)) return;
-        int n = stacks.getOrDefault(you, 0);
+        int n = stacksOf(you);
         for (int i = 1; i <= 9; i++) {
             Circle c = new Circle(i % 3 == 0 ? 11 : 7, i <= n ? Color.web("#c41e1e") : Color.rgb(0, 0, 0, 0.35));
             c.setStroke(i % 3 == 0 ? Color.GOLD : Color.web("#f3ede1"));
@@ -253,6 +250,14 @@ public class BoardView extends Pane {
             place(c, 40 + i * 30, 840);
         }
         place(hud(new Label("誓 " + n + " / 9"), 0, 0, 90, 30, 16), 340, 829);
+    }
+
+    /** The player's Oath stacks, read from the engine's Oath (0 before an Oath is sworn). */
+    private int stacksOf(Player p) {
+        if (p.getOath() == null) {
+            return 0;
+        }
+        return p.getOath().getStacks();
     }
 
     /** Hotseat: the other player now sits at the bottom (their hand, Ki and hero power) and the board flips. */
