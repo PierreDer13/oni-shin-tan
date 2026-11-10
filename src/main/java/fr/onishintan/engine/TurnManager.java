@@ -5,6 +5,8 @@ import fr.onishintan.model.Minion;
 import fr.onishintan.model.Player;
 import fr.onishintan.model.Status;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
@@ -12,7 +14,7 @@ import java.util.Random;
 /**
  * Runs the match order from the GDD:
  * start of match (shuffle, opening hands), then for each turn
- * start (max Ki +1, Ki refilled, reset characters, draw 1), main phase, end.
+ * start (max Ki +1, Ki refilled, reset characters, draw 2), main phase, end.
  * Mulligan, chess clock and start/end-of-turn effects plug in later.
  */
 public class TurnManager {
@@ -20,6 +22,8 @@ public class TurnManager {
     public static final int OPENING_HAND_SECOND = 7;
     /** Extra Ki on the second player's first turn only (GDD, proposed). */
     public static final int SECOND_PLAYER_BONUS_KI = 1;
+    /** Cards drawn at the start of every turn (GDD, 10 Nov). */
+    public static final int DRAW_PER_TURN = 2;
 
     private final GameState state;
     private final Random rng;
@@ -53,10 +57,10 @@ public class TurnManager {
     }
 
     /**
-     * Start of the active player's turn. Returns the card drawn,
-     * or empty if the deck was out or the hand full (card burned).
+     * Start of the active player's turn. Returns one entry per draw (DRAW_PER_TURN):
+     * the card drawn, or empty if the deck was out or the hand full (card burned).
      */
-    public Optional<Card> startTurn() {
+    public List<Optional<Card>> startTurn() {
         checkPlaying();
         Player p = state.active();
 
@@ -75,16 +79,18 @@ public class TurnManager {
 
         // 3. Start-of-turn effects: added with features/engine-events
 
-        // 4. Draw 1 card. Empty deck: fatigue still to be defined in the GDD, nothing
-        // happens for now
-        return p.draw();
+        // 4. Draw DRAW_PER_TURN cards. Empty deck: fatigue still to be defined in the GDD
+        List<Optional<Card>> drawn = new ArrayList<>(DRAW_PER_TURN);
+        for (int i = 0; i < DRAW_PER_TURN; i++)
+            drawn.add(p.draw());
+        return drawn;
     }
 
     /**
-     * Ends the active player's turn and starts the opponent's. Returns the card
-     * they drew.
+     * Ends the active player's turn and starts the opponent's. Returns the cards
+     * they drew (one entry per draw, see startTurn).
      */
-    public Optional<Card> endTurn() {
+    public List<Optional<Card>> endTurn() {
         checkPlaying();
         // End-of-turn effects (engine-events) and the clock's +2 s (engine-clock) go
         // here
@@ -94,7 +100,8 @@ public class TurnManager {
 
     /**
      * Once per turn, the active player may put a card from hand back into the deck
-     * (random place) and draw one. Returns false if not allowed.
+     * (random place) and draw one, whatever the card's Ki cost. Returns false if
+     * not allowed.
      */
     public boolean swapCard(Card card) {
         checkPlaying();
