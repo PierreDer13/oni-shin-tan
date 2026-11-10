@@ -8,8 +8,7 @@ public record GameEvent(Type type, Object source, Object target, int amount) {
 
     public enum Type {
         MATCH_STARTED, TURN_STARTED, TURN_ENDED,
-        CARD_DRAWN, CARD_BURNED, CARD_PLAYED, CARD_TRADED,
-        MINION_SUMMONED, MINION_DIED,
+        CARD_DRAWN, CARD_BURNED, CARD_PLAYED, CARD_TRADED, SPELL_CAST,        MINION_SUMMONED, MINION_DIED,
         ATTACK, DAMAGE, HEAL,
         ARMOUR_GAINED, ARMOUR_BROKEN,
         KEYWORD_LOST,               // Torii cut, Shirodu cut, Shinobi revealed
