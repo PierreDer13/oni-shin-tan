@@ -7,6 +7,8 @@ import fr.onishintan.model.Minion;
 import fr.onishintan.model.MinionCard;
 import fr.onishintan.model.Player;
 import fr.onishintan.model.SpellCard;
+import fr.onishintan.model.Oath;
+import fr.onishintan.model.OathType;
 import fr.onishintan.model.Weapon;
 import fr.onishintan.model.WeaponCard;
 
@@ -29,6 +31,9 @@ public class GameEngine {
     private final EventBus bus = new EventBus();
     private final CardEffects cardEffects = new CardEffects();
     private final List<GameListener> listeners = new ArrayList<>();
+    private final TurnTracker turnTracker = new TurnTracker();
+    private final OathRules oathRules = new OathRules();
+
 
     public GameEngine(Player first, Player second, Random rng) {
         this.state = new GameState(first, second);
@@ -42,6 +47,10 @@ public class GameEngine {
                 e -> runForBoard(Trigger.TURN_START, (Player) e.source()));
         bus.subscribe(GameEvent.Type.TURN_ENDED,
                 e -> runForBoard(Trigger.TURN_END, (Player) e.source()));
+        bus.subscribe(GameEvent.Type.TURN_STARTED,
+             e -> turnTracker.reset());
+        bus.subscribe(GameEvent.Type.CARD_PLAYED,
+             e -> turnTracker.cardPlayed((Card) e.target()));
     }
 
     // ---------- listeners ----------
@@ -74,10 +83,12 @@ public class GameEngine {
         publish(GameEvent.of(GameEvent.Type.TURN_STARTED, p, null));
     }
 
-    /** Ends the active turn and starts the opponent's. */
+        /** Ends the active turn (end-of-turn effects, then the Oath) and starts the opponent's. */
     public void endTurn() {
         Player ending = state.active();
         publish(GameEvent.of(GameEvent.Type.TURN_ENDED, ending, null));
+        resolveOath(ending);
+        if (state.isOver()) return;           // an Oath break can kill its own hero
         Optional<Card> drawn = turns.endTurn();
         Player next = state.active();
         publishDraw(next, drawn);
@@ -90,6 +101,55 @@ public class GameEngine {
         boolean ok = turns.swapCard(card);
         if (ok) publish(GameEvent.of(GameEvent.Type.CARD_TRADED, p, card));
         return ok;
+    }
+
+    
+    // ---------- oaths (PvP only) ----------
+
+    /** Before the mulligan. False if already sworn or the Oath is not of the hero's class. */
+    public boolean swearOath(Player p, OathType type) {
+        if (p.getOath() != null || type.getHeroClass() != p.getHero().getHeroClass()) return false;
+        Oath oath = new Oath(type);
+        p.setOath(oath);
+        publish(GameEvent.of(GameEvent.Type.OATH_SWORN, p, oath));
+        return true;
+    }
+
+    /** After 2 turns of Oathbreaker: the same Oath again, from 0 stacks. */
+    public boolean reswearOath(Player p) {
+        Oath oath = p.getOath();
+        if (oath == null || oath.getState() != Oath.State.LAPSED) return false;
+        oath.reswear();
+        publish(GameEvent.of(GameEvent.Type.OATH_SWORN, p, oath));
+        return true;
+    }
+
+    /** End of the owner's turn: Oathbreaker countdown, or the rule check. */
+    private void resolveOath(Player p) {
+        Oath oath = p.getOath();
+        if (oath == null) return;
+
+        if (oath.getState() == Oath.State.OATHBREAKER) {
+            if (oath.tickOathbreaker()) publish(GameEvent.of(GameEvent.Type.OATH_RESTORED, p, oath));
+            return;
+        }
+        if (!oath.isSworn()) return;
+
+        switch (oathRules.get(oath.getType()).check(p, turnTracker, state)) {
+            case KEPT -> {
+                if (oath.addStack()) {
+                    int stacks = oath.getStacks();
+                    publish(new GameEvent(GameEvent.Type.OATH_STACK, p, oath, stacks));
+                    if (stacks % 3 == 0) publish(new GameEvent(GameEvent.Type.OATH_REWARD, p, oath, stacks));
+                }
+            }
+            case BROKEN -> {
+                int damage = oath.getType().getBreakBase() + oath.breakOath();
+                publish(new GameEvent(GameEvent.Type.OATH_BROKEN, p, oath, damage));
+                dealDamage(oath, p.getHero(), damage);
+            }
+            case UNABLE -> { }   // no stack, the Oath holds
+        }
     }
 
     // ---------- combat ----------
@@ -204,6 +264,7 @@ public class GameEngine {
     public GameState getState() { return state; }
     public Player active() { return state.active(); }
     public boolean isSwapUsedThisTurn() { return turns.isSwapUsedThisTurn(); }
+    public TurnTracker getTurnTracker() { return turnTracker; }
 
     // ---------- helpers ----------
 

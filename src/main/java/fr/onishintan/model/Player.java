@@ -24,6 +24,8 @@ public class Player {
     private final BoardSide side = new BoardSide();
     private int ki;
     private int maxKi;
+    private Oath oath;          // null in Adventure, or before the Oath is sworn
+
 
     public Player(String name, Hero hero, Deck deck) {
         this.name = Objects.requireNonNull(name);
@@ -122,5 +124,15 @@ public class Player {
 
     public int getMaxKi() {
         return maxKi;
+    }
+
+
+    /** PvP only. The engine checks the class and the timing (GameEngine.swearOath). */
+    public void setOath(Oath oath) {
+        this.oath = oath;
+    }
+
+    public Oath getOath() {
+        return oath;
     }
 }

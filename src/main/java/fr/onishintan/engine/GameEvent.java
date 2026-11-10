@@ -14,6 +14,11 @@ public record GameEvent(Type type, Object source, Object target, int amount) {
         KEYWORD_LOST,               // Torii cut, Shirodu cut, Shinobi revealed
         WEAPON_EQUIPPED, WEAPON_BROKEN,
         HERO_POWER_USED,
+                OATH_SWORN,                 // source = Player, target = Oath
+        OATH_STACK,                 // amount = stacks now
+        OATH_REWARD,                // amount = 3, 6 or 9
+        OATH_BROKEN,                // amount = damage taken by the owner's hero
+        OATH_RESTORED,              // Oathbreaker over: the player may re-swear
         GAME_OVER                   // target = winning Player, or null for a draw
     }
 
