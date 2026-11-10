@@ -1,4 +1,4 @@
-package fr.onishintan.ui;
+package fr.onishintan.ui.cards;
 
 import fr.onishintan.model.Card;
 import fr.onishintan.model.Keyword;

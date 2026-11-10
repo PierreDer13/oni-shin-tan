@@ -1,4 +1,4 @@
-package fr.onishintan.ui;
+package fr.onishintan.ui.app;
 
 import java.util.EnumMap;
 import java.util.Map;

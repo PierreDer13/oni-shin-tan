@@ -1,4 +1,4 @@
-package fr.onishintan.ui;
+package fr.onishintan.ui.cards;
 
 import fr.onishintan.model.Minion;
 

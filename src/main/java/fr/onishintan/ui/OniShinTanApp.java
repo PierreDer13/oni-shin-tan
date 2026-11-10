@@ -1,4 +1,12 @@
 package fr.onishintan.ui;
+import fr.onishintan.ui.match.BoardView;
+import fr.onishintan.ui.match.HeroPowerView;
+import fr.onishintan.ui.cards.CardView;
+import fr.onishintan.ui.screens.HomeView;
+import fr.onishintan.ui.screens.ClassSelectView;
+import fr.onishintan.ui.app.SceneRouter;
+import fr.onishintan.ui.app.Screen;
+import fr.onishintan.ui.app.Sound;
 
 import java.util.List;
 import java.util.Map;
@@ -43,7 +51,7 @@ public class OniShinTanApp extends Application {
             HeroClass.KANNUSHI, "kada-no-azumamaro", HeroClass.ONI, "shuten-doji");
 
     /** A hotseat match: you play first, at the bottom; at the end, onEnd gets whether you won. */
-    static BoardView match(String boardName, HeroClass yours, HeroClass theirs, Consumer<Boolean> onEnd) {
+    public static BoardView match(String boardName, HeroClass yours, HeroClass theirs, Consumer<Boolean> onEnd) {
         Player p1 = MockCards.player("Kayne", yours, 0), p2 = MockCards.player(theirs.name(), theirs, 0);
         for (Player p : List.of(p1, p2)) if (p.getHero().getHeroClass() == HeroClass.SAMURAI) p.getHero().gainArmour(10);   // Gusoku (GDD), until the engine applies it
         TurnManager turns = new TurnManager(new GameState(p1, p2), new Random());

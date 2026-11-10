@@ -1,4 +1,4 @@
-package fr.onishintan.ui;
+package fr.onishintan.ui.fx;
 
 import javafx.animation.AnimationTimer;
 import javafx.animation.Interpolator;
@@ -22,11 +22,11 @@ import javafx.util.Duration;
 import javafx.scene.Group;
 
 /** Combat effects on the board (GDD, "Match: cards on the board"). Positions are in the layer's own space. */
-final class Fx {
+public final class Fx {
     private Fx() {}
 
     /** The attacker grows and hovers, lunges most of the way to the target, then glides back; hit runs on impact. */
-    static void attack(Node a, Node t, Runnable hit) {
+    public static void attack(Node a, Node t, Runnable hit) {
         double dx = t.getBoundsInParent().getCenterX() - a.getBoundsInParent().getCenterX();
         double dy = t.getBoundsInParent().getCenterY() - a.getBoundsInParent().getCenterY();
         a.setViewOrder(-1);
@@ -44,7 +44,7 @@ final class Fx {
     }
 
     /** A quick white slash across the target, drawn from its top-right to its bottom-left corner, then fading. */
-    static void slash(Pane layer, Node t) {
+    public static void slash(Pane layer, Node t) {
         Bounds b = t.getBoundsInParent();
         Line l = new Line(b.getMaxX(), b.getMinY(), b.getMaxX(), b.getMinY());
         l.setStroke(Color.WHITE);
@@ -60,7 +60,7 @@ final class Fx {
     }
 
     /** A big red "-N" that pops up over a character, then floats up and fades out over 1 second. */
-    static void damageNumber(Pane layer, Node over, int amount) {
+    public static void damageNumber(Pane layer, Node over, int amount) {
         if (amount <= 0) return;
         Label l = new Label("-" + amount);
         l.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 72; -fx-font-weight: bold; -fx-text-fill: #e0201a; -fx-alignment: center;");
@@ -84,7 +84,7 @@ final class Fx {
     }
 
     /** The card is cut in half diagonally: both halves slide apart, tilt and fade, then the card is gone. */
-    static void deathCut(Pane layer, Node card) {
+    public static void deathCut(Pane layer, Node card) {
         Bounds b = layer.sceneToLocal(card.localToScene(card.getBoundsInLocal()));
         SnapshotParameters sp = new SnapshotParameters();
         sp.setFill(Color.TRANSPARENT);
@@ -107,7 +107,7 @@ final class Fx {
     }
 
     /** A burst of hot sparks from the middle of a node: glowing dots fly out in every direction, drop a little and fade. */
-    static void sparks(Pane layer, Node over) {
+    public static void sparks(Pane layer, Node over) {
         Bounds b = layer.sceneToLocal(over.localToScene(over.getBoundsInLocal()));
         for (int i = 0; i < 28; i++) {
             Circle s = new Circle(b.getCenterX(), b.getCenterY(), 1.5 + Math.random() * 2.5, Color.web(Math.random() < 0.5 ? "#ffd84a" : "#ff8a1f"));
@@ -127,7 +127,7 @@ final class Fx {
 
     /** A Torii gate drops slowly from the sky onto a card; on landing, onLand runs (a small screen shake)
      *  and the gate rocks a few times, then settles at its own opacity. */
-    static void drop(Node g, Runnable onLand) {
+    public static void drop(Node g, Runnable onLand) {
         double end = g.getOpacity();
         g.setTranslateY(-700);
         g.setOpacity(0);
@@ -144,7 +144,7 @@ final class Fx {
 
     /** A hanging banner, w wide: the top `rod` px of the image (the rod) stay still, the cloth below is cut in 10 px
      *  strips that sway side to side, more towards the bottom, like a light breeze. Stops when removed from the screen. */
-    static Group waving(Image img, double w, double rod) {
+    public static Group waving(Image img, double w, double rod) {
         double k = w / img.getWidth(), step = 10, phase = Math.random() * 10;
         Group g = new Group();
         for (double sy = 0; sy < img.getHeight(); sy += sy == 0 ? rod : step) {

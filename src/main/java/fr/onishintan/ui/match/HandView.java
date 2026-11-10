@@ -1,4 +1,6 @@
-package fr.onishintan.ui;
+package fr.onishintan.ui.match;
+import fr.onishintan.ui.fx.Anim;
+import fr.onishintan.ui.cards.CardView;
 
 import fr.onishintan.model.BoardSide;
 import fr.onishintan.model.Card;

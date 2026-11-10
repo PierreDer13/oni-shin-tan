@@ -1,4 +1,10 @@
-package fr.onishintan.ui;
+package fr.onishintan.ui.screens;
+import fr.onishintan.ui.cards.CardView;
+import fr.onishintan.ui.fx.Fx;
+import fr.onishintan.ui.app.SceneRouter;
+import fr.onishintan.ui.app.Screen;
+import fr.onishintan.ui.MockCards;
+import fr.onishintan.ui.OniShinTanApp;
 
 import fr.onishintan.model.Card;
 import fr.onishintan.model.HeroClass;
