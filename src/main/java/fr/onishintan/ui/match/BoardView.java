@@ -6,6 +6,7 @@ import fr.onishintan.ui.screens.HomeView;
 import fr.onishintan.ui.app.Sound;
 
 import fr.onishintan.model.Hero;
+import fr.onishintan.model.BoardSide;
 import fr.onishintan.model.HeroClass;
 import fr.onishintan.model.Keyword;
 import fr.onishintan.model.Card;
@@ -225,17 +226,14 @@ public class BoardView extends Pane {
     public void chooseOath(HeroClass c, Consumer<String> onSworn) { table.getChildren().add(new OathView(c, onSworn)); }
 
     private final Map<Player, String> oaths = new HashMap<>();
-    private final Map<Player, Integer> stacks = new HashMap<>();
     /** Records the Oath a player swore; it then shows next to their hero. */
     public void swear(Player p, String oath) { oaths.put(p, oath); render(); }
-    /** +1 Oath stack (max 9) for a player who kept their rule this turn. */
-    public void addStack(Player p) { stacks.merge(p, 1, (a, b) -> Math.min(9, a + b)); }
 
     /** The sworn Oath as a small stamped scroll right of the hero power; hover it to reread it (an enemy Ninja's stays hidden below 3 stacks). */
     private void oath(Player p, double zoneY) {
         if (!oaths.containsKey(p)) return;
         HeroClass c = p.getHero().getHeroClass();
-        boolean hidden = p == enemy && c == HeroClass.NINJA && stacks.getOrDefault(p, 0) < 3;
+        boolean hidden = p == enemy && c == HeroClass.NINJA && stacksOf(p) < 3;
         StackPane mini = OathView.mini(c, oaths.get(p), hidden);
         place(mini, 1120, zoneY - 15);
         bigOnHover(mini, () -> OathView.sworn(c, oaths.get(p)), 850, 80);
@@ -244,7 +242,7 @@ public class BoardView extends Pane {
     /** Your Oath stacks, bottom left: 9 marks, the 3 / 6 / 9 reward marks bigger with a gold ring; earned marks are red. */
     private void stackCounter() {
         if (!oaths.containsKey(you)) return;
-        int n = stacks.getOrDefault(you, 0);
+        int n = stacksOf(you);
         for (int i = 1; i <= 9; i++) {
             Circle c = new Circle(i % 3 == 0 ? 11 : 7, i <= n ? Color.web("#c41e1e") : Color.rgb(0, 0, 0, 0.35));
             c.setStroke(i % 3 == 0 ? Color.GOLD : Color.web("#f3ede1"));
@@ -252,6 +250,14 @@ public class BoardView extends Pane {
             place(c, 40 + i * 30, 840);
         }
         place(hud(new Label("誓 " + n + " / 9"), 0, 0, 90, 30, 16), 340, 829);
+    }
+
+    /** The player's Oath stacks, read from the engine's Oath (0 before an Oath is sworn). */
+    private int stacksOf(Player p) {
+        if (p.getOath() == null) {
+            return 0;
+        }
+        return p.getOath().getStacks();
     }
 
     /** Hotseat: the other player now sits at the bottom (their hand, Ki and hero power) and the board flips. */
@@ -333,23 +339,45 @@ public void passTo(String name, Runnable onReady) {
         return node;
     }
 
-    /** One side's minions in slots 1 to 7, left to right, each clickable for attacks. */
+    /** One side's 7 fixed slots, left to right. Each minion is drawn in the slot it was dropped on; empty slots stay empty. */
     private void row(Player p, double y) {
-        List<Minion> minions = p.getSide().getMinions();
-        for (int i = 0; i < minions.size(); i++) {
-            double x = SLOT_X + 2 + i * SLOT_STEP;
+        for (int slot = 0; slot < BoardSide.MAX; slot++) {
+            Minion minion = p.getSide().getAt(slot);
+            if (minion == null) {
+                continue;   // empty slot: nothing to draw
+            }
+
+            double x = SLOT_X + 2 + slot * SLOT_STEP;
             groundShadow(x, y);
-            MinionView v = new MinionView(minions.get(i), MINION_W);
-            clickable(v, minions.get(i), p == you);
-            if (minions.get(i).isHidden() && v.getEffect() == null) v.setEffect(new ColorAdjust(0, -0.4, -0.45, 0));
-            readable(v, minions.get(i), x, y, i >= 4);
-            place(v, x, y);
-            status.follow(v);
-            if (minions.get(i).hasKeyword(Keyword.PASSIVE)) status.flag(minions.get(i), x, y);
-            if (minions.get(i).hasTorii()) status.gate("torii", minions.get(i), x, y);
-            if (minions.get(i).hasKeyword(Keyword.SHIRODU)) status.gate("shirodu", minions.get(i), x, y);
-            if (minions.get(i).isHidden()) status.shinobi(x, y);
-            if (minions.get(i).hasKeyword(Keyword.SEPPUKU)) status.seppuku(x, y);
+
+            MinionView view = new MinionView(minion, MINION_W);
+            clickable(view, minion, p == you);
+            if (minion.isHidden() && view.getEffect() == null) {
+                view.setEffect(new ColorAdjust(0, -0.4, -0.45, 0));   // Shinobi: darkened while hidden
+            }
+
+            // The big preview opens on the left for the right-hand slots, so it stays on screen.
+            boolean rightHandSlot = slot >= 4;
+            readable(view, minion, x, y, rightHandSlot);
+            place(view, x, y);
+
+            // Keyword overlays. follow() makes them move with the card when it attacks.
+            status.follow(view);
+            if (minion.hasKeyword(Keyword.PASSIVE)) {
+                status.flag(minion, x, y);
+            }
+            if (minion.hasTorii()) {
+                status.gate("torii", minion, x, y);
+            }
+            if (minion.hasKeyword(Keyword.SHIRODU)) {
+                status.gate("shirodu", minion, x, y);
+            }
+            if (minion.isHidden()) {
+                status.shinobi(x, y);
+            }
+            if (minion.hasKeyword(Keyword.SEPPUKU)) {
+                status.seppuku(x, y);
+            }
         }
     }
 

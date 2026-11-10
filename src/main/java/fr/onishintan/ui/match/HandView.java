@@ -154,8 +154,10 @@ public class HandView extends Group {
         return c;
     }
 
-    /** Whether slot i of your row is empty. */
-    private boolean free(int i) { return i >= player.getSide().size(); }
+    /** Whether slot i of your row is empty. The board has 7 fixed slots: a minion stays where it was dropped. */
+    private boolean free(int i) {
+        return player.getSide().isFree(i);
+    }
 
     /** The hovered card is chosen by the mouse's x only: the whole column above and below a card counts as that card,
      *  so a lifted card never "escapes" the mouse and flickers. */

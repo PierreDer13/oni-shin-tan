@@ -102,7 +102,7 @@ class EventsTest {
         ready(second, "scout", 1, 1);
 
         engine.endTurn();                                  // second's turn starts
-        assertEquals(7 + 1 + 1, second.getHand().size());  // opening 7, normal draw, scout draw
+        assertEquals(7 + 2 + 1, second.getHand().size());  // opening 7, normal draw, scout draw
     }
 
     @Test

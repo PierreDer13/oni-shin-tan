@@ -14,7 +14,8 @@ import java.util.Random;
 public class Player {
     public static final int KI_CAP = 12;
     public static final int MAX_HAND = 12;
-    /** Ki cost of a trade. OPEN: 0 or 1, decided with Kayne on Mon 9 Nov. */
+
+    /** Ki cost of a trade: free, once per turn, whatever the card's own Ki cost (decided 10 Nov). */
     public static final int TRADE_COST = 0;
 
     private final String name;
