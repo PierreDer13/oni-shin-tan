@@ -31,7 +31,7 @@ class CombatResolverTest {
     /** A minion already on the board since last turn (no summoning sickness). */
     private Minion ready(Player owner, String id, int atk, int hp, Keyword... kws) {
         Minion m = new Minion(minionCard(id, atk, hp, kws));
-        owner.getSide().place(m, owner.getSide().size());
+        owner.getSide().place(m, owner.getSide().firstFree());
         m.onTurnStart();
         return m;
     }
@@ -39,7 +39,7 @@ class CombatResolverTest {
     /** A minion played this turn: still asleep. */
     private Minion fresh(Player owner, String id, int atk, int hp, Keyword... kws) {
         Minion m = new Minion(minionCard(id, atk, hp, kws));
-        owner.getSide().place(m, owner.getSide().size());
+        owner.getSide().place(m, owner.getSide().firstFree());
         return m;
     }
 
