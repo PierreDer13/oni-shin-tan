@@ -1,6 +1,5 @@
 package fr.onishintan.engine;
 
-import fr.onishintan.model.BoardSide;
 import fr.onishintan.model.Card;
 import fr.onishintan.model.Combatant;
 import fr.onishintan.model.Hero;
@@ -124,9 +123,8 @@ public class GameEngine {
         if (state.isOver() || !canPlay(card)) return false;
         Player p = state.active();
 
-        // A minion needs room on the board: check before spending anything
-        if (card instanceof MinionCard
-                && (slot < 0 || slot >= BoardSide.MAX || p.getSide().isFull())) {
+        // A minion needs its chosen slot to be free: check before spending anything
+        if (card instanceof MinionCard && !p.getSide().isFree(slot)) {
             return false;
         }
 
