@@ -131,7 +131,7 @@ public class GameEngine {
         }
 
         p.spendKi(card.getKiCost());
-        p.getHand().remove(card);
+        p.removeFromHand(card);
         publish(GameEvent.of(GameEvent.Type.CARD_PLAYED, p, card));
 
         if (card instanceof MinionCard mc) {
