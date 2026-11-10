@@ -1,10 +1,15 @@
 package fr.onishintan.engine;
 
+import fr.onishintan.model.BoardSide;
 import fr.onishintan.model.Card;
 import fr.onishintan.model.Combatant;
-import fr.onishintan.model.Player;
-import fr.onishintan.model.Minion;
 import fr.onishintan.model.Hero;
+import fr.onishintan.model.Minion;
+import fr.onishintan.model.MinionCard;
+import fr.onishintan.model.Player;
+import fr.onishintan.model.SpellCard;
+import fr.onishintan.model.Weapon;
+import fr.onishintan.model.WeaponCard;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -26,19 +31,19 @@ public class GameEngine {
     private final CardEffects cardEffects = new CardEffects();
     private final List<GameListener> listeners = new ArrayList<>();
 
-        public GameEngine(Player first, Player second, Random rng) {
+    public GameEngine(Player first, Player second, Random rng) {
         this.state = new GameState(first, second);
         this.turns = new TurnManager(state, Objects.requireNonNull(rng));
         this.combat = new CombatResolver(state, this::publish);
 
-    // Rule handlers: they run before the UI hears the event
-    bus.subscribe(GameEvent.Type.MINION_DIED,
-            e -> runTrigger(Trigger.SEPPUKU, (Player) e.source(), (Minion) e.target(), null));
-    bus.subscribe(GameEvent.Type.TURN_STARTED,
-            e -> runForBoard(Trigger.TURN_START, (Player) e.source()));
-    bus.subscribe(GameEvent.Type.TURN_ENDED,
-            e -> runForBoard(Trigger.TURN_END, (Player) e.source()));
-}
+        // Rule handlers: they run before the UI hears the event
+        bus.subscribe(GameEvent.Type.MINION_DIED,
+                e -> runTrigger(Trigger.SEPPUKU, (Player) e.source(), (Minion) e.target(), null));
+        bus.subscribe(GameEvent.Type.TURN_STARTED,
+                e -> runForBoard(Trigger.TURN_START, (Player) e.source()));
+        bus.subscribe(GameEvent.Type.TURN_ENDED,
+                e -> runForBoard(Trigger.TURN_END, (Player) e.source()));
+    }
 
     // ---------- listeners ----------
 
@@ -102,7 +107,7 @@ public class GameEngine {
         return ok;
     }
 
-    // ---------- actions still to build ----------
+    // ---------- playing cards ----------
 
     /** True if the active player has the card in hand and enough Ki. */
     public boolean canPlay(Card card) {
@@ -110,9 +115,42 @@ public class GameEngine {
         return card != null && p.getHand().contains(card) && p.canAfford(card.getKiCost());
     }
 
-    /** slot 0-6 for a minion (ignored otherwise), target may be null. TODO engine-facade */
+    /**
+     * slot 0-6 for a minion (ignored otherwise), target may be null.
+     * Publishes CARD_PLAYED, then MINION_SUMMONED / SPELL_CAST / WEAPON_EQUIPPED,
+     * runs Banzai, removes the dead and checks game over.
+     */
     public boolean playCard(Card card, int slot, Combatant target) {
-        throw new UnsupportedOperationException("TODO engine-facade");
+        if (state.isOver() || !canPlay(card)) return false;
+        Player p = state.active();
+
+        // A minion needs room on the board: check before spending anything
+        if (card instanceof MinionCard
+                && (slot < 0 || slot >= BoardSide.MAX || p.getSide().isFull())) {
+            return false;
+        }
+
+        p.spendKi(card.getKiCost());
+        p.removeFromHand(card);
+        publish(GameEvent.of(GameEvent.Type.CARD_PLAYED, p, card));
+
+        if (card instanceof MinionCard mc) {
+            Minion m = new Minion(mc);
+            p.getSide().place(m, slot);
+            publish(GameEvent.of(GameEvent.Type.MINION_SUMMONED, p, m));
+            runTrigger(Trigger.BANZAI, p, m, target);
+        } else if (card instanceof WeaponCard wc) {
+            p.getHero().equip(new Weapon(wc));
+            publish(GameEvent.of(GameEvent.Type.WEAPON_EQUIPPED, p, p.getHero()));
+        } else if (card instanceof SpellCard) {
+            publish(GameEvent.of(GameEvent.Type.SPELL_CAST, p, card));
+            cardEffects.get(card.getId(), Trigger.BANZAI)
+                    .ifPresent(effect -> effect.apply(new EffectContext(this, p, null, target)));
+        }
+
+        combat.removeDead();
+        checkGameOver();
+        return true;
     }
 
     /** Once per turn, cost 2 Ki for now. target may be null. TODO engine-hero-powers */
@@ -120,8 +158,7 @@ public class GameEngine {
         throw new UnsupportedOperationException("TODO engine-hero-powers");
     }
 
-
-        // ---------- triggers and effects ----------
+    // ---------- triggers and effects ----------
 
     /** Runs the effect a minion has for this trigger, if any. */
     void runTrigger(Trigger trigger, Player owner, Minion source, Combatant target) {
@@ -164,7 +201,6 @@ public class GameEngine {
     public CardEffects getCardEffects() { return cardEffects; }
     public EventBus getBus() { return bus; }
 
-    
     // ---------- reading ----------
 
     public GameState getState() { return state; }
