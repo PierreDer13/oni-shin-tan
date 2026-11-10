@@ -184,29 +184,80 @@ public class HandView extends Group {
         getChildren().add(big);
     }
 
-    /** Opening hand: the cards fly in one by one from your deck, flipping from their back to their face. */
+    /** Opening hand: every card in the hand flies in from the deck, one after the other. */
     public void deal() {
-        setMouseTransparent(true);   // no fanning until the last card has landed
-        for (int i = 0; i < cards.size(); i++) {
-            CardView v = cards.get(i);
+        int firstCard = 0;
+        dealFrom(firstCard);
+    }
+
+    /** Start of turn: only the card just drawn (the last one in the hand) flies in from the deck. */
+    public void dealLastCard() {
+        int lastCard = cards.size() - 1;
+        dealFrom(lastCard);
+    }
+
+    /**
+     * Makes the cards fly in from the deck, from index firstIndex to the end of the hand.
+     * Each card leaves the deck face down, flips halfway, and lands face up in its place in the fan.
+     */
+    private void dealFrom(int firstIndex) {
+        // While cards are flying, the hand ignores the mouse, so it doesn't fan out in the middle of the deal.
+        setMouseTransparent(true);
+
+        for (int i = firstIndex; i < cards.size(); i++) {
+            CardView card = cards.get(i);
+
+            // 1. Where the card must land: its place in the fan.
+            double endX = card.getLayoutX();
+            double endY = card.getLayoutY();
+
+            // 2. The halfway point between the deck and that place: this is where the card flips.
+            double midX = (BoardView.DECK_X + endX) / 2;
+            double midY = (BoardView.DECK_Y + endY) / 2;
+
+            // 3. A card back on the deck: it is what you see during the first half of the flight.
             ImageView back = BoardView.image("/images/frames/card-back.png");
             back.setFitWidth(CARD_W);
             back.setPreserveRatio(true);
             back.relocate(BoardView.DECK_X, BoardView.DECK_Y);
             getChildren().add(back);
-            double x = v.getLayoutX(), y = v.getLayoutY(), mx = (x + BoardView.DECK_X) / 2, my = (y + BoardView.DECK_Y) / 2;
-            v.relocate(BoardView.DECK_X, BoardView.DECK_Y);
-            v.setScaleX(0);
-            Timeline t = new Timeline(   // first half: the back flies and turns edge-on; second half: the face turns towards you and lands
-                    new KeyFrame(Duration.millis(200), new KeyValue(back.layoutXProperty(), mx), new KeyValue(back.layoutYProperty(), my),
-                            new KeyValue(back.scaleXProperty(), 0), new KeyValue(v.layoutXProperty(), mx), new KeyValue(v.layoutYProperty(), my),
-                            new KeyValue(v.scaleXProperty(), 0)),
-                    new KeyFrame(Duration.millis(400), new KeyValue(v.layoutXProperty(), x), new KeyValue(v.layoutYProperty(), y),
-                            new KeyValue(v.scaleXProperty(), 1)));
-            t.setDelay(Duration.millis(i * 300));
-            boolean last = i == cards.size() - 1;
-            t.setOnFinished(e -> { getChildren().remove(back); if (last) setMouseTransparent(false); });
-            t.play();
+
+            // 4. The real card starts on the deck too, squashed to zero width so you can't see it.
+            card.relocate(BoardView.DECK_X, BoardView.DECK_Y);
+            card.setScaleX(0);
+
+            // 5. First half (0 to 200 ms): the back flies to the halfway point and narrows to nothing (seen edge-on).
+            //    The card travels with it, still invisible.
+            KeyFrame halfway = new KeyFrame(Duration.millis(200),
+                    new KeyValue(back.layoutXProperty(), midX),
+                    new KeyValue(back.layoutYProperty(), midY),
+                    new KeyValue(back.scaleXProperty(), 0),
+                    new KeyValue(card.layoutXProperty(), midX),
+                    new KeyValue(card.layoutYProperty(), midY),
+                    new KeyValue(card.scaleXProperty(), 0));
+
+            // 6. Second half (200 to 400 ms): the face widens back to full size and lands in its place.
+            KeyFrame landed = new KeyFrame(Duration.millis(400),
+                    new KeyValue(card.layoutXProperty(), endX),
+                    new KeyValue(card.layoutYProperty(), endY),
+                    new KeyValue(card.scaleXProperty(), 1));
+
+            Timeline flight = new Timeline(halfway, landed);
+
+            // 7. Each card leaves 300 ms after the one before it.
+            int positionInDeal = i - firstIndex;
+            flight.setDelay(Duration.millis(positionInDeal * 300));
+
+            // 8. Once the card has landed, remove its back. After the last card, the hand listens to the mouse again.
+            boolean isLastCard = (i == cards.size() - 1);
+            flight.setOnFinished(event -> {
+                getChildren().remove(back);
+                if (isLastCard) {
+                    setMouseTransparent(false);
+                }
+            });
+
+            flight.play();
         }
     }
 }
