@@ -1,4 +1,9 @@
-package fr.onishintan.ui;
+package fr.onishintan.ui.screens;
+import fr.onishintan.ui.fx.Anim;
+import fr.onishintan.ui.fx.Fx;
+import fr.onishintan.ui.app.SceneRouter;
+import fr.onishintan.ui.app.Screen;
+import fr.onishintan.ui.app.Sound;
 
 import javafx.animation.Animation;
 import javafx.animation.AnimationTimer;
@@ -35,7 +40,7 @@ public class HomeView extends Pane {
     private final Pane grid = new Pane();
     private final SceneRouter router;
 
-    static final AudioClip CLICK = Sound.clip("button-click");
+    public static final AudioClip CLICK = Sound.clip("button-click");
 
     public HomeView(SceneRouter router) {
         this.router = router;
@@ -103,7 +108,7 @@ public class HomeView extends Pane {
     }
 
     /** Hover: small dark shadow and 4 % bigger (hanging items grow down from their top). Press: click sound, then the action. */
-    static void clickable(Node v, boolean hanging, Runnable action) {
+    public static void clickable(Node v, boolean hanging, Runnable action) {
         double s = 1.04;
         v.setOnMouseEntered(e -> {
             double down = hanging ? (s - 1) * v.getBoundsInLocal().getHeight() / 2 : 0;

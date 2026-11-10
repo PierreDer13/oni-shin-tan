@@ -1,4 +1,6 @@
-package fr.onishintan.ui;
+package fr.onishintan.ui.match;
+import fr.onishintan.ui.fx.Anim;
+import fr.onishintan.ui.cards.CardView;
 
 import fr.onishintan.model.BoardSide;
 import fr.onishintan.model.Card;
@@ -17,9 +19,13 @@ import javafx.scene.shape.Rectangle;
 import javafx.scene.input.MouseEvent;
 import javafx.animation.Animation;
 import javafx.animation.FadeTransition;
+import javafx.animation.KeyFrame;
+import javafx.animation.KeyValue;
 import javafx.animation.ParallelTransition;
 import javafx.animation.PauseTransition;
+import javafx.animation.Timeline;
 import javafx.animation.TranslateTransition;
+import javafx.scene.image.ImageView;
 import javafx.scene.Node;
 import javafx.scene.shape.Circle;
 import javafx.util.Duration;
@@ -176,5 +182,31 @@ public class HandView extends Group {
         big.setMouseTransparent(true);
         big.relocate(v.getLayoutX() + CARD_W / 2 - 140, 200);
         getChildren().add(big);
+    }
+
+    /** Opening hand: the cards fly in one by one from your deck, flipping from their back to their face. */
+    public void deal() {
+        setMouseTransparent(true);   // no fanning until the last card has landed
+        for (int i = 0; i < cards.size(); i++) {
+            CardView v = cards.get(i);
+            ImageView back = BoardView.image("/images/frames/card-back.png");
+            back.setFitWidth(CARD_W);
+            back.setPreserveRatio(true);
+            back.relocate(BoardView.DECK_X, BoardView.DECK_Y);
+            getChildren().add(back);
+            double x = v.getLayoutX(), y = v.getLayoutY(), mx = (x + BoardView.DECK_X) / 2, my = (y + BoardView.DECK_Y) / 2;
+            v.relocate(BoardView.DECK_X, BoardView.DECK_Y);
+            v.setScaleX(0);
+            Timeline t = new Timeline(   // first half: the back flies and turns edge-on; second half: the face turns towards you and lands
+                    new KeyFrame(Duration.millis(200), new KeyValue(back.layoutXProperty(), mx), new KeyValue(back.layoutYProperty(), my),
+                            new KeyValue(back.scaleXProperty(), 0), new KeyValue(v.layoutXProperty(), mx), new KeyValue(v.layoutYProperty(), my),
+                            new KeyValue(v.scaleXProperty(), 0)),
+                    new KeyFrame(Duration.millis(400), new KeyValue(v.layoutXProperty(), x), new KeyValue(v.layoutYProperty(), y),
+                            new KeyValue(v.scaleXProperty(), 1)));
+            t.setDelay(Duration.millis(i * 300));
+            boolean last = i == cards.size() - 1;
+            t.setOnFinished(e -> { getChildren().remove(back); if (last) setMouseTransparent(false); });
+            t.play();
+        }
     }
 }

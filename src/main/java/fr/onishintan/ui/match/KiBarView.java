@@ -1,4 +1,4 @@
-package fr.onishintan.ui;
+package fr.onishintan.ui.match;
 
 import fr.onishintan.model.Player;
 

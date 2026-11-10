@@ -1,4 +1,4 @@
-package fr.onishintan.ui;
+package fr.onishintan.ui.app;
 
 /** Every screen of the game; SceneRouter shows one at a time. */
 public enum Screen {

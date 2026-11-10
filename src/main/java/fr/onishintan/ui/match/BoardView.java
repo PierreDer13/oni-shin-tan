@@ -1,4 +1,9 @@
-package fr.onishintan.ui;
+package fr.onishintan.ui.match;
+import fr.onishintan.ui.cards.CardView;
+import fr.onishintan.ui.cards.MinionView;
+import fr.onishintan.ui.fx.Fx;
+import fr.onishintan.ui.screens.HomeView;
+import fr.onishintan.ui.app.Sound;
 
 import fr.onishintan.model.Hero;
 import fr.onishintan.model.HeroClass;
