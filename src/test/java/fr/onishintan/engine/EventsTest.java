@@ -33,7 +33,7 @@ class EventsTest {
 
     private Minion ready(Player owner, String id, int atk, int hp) {
         Minion m = new Minion(minionCard(id, atk, hp));
-        owner.getSide().place(m, owner.getSide().size());
+        owner.getSide().place(m, owner.getSide().firstFree());
         m.onTurnStart();
         return m;
     }
