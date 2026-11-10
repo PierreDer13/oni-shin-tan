@@ -1,17 +1,17 @@
 package fr.onishintan.ui.screens;
+
 import fr.onishintan.ui.fx.Anim;
 import fr.onishintan.ui.fx.Fx;
+import fr.onishintan.model.HeroClass;
 import fr.onishintan.ui.app.SceneRouter;
+import fr.onishintan.ui.decks.DecksView;
 import fr.onishintan.ui.app.Screen;
 import fr.onishintan.ui.app.Sound;
-
 import javafx.animation.Animation;
-import javafx.animation.AnimationTimer;
 import javafx.animation.Interpolator;
 import javafx.animation.TranslateTransition;
 import javafx.beans.InvalidationListener;
 import javafx.geometry.Pos;
-import javafx.geometry.Rectangle2D;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
@@ -80,9 +80,13 @@ public class HomeView extends Pane {
         profile(175, 20, PLAYER_NAME, PLAYER_REI);
         button("adventure", 480, 610, 300, Screen.CLASS_SELECT);
         button("pvp", 820, 610, 300, Screen.MATCH);
-        String[] bar = { "deck-builder", "inventory", "profile", "settings" };
-        Screen[] to = { Screen.DECK_BUILDER, Screen.INVENTORY, Screen.PROFILE, Screen.SETTINGS };
-        for (int i = 0; i < bar.length; i++) button(bar[i], 390 + i * 210, 790, 190, to[i]);
+        // Bottom bar: Deck Builder shows every deck; the other buttons simply go to their screen.
+        clickable(add("button-deck-builder", 390, 790, 190), false, () -> DecksView.open(router, null));
+        String[] bar = { "inventory", "profile", "settings" };
+        Screen[] to = { Screen.INVENTORY, Screen.PROFILE, Screen.SETTINGS };
+        for (int i = 0; i < bar.length; i++) {
+            button(bar[i], 390 + (i + 1) * 210, 790, 190, to[i]);
+        }
     }
 
     /** Puts /images/home/<name>.png on the grid at (x, y), w wide (height follows the image), and returns it. */
@@ -104,7 +108,7 @@ public class HomeView extends Pane {
         Group g = Fx.waving(new Image(getClass().getResourceAsStream("/images/home/banner-" + heroClass + ".png")), w, 45);
         g.relocate(x, y);
         grid.getChildren().add(g);
-        clickable(g, true, () -> router.goTo(Screen.DECK_BUILDER));
+        clickable(g, true, () -> DecksView.open(router, HeroClass.valueOf(heroClass.toUpperCase())));
     }
 
     /** Hover: small dark shadow and 4 % bigger (hanging items grow down from their top). Press: click sound, then the action. */
@@ -123,7 +127,7 @@ public class HomeView extends Pane {
     }
 
     /** The "← 戻る RETURN" box in a screen's top-left corner. */
-    static Label back(Runnable action) {
+    public static Label back(Runnable action) {
         Label b = new Label("← 戻る  RETURN");
         b.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 22; -fx-font-weight: bold; -fx-text-fill: #f3ede1;"
                 + " -fx-background-color: rgba(20,12,8,0.75); -fx-background-radius: 10; -fx-padding: 8 16;");
