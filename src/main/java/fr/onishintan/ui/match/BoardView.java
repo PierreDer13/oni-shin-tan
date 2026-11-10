@@ -6,6 +6,7 @@ import fr.onishintan.ui.screens.HomeView;
 import fr.onishintan.ui.app.Sound;
 
 import fr.onishintan.model.Hero;
+import fr.onishintan.model.BoardSide;
 import fr.onishintan.model.HeroClass;
 import fr.onishintan.model.Keyword;
 import fr.onishintan.model.Card;
@@ -333,23 +334,45 @@ public void passTo(String name, Runnable onReady) {
         return node;
     }
 
-    /** One side's minions in slots 1 to 7, left to right, each clickable for attacks. */
+    /** One side's 7 fixed slots, left to right. Each minion is drawn in the slot it was dropped on; empty slots stay empty. */
     private void row(Player p, double y) {
-        List<Minion> minions = p.getSide().getMinions();
-        for (int i = 0; i < minions.size(); i++) {
-            double x = SLOT_X + 2 + i * SLOT_STEP;
+        for (int slot = 0; slot < BoardSide.MAX; slot++) {
+            Minion minion = p.getSide().getAt(slot);
+            if (minion == null) {
+                continue;   // empty slot: nothing to draw
+            }
+
+            double x = SLOT_X + 2 + slot * SLOT_STEP;
             groundShadow(x, y);
-            MinionView v = new MinionView(minions.get(i), MINION_W);
-            clickable(v, minions.get(i), p == you);
-            if (minions.get(i).isHidden() && v.getEffect() == null) v.setEffect(new ColorAdjust(0, -0.4, -0.45, 0));
-            readable(v, minions.get(i), x, y, i >= 4);
-            place(v, x, y);
-            status.follow(v);
-            if (minions.get(i).hasKeyword(Keyword.PASSIVE)) status.flag(minions.get(i), x, y);
-            if (minions.get(i).hasTorii()) status.gate("torii", minions.get(i), x, y);
-            if (minions.get(i).hasKeyword(Keyword.SHIRODU)) status.gate("shirodu", minions.get(i), x, y);
-            if (minions.get(i).isHidden()) status.shinobi(x, y);
-            if (minions.get(i).hasKeyword(Keyword.SEPPUKU)) status.seppuku(x, y);
+
+            MinionView view = new MinionView(minion, MINION_W);
+            clickable(view, minion, p == you);
+            if (minion.isHidden() && view.getEffect() == null) {
+                view.setEffect(new ColorAdjust(0, -0.4, -0.45, 0));   // Shinobi: darkened while hidden
+            }
+
+            // The big preview opens on the left for the right-hand slots, so it stays on screen.
+            boolean rightHandSlot = slot >= 4;
+            readable(view, minion, x, y, rightHandSlot);
+            place(view, x, y);
+
+            // Keyword overlays. follow() makes them move with the card when it attacks.
+            status.follow(view);
+            if (minion.hasKeyword(Keyword.PASSIVE)) {
+                status.flag(minion, x, y);
+            }
+            if (minion.hasTorii()) {
+                status.gate("torii", minion, x, y);
+            }
+            if (minion.hasKeyword(Keyword.SHIRODU)) {
+                status.gate("shirodu", minion, x, y);
+            }
+            if (minion.isHidden()) {
+                status.shinobi(x, y);
+            }
+            if (minion.hasKeyword(Keyword.SEPPUKU)) {
+                status.seppuku(x, y);
+            }
         }
     }
 
