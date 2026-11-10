@@ -11,10 +11,12 @@ import fr.onishintan.ui.app.Sound;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.Optional;
 import java.util.function.Consumer;
 
 import fr.onishintan.engine.GameState;
 import fr.onishintan.engine.TurnManager;
+import fr.onishintan.model.Card;
 import fr.onishintan.model.HeroClass;
 import fr.onishintan.model.Minion;
 import fr.onishintan.model.MinionCard;
@@ -77,10 +79,22 @@ public class OniShinTanApp extends Application {
         board.setOnPower(() -> turns.getState().active().spendKi(HeroPowerView.COST));
         board.setOnTrade(card -> { turns.swapCard(card); board.render(); });
         board.setOnEndTurn(() -> {
-            board.addStack(turns.getState().active());   // mock: the rule counts as kept until the engine checks Oaths
-            turns.endTurn();
+            // Mock: the Oath counts as kept until the engine checks Oaths.
+            board.addStack(turns.getState().active());
+
+            // End the turn. The engine starts the next player's turn and gives back the card they drew,
+            // or nothing if their deck is empty or their hand is full (then the card is burned).
+            Optional<Card> drawnCard = turns.endTurn();
+
+            // Flip the board so the next player sits at the bottom, then hide it behind the "Pass to" veil.
             board.swapSides();
-            board.passTo(turns.getState().active().getName(), () -> {});
+            String nextPlayer = turns.getState().active().getName();
+            board.passTo(nextPlayer, () -> {
+                // The next player clicked the veil: now show them the card they drew.
+                if (drawnCard.isPresent()) {
+                    board.dealDrawnCard();
+                }
+            });
         });
         board.setOnGameOver(() -> onEnd.accept(!p1.getHero().isDead()));
         board.chooseOath(yours, o1 -> { board.swear(p1, o1); board.chooseOath(theirs, o2 -> { board.swear(p2, o2); board.passTo(p1.getName(), board::dealHand); }); board.passTo(p2.getName(), () -> {}); });

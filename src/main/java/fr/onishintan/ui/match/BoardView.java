@@ -92,6 +92,11 @@ public class BoardView extends Pane {
         hand.setVisible(true);
         hand.deal();
     }
+    /** Start of turn: the card the active player just drew flies in from their deck. */
+    public void dealDrawnCard() {
+        hand.dealLastCard();
+    }
+    
     private Player kiOwner;   // who the Ki bar showed at the last redraw, and how much Ki they had
     private int kiBefore;
     private static final Image SWITCH_ON = new Image(BoardView.class.getResourceAsStream("/images/hud/end-turn.png")),
