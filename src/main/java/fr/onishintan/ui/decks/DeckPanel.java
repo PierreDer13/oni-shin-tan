@@ -3,9 +3,6 @@ package fr.onishintan.ui.decks;
 import fr.onishintan.model.Card;
 import fr.onishintan.model.Rarity;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -44,14 +41,7 @@ class DeckPanel extends ScrollPane {
             return;
         }
 
-        // Sort by Ki, then count the copies. A LinkedHashMap keeps the cards in the order they were put in, so in Ki order.
-        List<Card> sorted = new ArrayList<>(cards);
-        sorted.sort(Comparator.comparingInt(Card::getKiCost));
-        Map<Card, Integer> copies = new LinkedHashMap<>();
-        for (Card card : sorted) {
-            int before = copies.getOrDefault(card, 0);
-            copies.put(card, before + 1);
-        }
+        Map<Card, Integer> copies = SavedDeck.copiesByKi(cards);
 
         for (Card card : copies.keySet()) {
             lines.getChildren().add(line(card, copies.get(card)));
