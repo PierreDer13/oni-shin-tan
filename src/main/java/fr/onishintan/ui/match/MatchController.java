@@ -100,10 +100,9 @@ public class MatchController {
         engine.active().spendKi(HeroPowerView.COST);
     }
 
-    /** A hand card dropped on the deck: once per turn, it goes back in and you draw another. */
-    private void trade(Card card) {
-        engine.trade(card);
-        board.render();
+    /** A hand card dropped on the deck: the engine shuffles it in and draws another (once per turn). True if it was accepted. */
+    private boolean trade(Card card) {
+        return engine.trade(card);
     }
 
     /**

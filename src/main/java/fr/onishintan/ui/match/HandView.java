@@ -186,23 +186,28 @@ public class HandView extends Group {
         getChildren().add(big);
     }
 
-    /** Opening hand: every card in the hand flies in from the deck, one after the other. */
+        /** Opening hand: every card in the hand flies in from the deck, one after the other. */
     public void deal() {
         int firstCard = 0;
-        dealFrom(firstCard);
+        dealFrom(firstCard, Duration.ZERO);
     }
 
     /** Start of turn: only the card just drawn (the last one in the hand) flies in from the deck. */
     public void dealLastCard() {
+        dealLastCardAfter(Duration.ZERO);
+    }
+
+    /** Same as dealLastCard(), but the card waits on the deck first (a trade waits for the shuffle). */
+    public void dealLastCardAfter(Duration wait) {
         int lastCard = cards.size() - 1;
-        dealFrom(lastCard);
+        dealFrom(lastCard, wait);
     }
 
     /**
-     * Makes the cards fly in from the deck, from index firstIndex to the end of the hand.
+     * Makes the cards fly in from the deck, from index firstIndex to the end of the hand, after waiting `wait`.
      * Each card leaves the deck face down, flips halfway, and lands face up in its place in the fan.
      */
-    private void dealFrom(int firstIndex) {
+    private void dealFrom(int firstIndex, Duration wait) {
         // While cards are flying, the hand ignores the mouse, so it doesn't fan out in the middle of the deal.
         setMouseTransparent(true);
 
@@ -248,7 +253,7 @@ public class HandView extends Group {
 
             // 7. Each card leaves 300 ms after the one before it.
             int positionInDeal = i - firstIndex;
-            flight.setDelay(Duration.millis(positionInDeal * 300));
+            flight.setDelay(wait.add(Duration.millis(positionInDeal * 300)));
 
             // 8. Once the card has landed, remove its back. After the last card, the hand listens to the mouse again.
             boolean isLastCard = (i == cards.size() - 1);
