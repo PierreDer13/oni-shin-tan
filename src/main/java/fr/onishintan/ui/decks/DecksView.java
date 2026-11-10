@@ -4,12 +4,12 @@ import fr.onishintan.model.Deck;
 import fr.onishintan.model.HeroClass;
 import fr.onishintan.ui.app.SceneRouter;
 import fr.onishintan.ui.app.Screen;
+import fr.onishintan.ui.app.ScreenGrid;
 import fr.onishintan.ui.screens.HomeView;
 
 import java.util.List;
 import java.util.Map;
 
-import javafx.beans.InvalidationListener;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
@@ -22,7 +22,6 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
-import javafx.scene.transform.Scale;
 
 /**
  * Deck Builder, screen 1: the player's decks as tiles, each with Edit and Delete, plus a "+ New deck" tile.
@@ -40,8 +39,8 @@ public class DecksView extends Pane {
             HeroClass.ONI, "#141110",
             HeroClass.NEUTRAL, "#2e5b3a");
 
-    private static final String PAPER = "#f3ede1";
-    private static final String INK = "#1f1b17";
+    static final String PAPER = "#f3ede1";
+    static final String INK = "#1f1b17";
     private static final String FONT = "-fx-font-family: 'Yu Mincho'; -fx-font-weight: bold;";
 
     private final SceneRouter router;
@@ -61,7 +60,7 @@ public class DecksView extends Pane {
     private DecksView(SceneRouter router, HeroClass onlyClass) {
         this.router = router;
         this.onlyClass = onlyClass;
-        scaleGridToWindow();
+        ScreenGrid.fitToWindow(this, grid);
 
         // Plain washi-paper background, until the painted one exists.
         Rectangle paper = new Rectangle(W, H, Color.web(PAPER));
@@ -72,20 +71,6 @@ public class DecksView extends Pane {
 
         list = tileList();
         grid.getChildren().add(list);
-    }
-
-    /** Keeps the 1600 x 900 grid as big as the window allows, without stretching it. */
-    private void scaleGridToWindow() {
-        Scale scale = new Scale();
-        grid.getTransforms().add(scale);
-        InvalidationListener fit = change -> {
-            double factor = Math.min(getWidth() / W, getHeight() / H);
-            scale.setX(factor);
-            scale.setY(factor);
-        };
-        widthProperty().addListener(fit);
-        heightProperty().addListener(fit);
-        getChildren().add(grid);
     }
 
     /** "札 DECKS" at the top, or e.g. "侍 SAMURAI DECKS" when only one class is shown. */
@@ -186,10 +171,10 @@ public class DecksView extends Pane {
         openEditor(deck);
     }
 
-    /** Opens a deck in the editor. The editor is step 3: for now this shows the router's placeholder screen. */
-    private void openEditor(SavedDeck deck) {
-        router.goTo(Screen.DECK_EDITOR);
-    }
+          /** Opens a deck in the editor; Save or Cancel there comes back to this same list. */
+      private void openEditor(SavedDeck deck) {
+          DeckEditorView.open(router, deck, onlyClass);
+      }
 
     /** A dark veil with the four classes to pick from; Cancel closes it. */
     private void askClass() {
@@ -241,14 +226,14 @@ public class DecksView extends Pane {
     }
 
     /** A bold Yu Mincho label of this size and colour. */
-    private static Label text(String words, int size, String colour) {
+    static Label text(String words, int size, String colour) {
         Label label = new Label(words);
         label.setStyle(FONT + " -fx-font-size: " + size + "; -fx-text-fill: " + colour + ";");
         return label;
     }
 
     /** A dark rounded button with light text, with the usual hover grow and click sound. */
-    private static Label button(String words, Runnable action) {
+    static Label button(String words, Runnable action) {
         Label button = text(words, 18, PAPER);
         button.setStyle(button.getStyle() + " -fx-background-color: rgba(20,12,8,0.85); -fx-background-radius: 8; -fx-padding: 6 14;");
         HomeView.clickable(button, false, action);
