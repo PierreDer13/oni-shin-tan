@@ -9,6 +9,8 @@ import fr.onishintan.model.Player;
 import fr.onishintan.model.SpellCard;
 import fr.onishintan.model.Oath;
 import fr.onishintan.model.OathType;
+import fr.onishintan.model.TrapCard;
+import fr.onishintan.model.TrapTrigger;
 import fr.onishintan.model.Weapon;
 import fr.onishintan.model.WeaponCard;
 
@@ -159,8 +161,15 @@ public class GameEngine {
         return combat.legalTargets(attacker);
     }
 
-    /** Attack; publishes ATTACK, DAMAGE, WEAPON_BROKEN, MINION_DIED, then GAME_OVER if a hero died. */
+    /**
+     * Attack; the defender's traps go off first (they may kill the attacker),
+     * then publishes ATTACK, DAMAGE, WEAPON_BROKEN, MINION_DIED, then GAME_OVER if a hero died.
+     */
     public boolean attack(Combatant attacker, Combatant target) {
+        TrapTrigger when = target instanceof Hero
+                ? TrapTrigger.ON_ENEMY_ATTACK_HERO : TrapTrigger.ON_ENEMY_ATTACK_MINION;
+        triggerTraps(state.opponent(), when, attacker);
+        if (state.isOver()) return false;
         boolean ok = combat.resolve(attacker, target);
         if (ok) checkGameOver();
         return ok;
@@ -176,8 +185,9 @@ public class GameEngine {
 
     /**
      * slot 0-6 for a minion (ignored otherwise), target may be null.
-     * Publishes CARD_PLAYED, then MINION_SUMMONED / SPELL_CAST / WEAPON_EQUIPPED,
-     * runs Banzai, removes the dead and checks game over.
+     * A trap is set face down and publishes TRAP_SET only.
+     * Otherwise publishes CARD_PLAYED, then MINION_SUMMONED / SPELL_CAST / WEAPON_EQUIPPED,
+     * runs Banzai and the enemy's traps, removes the dead and checks game over.
      */
     public boolean playCard(Card card, int slot, Combatant target) {
         if (state.isOver() || !canPlay(card)) return false;
@@ -186,6 +196,17 @@ public class GameEngine {
         // A minion needs its chosen slot to be free: check before spending anything
         if (card instanceof MinionCard && !p.getSide().isFree(slot)) {
             return false;
+        }
+
+        // A trap is set face down: TRAP_SET instead of CARD_PLAYED. Only its owner's UI shows the card
+        if (card instanceof TrapCard trap) {
+            if (!p.canSetTrap(trap)) return false;
+            p.spendKi(trap.getKiCost());
+            p.removeFromHand(trap);
+            p.setTrap(trap);
+            turnTracker.trapSet(trap);
+            publish(new GameEvent(GameEvent.Type.TRAP_SET, p, trap, p.trapCount()));
+            return true;
         }
 
         p.spendKi(card.getKiCost());
@@ -197,11 +218,13 @@ public class GameEngine {
             p.getSide().place(m, slot);
             publish(GameEvent.of(GameEvent.Type.MINION_SUMMONED, p, m));
             runTrigger(Trigger.BANZAI, p, m, target);
+            triggerTraps(state.opponent(), TrapTrigger.ON_ENEMY_SUMMON, m);
         } else if (card instanceof WeaponCard wc) {
             p.getHero().equip(new Weapon(wc));
             publish(GameEvent.of(GameEvent.Type.WEAPON_EQUIPPED, p, p.getHero()));
         } else if (card instanceof SpellCard) {
             publish(GameEvent.of(GameEvent.Type.SPELL_CAST, p, card));
+            triggerTraps(state.opponent(), TrapTrigger.ON_ENEMY_SPELL, null);
             cardEffects.get(card.getId(), Trigger.BANZAI)
                     .ifPresent(effect -> effect.apply(new EffectContext(this, p, null, target)));
         }
@@ -232,6 +255,17 @@ public class GameEngine {
         }
     }
 
+    /** One trap per action: the first of the owner's traps waiting for it goes off, then is gone. */
+    private void triggerTraps(Player owner, TrapTrigger when, Combatant target) {
+        Optional<TrapCard> trap = owner.takeTrap(when);
+        if (trap.isEmpty()) return;
+        publish(GameEvent.of(GameEvent.Type.TRAP_TRIGGERED, owner, trap.get()));
+        cardEffects.get(trap.get().getId(), Trigger.TRAP)
+                .ifPresent(effect -> effect.apply(new EffectContext(this, owner, null, target)));
+        combat.removeDead();
+        checkGameOver();
+    }
+
     /** Effect damage: publishes DAMAGE, removes the dead, checks game over. */
     void dealDamage(Object source, Combatant target, int amount) {
         if (target == null || amount <= 0) return;
@@ -244,7 +278,7 @@ public class GameEngine {
     void heal(Combatant target, int amount) {
         int restored = target.heal(amount);
         if (restored > 0) publish(new GameEvent(GameEvent.Type.HEAL, null, target, restored));
-    }
+            }
 
     void gainArmour(Player owner, int amount) {
         Hero hero = owner.getHero();
