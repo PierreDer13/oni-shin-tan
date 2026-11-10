@@ -79,19 +79,19 @@ public class GameEngine {
     /** After the mulligan: the first player's turn 1 starts. */
     public void beginFirstTurn() {
         Player p = state.active();
-        publishDraw(p, turns.startTurn());
+        turns.startTurn().forEach(card -> publishDraw(p, card));
         publish(GameEvent.of(GameEvent.Type.TURN_STARTED, p, null));
     }
 
-        /** Ends the active turn (end-of-turn effects, then the Oath) and starts the opponent's. */
+    /** Ends the active turn (end-of-turn effects, then the Oath) and starts the opponent's. */
     public void endTurn() {
         Player ending = state.active();
         publish(GameEvent.of(GameEvent.Type.TURN_ENDED, ending, null));
         resolveOath(ending);
         if (state.isOver()) return;           // an Oath break can kill its own hero
-        Optional<Card> drawn = turns.endTurn();
+        List<Optional<Card>> drawn = turns.endTurn();
         Player next = state.active();
-        publishDraw(next, drawn);
+        drawn.forEach(card -> publishDraw(next, card));
         publish(GameEvent.of(GameEvent.Type.TURN_STARTED, next, null));
     }
 
