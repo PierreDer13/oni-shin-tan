@@ -1,4 +1,5 @@
-package fr.onishintan.ui;
+package fr.onishintan.ui.match;
+import fr.onishintan.ui.screens.HomeView;
 
 import fr.onishintan.model.HeroClass;
 

@@ -1,4 +1,7 @@
-package fr.onishintan.ui;
+package fr.onishintan.ui.screens;
+import fr.onishintan.ui.fx.Fx;
+import fr.onishintan.ui.app.SceneRouter;
+import fr.onishintan.ui.app.Screen;
 
 import java.util.Map;
 import java.util.List;
