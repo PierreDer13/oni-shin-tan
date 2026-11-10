@@ -78,7 +78,7 @@ class TurnManagerTest {
         tm.startTurn();
         assertSame(first, state.active());
         assertEquals(1, first.getKi());
-        assertEquals(7, first.getHand().size()); // 6 + 1 draw
+        assertEquals(8, first.getHand().size()); // 6 + 2 draw
     }
 
     @Test
@@ -89,7 +89,7 @@ class TurnManagerTest {
         assertSame(second, state.active());
         assertEquals(2, second.getKi()); // 1 + 1 bonus
         assertEquals(1, second.getMaxKi());
-        assertEquals(8, second.getHand().size()); // 7 + 1 draw
+        assertEquals(9, second.getHand().size()); // 7 + 2 draw
 
         tm.endTurn(); // turn 3: first
         tm.endTurn(); // turn 4: second again
@@ -158,9 +158,23 @@ class TurnManagerTest {
         assertFalse(tm.isSwapUsedThisTurn()); // a failed swap does not count
     }
 
-    @Test
+        @Test
     void swapBeforeMatchThrows() {
         assertThrows(IllegalStateException.class,
                 () -> tm.swapCard(first.getDeck().draw().orElseThrow()));
     }
+
+    @Test
+    void canSwapACardCostingMoreThanCurrentKi() {
+        Card pricey = new MinionCard("pricey", "Pricey", "高", "たかい", 10,
+                Rarity.COMMON, HeroClass.NEUTRAL, "", "",
+                8, 8, EnumSet.noneOf(Keyword.class));
+        tm.startMatch();
+        tm.startTurn();                          // turn 1: 1 Ki
+        first.addToHand(pricey);
+        assertTrue(tm.swapCard(pricey));
+        assertFalse(first.getHand().contains(pricey));
+        assertEquals(1, first.getKi());          // the trade is free
+    }
+
 }

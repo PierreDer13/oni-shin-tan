@@ -11,11 +11,13 @@ public class TurnTracker {
     private int cardsPlayed;
     private int minionsPlayed;
     private int kiSpent;
+    private int trapsSet;
 
     void reset() {
         cardsPlayed = 0;
         minionsPlayed = 0;
         kiSpent = 0;
+        trapsSet = 0;
     }
 
     void cardPlayed(Card card) {
@@ -23,6 +25,13 @@ public class TurnTracker {
         kiSpent += card.getKiCost();
         if (card instanceof MinionCard) minionsPlayed++;
     }
+    /** A trap is a card played too, but announced as TRAP_SET to keep it hidden. */
+    void trapSet(Card card) {
+        cardPlayed(card);
+        trapsSet++;
+    }
+
+    public int getTrapsSet() { return trapsSet; }
 
     public int getCardsPlayed() { return cardsPlayed; }
     public int getMinionsPlayed() { return minionsPlayed; }
