@@ -93,8 +93,8 @@ class GameEngineTest {
         engine.startMatch();
         engine.beginFirstTurn();
         assertFalse(engine.attack(null, null));
-        assertThrows(UnsupportedOperationException.class, () -> engine.useHeroPower(null));
-    }
+        assertFalse(engine.useHeroPower(null));   // no target: refused, nothing paid   
+        }
 
     @Test
     void bothHeroesDeadIsADraw() {
