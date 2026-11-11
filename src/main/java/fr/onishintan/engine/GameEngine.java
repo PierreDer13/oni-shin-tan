@@ -13,6 +13,10 @@ import fr.onishintan.model.TrapCard;
 import fr.onishintan.model.TrapTrigger;
 import fr.onishintan.model.Weapon;
 import fr.onishintan.model.WeaponCard;
+import fr.onishintan.model.HeroClass;
+import fr.onishintan.model.KatanaTier;
+import fr.onishintan.model.Rarity;
+import fr.onishintan.model.Status;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -234,9 +238,79 @@ public class GameEngine {
         return true;
     }
 
-    /** Once per turn, cost 2 Ki for now. target may be null. TODO engine-hero-powers */
+    public static final int HERO_POWER_COST = 2;     // GDD, proposed for Shuriken, Miko, Jikininki
+    public static final int SHURIKEN_DAMAGE = 6;
+    public static final int JIKININKI_DRAIN = 4;
+    static final MinionCard MIKO = new MinionCard("power-miko", "Miko", "巫女", "みこ", 0,
+            Rarity.COMMON, HeroClass.KANNUSHI, "", "", 3, 3, null);
+
+    /**
+     * Ninja Shuriken (6 damage), Kannushi Miko (3/3 in the leftmost free slot),
+     * Oni Jikininki (drain 4, heal own hero). Samurai: useKatana. Once per turn.
+     */
     public boolean useHeroPower(Combatant target) {
-        throw new UnsupportedOperationException("TODO engine-hero-powers");
+        Player p = state.active();
+        if (state.isOver() || turns.isPowerUsedThisTurn() || !p.canAfford(HERO_POWER_COST)) return false;
+        switch (p.getHero().getHeroClass()) {
+            case NINJA -> {
+                if (!isPowerTarget(target)) return false;
+                payPower(p, HERO_POWER_COST);
+                int dealt = target.takeDamage(SHURIKEN_DAMAGE);
+                publish(new GameEvent(GameEvent.Type.DAMAGE, p.getHero(), target, dealt));
+            }
+            case KANNUSHI -> {
+                int slot = p.getSide().firstFree();
+                if (slot < 0) return false;
+                payPower(p, HERO_POWER_COST);
+                Minion miko = new Minion(MIKO);
+                p.getSide().place(miko, slot);
+                publish(GameEvent.of(GameEvent.Type.MINION_SUMMONED, p, miko));
+                triggerTraps(state.opponent(), TrapTrigger.ON_ENEMY_SUMMON, miko);
+            }
+            case ONI -> {
+                if (!isPowerTarget(target)) return false;
+                payPower(p, HERO_POWER_COST);
+                int dealt = target.takeDamage(JIKININKI_DRAIN);
+                publish(new GameEvent(GameEvent.Type.DAMAGE, p.getHero(), target, dealt));
+                int healed = p.getHero().heal(dealt);
+                publish(new GameEvent(GameEvent.Type.HEAL, p.getHero(), p.getHero(), healed));
+            }
+            default -> { return false; }   // SAMURAI picks a blade: useKatana(tier)
+        }
+        combat.removeDead();
+        checkGameOver();
+        return true;
+    }
+
+    /** Samurai power: pay the blade's Ki and equip it (replaces the current weapon). */
+    public boolean useKatana(KatanaTier tier) {
+        Player p = state.active();
+        if (state.isOver() || tier == null || p.getHero().getHeroClass() != HeroClass.SAMURAI
+                || turns.isPowerUsedThisTurn() || !p.canAfford(tier.getKiCost())) return false;
+        payPower(p, tier.getKiCost());
+        p.getHero().equip(new Weapon(tier.toCard()));
+        publish(GameEvent.of(GameEvent.Type.WEAPON_EQUIPPED, p, p.getHero()));
+        return true;
+    }
+
+    public boolean isHeroPowerUsed() { return turns.isPowerUsedThisTurn(); }
+
+    private void payPower(Player p, int cost) {
+        p.spendKi(cost);
+        turns.markPowerUsed();
+        publish(new GameEvent(GameEvent.Type.HERO_POWER_USED, p, p.getHero(), cost));
+    }
+
+    /** Any living character on the board, except a hidden enemy minion or a stealthed enemy hero. */
+    private boolean isPowerTarget(Combatant t) {
+        if (t == null || t.isDead()) return false;
+        Player enemy = state.opponent();
+        if (t instanceof Minion m) {
+            if (enemy.getSide().slotOf(m) >= 0) return !m.isHidden();
+            return state.active().getSide().slotOf(m) >= 0;
+        }
+        if (t == enemy.getHero()) return !t.hasStatus(Status.STEALTH);
+        return t == state.active().getHero();
     }
 
     // ---------- triggers and effects ----------

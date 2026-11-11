@@ -29,6 +29,7 @@ public class TurnManager {
     private final Random rng;
     private boolean started;
     private boolean swapUsedThisTurn;
+    private boolean powerUsedThisTurn;
 
     public TurnManager(GameState state, Random rng) {
         this.state = Objects.requireNonNull(state, "state");
@@ -76,6 +77,7 @@ public class TurnManager {
         for (Minion m : p.getSide().getMinions())
             m.onTurnStart();
         swapUsedThisTurn = false;
+        powerUsedThisTurn = false;
 
         // 3. Start-of-turn effects: added with features/engine-events
 
@@ -117,6 +119,14 @@ public class TurnManager {
 
     public boolean isSwapUsedThisTurn() {
         return swapUsedThisTurn;
+    }
+
+    void markPowerUsed() { 
+        powerUsedThisTurn = true; 
+    }
+
+    public boolean isPowerUsedThisTurn() {
+        return powerUsedThisTurn;
     }
 
     public GameState getState() {
