@@ -94,9 +94,9 @@ public class BoardView extends Pane {
         hand.setVisible(true);
         hand.deal();
     }
-    /** Start of turn: the card the active player just drew flies in from their deck. */
-    public void dealDrawnCard() {
-        hand.dealLastCard();
+    /** Start of turn: the `count` cards the active player just drew fly in from their deck. */
+    public void dealDrawnCards(int count) {
+        hand.dealLastCards(count);
     }
     
     private Player kiOwner;   // who the Ki bar showed at the last redraw, and how much Ki they had

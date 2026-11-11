@@ -53,9 +53,11 @@ public class HandView extends Group {
         this.onTrade = onTrade;
         for (Card c : player.getHand()) {
             CardView v = new CardView(c, CARD_W);
-            boolean playable = player.canAfford(c.getKiCost());
-            v.setPlayable(playable);
-            if (playable) drag(v);
+            // Every card can be dragged: onto the deck to trade it (free, even when you can't afford it),
+            // or onto the board to play it (the engine refuses it if you can't pay). The pink glow shows what you can afford.
+            boolean affordable = player.canAfford(c.getKiCost());
+            v.setPlayable(affordable);
+            drag(v);
             cards.add(v);
         }
         getChildren().addAll(cards);
@@ -192,9 +194,10 @@ public class HandView extends Group {
         dealFrom(firstCard, Duration.ZERO);
     }
 
-    /** Start of turn: only the card just drawn (the last one in the hand) flies in from the deck. */
-    public void dealLastCard() {
-        dealLastCardAfter(Duration.ZERO);
+    /** Start of turn: the last `count` cards of the hand (the ones just drawn) fly in from the deck, one after the other. */
+    public void dealLastCards(int count) {
+        int firstNewCard = cards.size() - count;
+        dealFrom(firstNewCard, Duration.ZERO);
     }
 
     /** Same as dealLastCard(), but the card waits on the deck first (a trade waits for the shuffle). */
