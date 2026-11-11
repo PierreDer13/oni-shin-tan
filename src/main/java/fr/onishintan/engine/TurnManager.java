@@ -18,8 +18,8 @@ import java.util.Random;
  * Mulligan, chess clock and start/end-of-turn effects plug in later.
  */
 public class TurnManager {
-    public static final int OPENING_HAND_FIRST = 6;
-    public static final int OPENING_HAND_SECOND = 7;
+    public static final int OPENING_HAND_FIRST = 4;
+    public static final int OPENING_HAND_SECOND = 5;
     /** Extra Ki on the second player's first turn only (GDD, proposed). */
     public static final int SECOND_PLAYER_BONUS_KI = 1;
     /** Cards drawn at the start of every turn (GDD, 10 Nov). */
@@ -29,6 +29,7 @@ public class TurnManager {
     private final Random rng;
     private boolean started;
     private boolean swapUsedThisTurn;
+    private boolean powerUsedThisTurn;
 
     public TurnManager(GameState state, Random rng) {
         this.state = Objects.requireNonNull(state, "state");
@@ -36,7 +37,7 @@ public class TurnManager {
     }
 
     /**
-     * Shuffles both decks and deals the opening hands (6 cards first player, 7
+     * Shuffles both decks and deals the opening hands (4 cards first player, 5
      * second).
      * Does not start the first turn: the mulligan comes in between, then
      * startTurn().
@@ -76,6 +77,7 @@ public class TurnManager {
         for (Minion m : p.getSide().getMinions())
             m.onTurnStart();
         swapUsedThisTurn = false;
+        powerUsedThisTurn = false;
 
         // 3. Start-of-turn effects: added with features/engine-events
 
@@ -117,6 +119,14 @@ public class TurnManager {
 
     public boolean isSwapUsedThisTurn() {
         return swapUsedThisTurn;
+    }
+
+    void markPowerUsed() { 
+        powerUsedThisTurn = true; 
+    }
+
+    public boolean isPowerUsedThisTurn() {
+        return powerUsedThisTurn;
     }
 
     public GameState getState() {

@@ -48,10 +48,10 @@ class TurnManagerTest {
     @Test
     void startMatchDealsOpeningHands() {
         tm.startMatch();
-        assertEquals(TurnManager.OPENING_HAND_FIRST, first.getHand().size()); // 6
-        assertEquals(TurnManager.OPENING_HAND_SECOND, second.getHand().size()); // 7
-        assertEquals(Deck.SIZE - 6, first.getDeck().size());
-        assertEquals(Deck.SIZE - 7, second.getDeck().size());
+        assertEquals(TurnManager.OPENING_HAND_FIRST, first.getHand().size()); // 4
+        assertEquals(TurnManager.OPENING_HAND_SECOND, second.getHand().size()); // 5
+        assertEquals(Deck.SIZE - TurnManager.OPENING_HAND_FIRST, first.getDeck().size());
+        assertEquals(Deck.SIZE - TurnManager.OPENING_HAND_SECOND, second.getDeck().size());    
     }
 
     @Test
@@ -78,7 +78,7 @@ class TurnManagerTest {
         tm.startTurn();
         assertSame(first, state.active());
         assertEquals(1, first.getKi());
-        assertEquals(8, first.getHand().size()); // 6 + 2 draw
+        assertEquals(TurnManager.OPENING_HAND_FIRST + TurnManager.DRAW_PER_TURN, first.getHand().size());    
     }
 
     @Test
@@ -89,7 +89,7 @@ class TurnManagerTest {
         assertSame(second, state.active());
         assertEquals(2, second.getKi()); // 1 + 1 bonus
         assertEquals(1, second.getMaxKi());
-        assertEquals(9, second.getHand().size()); // 7 + 2 draw
+        assertEquals(TurnManager.OPENING_HAND_SECOND + TurnManager.DRAW_PER_TURN, second.getHand().size());
 
         tm.endTurn(); // turn 3: first
         tm.endTurn(); // turn 4: second again

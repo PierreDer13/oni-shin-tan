@@ -102,8 +102,8 @@ class EventsTest {
         ready(second, "scout", 1, 1);
 
         engine.endTurn();                                  // second's turn starts
-        assertEquals(7 + 2 + 1, second.getHand().size());  // opening 7, normal draw, scout draw
-    }
+        assertEquals(TurnManager.OPENING_HAND_SECOND + TurnManager.DRAW_PER_TURN + 1, second.getHand().size());  // opening, normal draw, scout draw
+        }
 
     @Test
     void seppukuDamageCanEndTheGame() {
