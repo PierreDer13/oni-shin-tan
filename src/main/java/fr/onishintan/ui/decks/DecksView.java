@@ -1,6 +1,5 @@
 package fr.onishintan.ui.decks;
 
-import fr.onishintan.model.Deck;
 import fr.onishintan.model.HeroClass;
 import fr.onishintan.ui.app.SceneRouter;
 import fr.onishintan.ui.app.Screen;
@@ -11,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 
 import javafx.geometry.Insets;
+import javafx.geometry.Point2D;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.Label;
@@ -24,14 +24,16 @@ import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
 
 /**
- * Deck Builder, screen 1: the player's decks as tiles, each with Edit and Delete, plus a "+ New deck" tile.
+ * Deck Builder, screen 1: each saved deck is shown as its class's deck holder. Click one to open it: the lid opens,
+ * the stack comes out and flips, and its cards spread out. A "+ New deck" slot makes a new deck.
  * Opened from the Home bottom bar (every deck) or from a class banner (only that class's decks).
  */
 public class DecksView extends Pane {
-    public static final double W = 1600, H = 900;
-    private static final double TILE_W = 300, TILE_H = 170, GAP = 40;
+    public static final double W = ScreenGrid.W, H = ScreenGrid.H;
+    private static final double GAP = 40;
+    private static final int PER_ROW = 5;
 
-    /** Each class's main ink colour (GDD, card layout), used for tile borders and class buttons. */
+    /** Each class's main ink colour (GDD, card layout), used for class buttons and card stripes. */
     static final Map<HeroClass, String> CLASS_COLOUR = Map.of(
             HeroClass.SAMURAI, "#7d1a1e",
             HeroClass.NINJA, "#1c2b4f",
@@ -48,7 +50,7 @@ public class DecksView extends Pane {
     private final HeroClass onlyClass;
     /** Everything is placed on this 1600 x 900 grid, which is scaled to fit the window. */
     private final Pane grid = new Pane();
-    /** The scrolling area with the tiles; rebuilt after a deck is deleted. */
+    /** The scrolling area with the holders; rebuilt after a deck is deleted. */
     private ScrollPane list;
 
     /** Shows the deck list: onlyClass = a class to show only its decks, or null for every deck. */
@@ -69,7 +71,7 @@ public class DecksView extends Pane {
         grid.getChildren().add(HomeView.back(() -> router.goTo(Screen.HOME)));
         grid.getChildren().add(title());
 
-        list = tileList();
+        list = holderList();
         grid.getChildren().add(list);
     }
 
@@ -87,11 +89,11 @@ public class DecksView extends Pane {
         return title;
     }
 
-    /** One tile per deck, then "+ New deck", in rows of four that scroll when there are many. */
-    private ScrollPane tileList() {
-        FlowPane tiles = new FlowPane(GAP, 30);
-        tiles.setPrefWrapLength(TILE_W * 4 + GAP * 3);
-        tiles.setPadding(new Insets(10));
+    /** One holder per deck, then "+ New deck", in rows of PER_ROW that scroll when there are many. */
+    private ScrollPane holderList() {
+        FlowPane holders = new FlowPane(GAP, 30);
+        holders.setPrefWrapLength(PER_ROW * DeckHolderView.WIDTH + (PER_ROW - 1) * GAP);
+        holders.setPadding(new Insets(10));
 
         List<SavedDeck> decks;
         if (onlyClass == null) {
@@ -100,67 +102,69 @@ public class DecksView extends Pane {
             decks = DeckStore.ofClass(onlyClass);
         }
         for (SavedDeck deck : decks) {
-            tiles.getChildren().add(deckTile(deck));
+            DeckHolderView holder = new DeckHolderView(deck);
+            holder.setOnOpen(() -> openDeck(deck, holder));
+            holders.getChildren().add(holder);
         }
-        tiles.getChildren().add(newDeckTile());
+        holders.getChildren().add(newDeckSlot());
 
-        ScrollPane scroll = new ScrollPane(tiles);
-        scroll.setPrefSize(TILE_W * 4 + GAP * 3 + 40, 680);
+        ScrollPane scroll = new ScrollPane(holders);
+        scroll.setPrefSize(PER_ROW * DeckHolderView.WIDTH + (PER_ROW - 1) * GAP + 40, 700);
         scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         scroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
-        scroll.relocate((W - scroll.getPrefWidth()) / 2, 160);
+        scroll.relocate((W - scroll.getPrefWidth()) / 2, 150);
         return scroll;
     }
 
-    /** Rebuilds the tiles from DeckStore (after a deck was deleted). */
+    /** Rebuilds the holders from DeckStore (after a deck was deleted). */
     private void refreshList() {
         grid.getChildren().remove(list);
-        list = tileList();
+        list = holderList();
         grid.getChildren().add(list);
     }
 
-    /** One deck: its name, class, card count, whether it can be played, and its Edit and Delete buttons. */
-    private VBox deckTile(SavedDeck deck) {
-        HeroClass heroClass = deck.getHeroClass();
-        Label name = text(deck.getName(), 26, INK);
-        Label classLine = text(heroClass.getKanji() + "  " + heroClass.getDisplayName(), 18, CLASS_COLOUR.get(heroClass));
-        Label count = text(deck.getCards().size() + " / " + Deck.SIZE + " cards", 18, INK);
-
-        // A legal deck says so in green; otherwise its first problem is shown in red.
-        Label status;
-        if (deck.isLegal()) {
-            status = text("✓ Ready to play", 16, "#2e7d32");
-        } else {
-            status = text("✗ " + deck.problems().get(0), 16, "#c41e1e");
-        }
-        status.setWrapText(true);
-        status.setMaxWidth(TILE_W - 28);
-
-        Label edit = button("Edit", () -> openEditor(deck));
-        Label delete = button("Delete", () -> confirmDelete(deck));
-        HBox buttons = new HBox(12, edit, delete);
-
-        VBox tile = new VBox(6, name, classLine, count, status, buttons);
-        tile.setPrefSize(TILE_W, TILE_H);
-        tile.setPadding(new Insets(14));
-        tile.setStyle("-fx-background-color: #fbf8f1; -fx-background-radius: 10; -fx-border-radius: 10;"
-                + " -fx-border-width: 4; -fx-border-color: " + CLASS_COLOUR.get(heroClass) + ";");
-        return tile;
+    /**
+     * Click on a holder: the real one hides and its opening plays on top of the screen, then its cards are shown.
+     * The list ignores clicks meanwhile, so only one deck opens at a time.
+     */
+    private void openDeck(SavedDeck deck, DeckHolderView holder) {
+        Point2D corner = grid.sceneToLocal(holder.picture().localToScene(0, 0));   // where the holder is on the grid
+        holder.setVisible(false);
+        list.setMouseTransparent(true);
+        DeckOpening.play(grid, deck.getHeroClass(), corner.getX(), corner.getY(), () -> showCards(deck, holder));
     }
 
-    /** The "+ New deck" tile: makes a deck of the shown class, or asks which class when every deck is shown. */
-    private StackPane newDeckTile() {
-        StackPane tile = new StackPane(text("+  New deck", 26, INK));
-        tile.setPrefSize(TILE_W, TILE_H);
-        tile.setStyle("-fx-border-color: " + INK + "; -fx-border-width: 3; -fx-border-style: dashed; -fx-border-radius: 10;");
-        HomeView.clickable(tile, false, () -> {
+    /** The opened deck's cards, with Edit, Delete and Close. */
+    private void showCards(SavedDeck deck, DeckHolderView holder) {
+        DeckReveal reveal = new DeckReveal(deck,
+                () -> openEditor(deck),
+                () -> {
+                    backToList(holder);
+                    confirmDelete(deck);
+                },
+                () -> backToList(holder));
+        grid.getChildren().add(reveal);
+    }
+
+    /** The holder is back on the list and the list takes clicks again. */
+    private void backToList(DeckHolderView holder) {
+        holder.setVisible(true);
+        list.setMouseTransparent(false);
+    }
+
+    /** The "+ New deck" slot, the size of a holder: makes a deck of the shown class, or asks which class when every deck is shown. */
+    private StackPane newDeckSlot() {
+        StackPane slot = new StackPane(text("+  New deck", 24, INK));
+        slot.setPrefSize(DeckHolderView.WIDTH, DeckHolderView.height(DeckHolderView.WIDTH));
+        slot.setStyle("-fx-border-color: " + INK + "; -fx-border-width: 3; -fx-border-style: dashed; -fx-border-radius: 10;");
+        HomeView.clickable(slot, false, () -> {
             if (onlyClass == null) {
                 askClass();
             } else {
                 createDeck(onlyClass);
             }
         });
-        return tile;
+        return slot;
     }
 
     /** Makes an empty deck of this class (named "Samurai deck 2" etc.), stores it, and opens it in the editor. */
@@ -171,10 +175,10 @@ public class DecksView extends Pane {
         openEditor(deck);
     }
 
-          /** Opens a deck in the editor; Save or Cancel there comes back to this same list. */
-      private void openEditor(SavedDeck deck) {
-          DeckEditorView.open(router, deck, onlyClass);
-      }
+    /** Opens a deck in the editor; Save or Cancel there comes back to this same list. */
+    private void openEditor(SavedDeck deck) {
+        DeckEditorView.open(router, deck, onlyClass);
+    }
 
     /** A dark veil with the four classes to pick from; Cancel closes it. */
     private void askClass() {
@@ -197,7 +201,7 @@ public class DecksView extends Pane {
         grid.getChildren().add(veil);
     }
 
-    /** Asks before deleting: Yes deletes the deck and redraws the tiles, No just closes the question. */
+    /** Asks before deleting: Yes deletes the deck and redraws the list, No just closes the question. */
     private void confirmDelete(SavedDeck deck) {
         VBox box = new VBox(24);
         box.setAlignment(Pos.CENTER);

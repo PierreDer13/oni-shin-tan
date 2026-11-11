@@ -30,8 +30,8 @@ public class MatchController {
     /** Plays first and starts at the bottom of the screen. */
     private final Player first;
     private final Player second;
-    /** Set to true when the engine announces a draw, so the card can fly in after the pass veil. */
-    private boolean drewThisTurn;
+    /** How many cards the engine drew during endTurn(), so they can fly in after the pass veil. */
+    private int cardsDrawnThisTurn;
 
     /** A hotseat match on this board; at the end, onEnd gets whether the first player won. */
     public MatchController(String boardName, HeroClass yours, HeroClass theirs, Consumer<Boolean> onEnd) {
@@ -43,7 +43,7 @@ public class MatchController {
 
         // 2. The engine: shuffle and deal the opening hands, then the first player's turn 1 (Ki and a draw).
         engine = new GameEngine(first, second, new Random());
-        engine.getBus().subscribe(GameEvent.Type.CARD_DRAWN, event -> drewThisTurn = true);
+        engine.getBus().subscribe(GameEvent.Type.CARD_DRAWN, event -> cardsDrawnThisTurn++);
         engine.startMatch();
         engine.beginFirstTurn();
 
@@ -100,10 +100,9 @@ public class MatchController {
         engine.active().spendKi(HeroPowerView.COST);
     }
 
-    /** A hand card dropped on the deck: once per turn, it goes back in and you draw another. */
-    private void trade(Card card) {
-        engine.trade(card);
-        board.render();
+    /** A hand card dropped on the deck: the engine shuffles it in and draws another (once per turn). True if it was accepted. */
+    private boolean trade(Card card) {
+        return engine.trade(card);
     }
 
     /**
@@ -111,7 +110,7 @@ public class MatchController {
      * then starts the next player's turn with its draw.
      */
     private void endTurn() {
-        drewThisTurn = false;
+        cardsDrawnThisTurn = 0;
         engine.endTurn();
 
         // A broken Oath can kill its own hero: then the match is over and there is no pass veil.
@@ -123,8 +122,8 @@ public class MatchController {
         // Flip the board so the next player sits at the bottom, then hide it until they click.
         board.swapSides();
         board.passTo(engine.active().getName(), () -> {
-            if (drewThisTurn) {
-                board.dealDrawnCard();   // the card they drew flies in from their deck
+            if (cardsDrawnThisTurn > 0) {
+                board.dealDrawnCards(cardsDrawnThisTurn);   // the cards they drew fly in from their deck
             }
         });
     }

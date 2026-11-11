@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import java.util.function.Predicate;
 
 import javafx.util.Duration;
 
@@ -93,9 +94,9 @@ public class BoardView extends Pane {
         hand.setVisible(true);
         hand.deal();
     }
-    /** Start of turn: the card the active player just drew flies in from their deck. */
-    public void dealDrawnCard() {
-        hand.dealLastCard();
+    /** Start of turn: the `count` cards the active player just drew fly in from their deck. */
+    public void dealDrawnCards(int count) {
+        hand.dealLastCards(count);
     }
     
     private Player kiOwner;   // who the Ki bar showed at the last redraw, and how much Ki they had
@@ -105,7 +106,7 @@ public class BoardView extends Pane {
     private final ImageView endTurn = new ImageView(SWITCH_ON);
     private Runnable onEndTurn = () -> {};
     private final Label yourClock = hud(new Label(), 1381, 545, 190, 71, 30);
-    private Consumer<Card> onTrade = c -> {};
+    private Predicate<Card> onTrade = card -> false;
     private final Label enemyClock = hud(new Label(), 1381, 255, 190, 71, 30);
     private BiConsumer<Card, Integer> onPlay = (c, slot) -> {};
 
@@ -172,7 +173,7 @@ public class BoardView extends Pane {
         kiBefore = you.getKi();
         deck(you, DECK_X, DECK_Y);
         deck(enemy, 182, 239);
-        live.getChildren().add(hand = new HandView(you, (card, slot) -> { onPlay.accept(card, slot); impact(card.getKiCost(), false); }, c -> onTrade.accept(c), this::previewCost));
+        live.getChildren().add(hand = new HandView(you, (card, slot) -> { onPlay.accept(card, slot); impact(card.getKiCost(), false); }, this::trade, this::previewCost));
         hand.setVisible(dealt);
         enemyHand(enemy);
         if (enemy.getHero().isDead() || you.getHero().isDead()) gameOver(enemy.getHero().isDead());
@@ -198,8 +199,25 @@ public class BoardView extends Pane {
     }
 
     /** What happens when you drop a card on your row (the match will call the engine here). */
-    /** What happens when you drop a card from your hand on your deck: it goes back in and you draw another. */
-    public void setOnTrade(Consumer<Card> onTrade) { this.onTrade = onTrade; }
+    /** What happens when you drop a card from your hand on your deck: true if the engine accepted the trade. */
+      public void setOnTrade(Predicate<Card> onTrade) { this.onTrade = onTrade; }
+
+      /**
+       * A hand card dropped on your deck. If the engine accepts the trade, the card sinks into the deck,
+       * the deck shuffles, and the card you drew flies into your hand.
+       */
+      private void trade(Card card) {
+          boolean accepted = onTrade.test(card);
+          render();   // the hand now holds the drawn card instead of the traded one
+          if (!accepted) {
+              return;   // refused (already traded this turn, or not enough Ki): the card is simply back in the hand
+          }
+          double cardH = MINION_W * CardView.H / CardView.W;
+          double deckX = DECK_X + (115 - MINION_W) / 2;   // the same corner deck() uses for the top card
+          double deckY = DECK_Y + (127 - cardH) / 2;
+          TradeAnimation.play(live, card, deckX, deckY, MINION_W, () -> cardBack(MINION_W));
+          hand.dealLastCardAfter(TradeAnimation.LENGTH);
+      }
     public void setOnPlay(BiConsumer<Card, Integer> onPlay) {
         this.onPlay = onPlay;
         render();
