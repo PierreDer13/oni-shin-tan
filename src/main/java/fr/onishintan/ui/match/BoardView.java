@@ -13,6 +13,7 @@ import fr.onishintan.model.Card;
 import fr.onishintan.model.Combatant;
 import fr.onishintan.model.Minion;
 import fr.onishintan.model.Player;
+import fr.onishintan.model.TrapCard;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -115,6 +116,10 @@ public class BoardView extends Pane {
     private Runnable onGameOver = () -> {};
     public void setOnGameOver(Runnable r) { onGameOver = r; }
     private Node preview;
+    /** Where traps sit: left of each hero (grid coordinates). */
+    private static final double TRAPS_X = 320, YOUR_TRAPS_Y = 660, ENEMY_TRAPS_Y = 120;
+    /** A trap still flying to its place (TrapView.set): traps() doesn't draw it until it lands. */
+    private TrapCard arriving;
 
     public BoardView(String board, Player enemy, String enemyPortrait, Player you, String yourPortrait) {
         this.enemy = enemy;
@@ -172,11 +177,53 @@ public class BoardView extends Pane {
         kiOwner = you;
         kiBefore = you.getKi();
         deck(you, DECK_X, DECK_Y);
+        traps(enemy, TRAPS_X, ENEMY_TRAPS_Y);
+        traps(you, TRAPS_X, YOUR_TRAPS_Y);
         deck(enemy, 182, 239);
         live.getChildren().add(hand = new HandView(you, (card, slot) -> { onPlay.accept(card, slot); impact(card.getKiCost(), false); }, this::trade, this::previewCost));
         hand.setVisible(dealt);
         enemyHand(enemy);
         if (enemy.getHero().isDead() || you.getHero().isDead()) gameOver(enemy.getHero().isDead());
+    }
+
+
+    /**
+     * The traps a player has set, left of their hero. Yours: one back per trap, readable on hover.
+     * The enemy's: a single back as soon as they have at least one, never how many (GDD).
+     */
+    private void traps(Player p, double x, double y) {
+        if (p.trapCount() == 0) {
+            return;
+        }
+        if (p != you) {
+            place(TrapView.back(), x, y);
+            return;
+        }
+        for (int i = 0; i < p.getTraps().size(); i++) {
+            TrapCard trap = p.getTraps().get(i);
+            if (trap == arriving) {
+                continue;   // still flying to its place: TrapView.set draws it until it lands
+            }
+            Node back = TrapView.back();
+            place(back, x + i * TrapView.SPACING, y);
+            bigOnHover(back, () -> new CardView(trap, 280), 300, 300);
+        }
+    }
+
+    /** A trap went off: both players see it flip face up in the middle of the table, then it is cut. */
+    public void revealTrap(TrapCard trap) {
+        TrapView.reveal(table, trap);   // the table, not `live`: a redraw in the middle would erase it
+    }
+
+    /** You just set a trap: it is shown big, flips, and glides to its place next to your hero. */
+    public void showTrapSet(TrapCard trap) {
+        int index = you.getTraps().indexOf(trap);
+        double toX = TRAPS_X + index * TrapView.SPACING;
+        arriving = trap;
+        TrapView.set(table, trap, toX, YOUR_TRAPS_Y, () -> {
+            arriving = null;
+            render();   // now traps() draws it in its place
+        });
     }
 
     /** Game over: a dark veil over the whole table blocks every click, with VICTORY or DEFEAT in the middle. */

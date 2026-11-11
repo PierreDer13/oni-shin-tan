@@ -7,6 +7,7 @@ import fr.onishintan.model.Combatant;
 import fr.onishintan.model.HeroClass;
 import fr.onishintan.model.OathType;
 import fr.onishintan.model.Player;
+import fr.onishintan.model.TrapCard;
 import fr.onishintan.ui.MockCards;
 
 import java.util.Map;
@@ -56,6 +57,11 @@ public class MatchController {
         board.setOnTrade(this::trade);
         board.setOnEndTurn(this::endTurn);
         board.setOnGameOver(() -> onEnd.accept(!first.getHero().isDead()));
+
+        // A trap that goes off is shown to both players (the engine has already applied its effect).
+        engine.getBus().subscribe(GameEvent.Type.TRAP_TRIGGERED, event -> board.revealTrap((TrapCard) event.target()));
+        // A trap you set is shown big, then flips and glides to its place by your hero.
+        engine.getBus().subscribe(GameEvent.Type.TRAP_SET, event -> board.showTrapSet((TrapCard) event.target()));
 
         // 4. Each player swears an Oath behind a pass veil, then the first player's hand is dealt.
         chooseOaths(yours, theirs);

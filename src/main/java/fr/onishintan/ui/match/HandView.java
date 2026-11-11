@@ -4,6 +4,7 @@ import fr.onishintan.ui.cards.CardView;
 
 import fr.onishintan.model.BoardSide;
 import fr.onishintan.model.Card;
+import fr.onishintan.model.MinionCard;
 import fr.onishintan.model.Player;
 import java.util.ArrayList;
 import java.util.List;
@@ -34,6 +35,12 @@ import javafx.util.Duration;
  *  hovering a card shows it big, dragging a playable card onto your row plays it. */
 public class HandView extends Group {
     private static final Rectangle2D DECK = new Rectangle2D(BoardView.DECK_X, BoardView.DECK_Y, 115, 127);
+    /** The slot given to onPlay for cards that don't go in a slot (traps and spells). */
+    public static final int NO_SLOT = -1;
+    /** Letting go of a card below this line (over the hand) cancels the drag. */
+    private static final double HAND_TOP = 700;
+    /** Where the lowered hand starts (its middle card's top edge is at 790): the hover zone begins here. */
+    private static final double LOWERED_TOP = 780;
     public static final double CARD_W = 120, GAP = 70, RAISED_GAP = 105;
 
     private final Player player;
@@ -61,8 +68,10 @@ public class HandView extends Group {
             cards.add(v);
         }
         getChildren().addAll(cards);
-        double half = (cards.size() - 1) / 2.0 * RAISED_GAP + CARD_W / 2 + 10;
-        Rectangle zone = new Rectangle(BoardView.W / 2 - half, 700, half * 2, 200);
+        // The hover zone covers only the lowered hand at the bottom of the screen, so the hand doesn't rise
+        // when the mouse is over something above it (your traps). Once it has risen, the raised cards keep it up.
+        double half = (cards.size() - 1) / 2.0 * GAP + CARD_W / 2 + 10;
+        Rectangle zone = new Rectangle(BoardView.W / 2 - half, LOWERED_TOP, half * 2, BoardView.H - LOWERED_TOP);
         zone.setFill(Color.TRANSPARENT);
         zone.setPickOnBounds(true);
         getChildren().add(0, zone);
@@ -108,12 +117,33 @@ public class HandView extends Group {
         v.setOnMouseReleased(e -> {
             showSlots(false);
             Point2D p = sceneToLocal(e.getSceneX(), e.getSceneY());
-            int slot = (int) ((p.getX() - BoardView.SLOT_X) / BoardView.SLOT_STEP);
-            if (p.getY() > BoardView.YOUR_Y && p.getY() < BoardView.YOUR_Y + 160 && slot >= 0 && slot < BoardSide.MAX && free(slot))
-                onPlay.accept(v.getCard(), slot);
-            else if (DECK.contains(p)) onTrade.accept(v.getCard());
-            else fan(true, true);
+            Card card = v.getCard();
+            if (DECK.contains(p)) {
+                onTrade.accept(card);                  // on your deck: trade it
+            } else if (card instanceof MinionCard) {
+                int slot = slotUnder(p);
+                if (slot >= 0 && free(slot)) {
+                    onPlay.accept(card, slot);         // a minion needs a free slot of your row
+                } else {
+                    fan(true, true);                   // anywhere else: back to the hand
+                }
+            } else if (p.getY() < HAND_TOP) {
+                onPlay.accept(card, NO_SLOT);          // traps and spells: anywhere on the board
+            } else {
+                fan(true, true);                       // let go over the hand: cancelled
+            }
         });
+    }
+
+
+    /** The slot of your row under point p, or -1 when p is not over your row. */
+    private int slotUnder(Point2D p) {
+        boolean overYourRow = p.getY() > BoardView.YOUR_Y && p.getY() < BoardView.YOUR_Y + 160;
+        int slot = (int) Math.floor((p.getX() - BoardView.SLOT_X) / BoardView.SLOT_STEP);
+        if (!overYourRow || slot < 0 || slot >= BoardSide.MAX) {
+            return -1;
+        }
+        return slot;
     }
 
     /** While dragging: a soft pink glow on every free slot of your row, and pink spirit motes over your deck (drop there to trade). */
