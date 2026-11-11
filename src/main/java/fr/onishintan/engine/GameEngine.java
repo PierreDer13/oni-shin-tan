@@ -72,7 +72,7 @@ public class GameEngine {
 
     // ---------- match flow ----------
 
-    /** Shuffles and deals 6 / 7 cards. The mulligan comes next, then beginFirstTurn(). */
+    /** Shuffles and deals 4 / 5 cards. The mulligan comes next, then beginFirstTurn(). */
     public void startMatch() {
         turns.startMatch();
         publish(GameEvent.of(GameEvent.Type.MATCH_STARTED));
