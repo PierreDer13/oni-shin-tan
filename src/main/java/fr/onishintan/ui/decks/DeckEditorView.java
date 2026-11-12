@@ -7,6 +7,7 @@ import fr.onishintan.ui.MockCards;
 import fr.onishintan.ui.app.SceneRouter;
 import fr.onishintan.ui.app.Screen;
 import fr.onishintan.ui.app.ScreenGrid;
+import fr.onishintan.ui.cards.CardPreview;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -80,7 +81,7 @@ public class DeckEditorView extends Pane {
         CardPreview preview = new CardPreview(grid);   // the big copy is drawn on the whole grid, above the deck list too
         collection = new CollectionPanel(this::addCard, this::removeCard, preview);
         collection.relocate(30, 180);
-        deckPanel = new DeckPanel(this::removeCard);
+        deckPanel = new DeckPanel(preview, this::removeCard);
         deckPanel.relocate(1160, 130);
         grid.getChildren().addAll(filterBar, collection, deckPanel);
         showCollection();

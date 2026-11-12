@@ -1,11 +1,12 @@
-package fr.onishintan.ui.decks;
+package fr.onishintan.ui.cards;
 
+import fr.onishintan.model.Card;
 import fr.onishintan.ui.app.ScreenGrid;
-import fr.onishintan.ui.cards.CardView;
 import fr.onishintan.ui.fx.Anim;
 
 import javafx.animation.PauseTransition;
 import javafx.geometry.Bounds;
+import javafx.scene.Node;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.Pane;
@@ -13,11 +14,11 @@ import javafx.scene.paint.Color;
 import javafx.util.Duration;
 
 /**
- * The deck editor's hover effect, like in a match: the hovered card grows a little with a shadow,
- * and after a short wait a big, readable copy opens beside it. Leaving the card puts everything back.
- * The big copy is drawn on `layer` (the editor's 1600 x 900 grid), so the collection's scroll area never cuts it.
+ * The hover effect on cards outside a match (deck editor, deck lists): the hovered card or chip grows a little
+ * with a shadow, and after a short wait a big, readable copy of the card opens beside it. Leaving puts everything back.
+ * The big copy is drawn on `layer` (the screen's 1600 x 900 grid), so no scroll area ever cuts it.
  */
-class CardPreview {
+public class CardPreview {
     /** Width of the big copy (the match's preview is 280). */
     private static final double BIG_W = 300;
     /** Gap between the hovered card and its big copy, and from the screen's edges. */
@@ -33,51 +34,51 @@ class CardPreview {
     /** The big copy on screen, or null when there is none. */
     private CardView big;
 
-    CardPreview(Pane layer) {
+    public CardPreview(Pane layer) {
         this.layer = layer;
     }
 
-    /** Gives `view` the hover effect: it grows on enter, its big copy opens after WAIT, everything goes back on exit. */
-    void attach(CardView view) {
-        view.addEventHandler(MouseEvent.MOUSE_ENTERED, event -> {
-            grow(view);
-            wait.setOnFinished(done -> showBig(view));
+    /** Gives `node` (a card or a chip showing `card`) the hover effect: it grows, the big copy opens after WAIT, all goes back on exit. */
+    public void attach(Node node, Card card) {
+        node.addEventHandler(MouseEvent.MOUSE_ENTERED, event -> {
+            grow(node);
+            wait.setOnFinished(done -> showBig(node, card));
             wait.playFromStart();
         });
-        view.addEventHandler(MouseEvent.MOUSE_EXITED, event -> {
-            shrink(view);
+        node.addEventHandler(MouseEvent.MOUSE_EXITED, event -> {
+            shrink(node);
             hideBig();
         });
     }
 
-    /** The hovered card: a little bigger, with a shadow, drawn above its neighbours. */
-    private void grow(CardView view) {
-        view.setViewOrder(-1);
-        view.setEffect(HOVER_SHADOW);
-        Anim.to(view, Anim.ease(view.scaleXProperty(), HOVER_SCALE), Anim.ease(view.scaleYProperty(), HOVER_SCALE));
+    /** The hovered node: a little bigger, with a shadow, drawn above its neighbours. */
+    private void grow(Node node) {
+        node.setViewOrder(-1);
+        node.setEffect(HOVER_SHADOW);
+        Anim.to(node, Anim.ease(node.scaleXProperty(), HOVER_SCALE), Anim.ease(node.scaleYProperty(), HOVER_SCALE));
     }
 
     /** Back to its normal size, without the shadow. */
-    private void shrink(CardView view) {
-        view.setViewOrder(0);
-        view.setEffect(null);
-        Anim.to(view, Anim.ease(view.scaleXProperty(), 1.0), Anim.ease(view.scaleYProperty(), 1.0));
+    private void shrink(Node node) {
+        node.setViewOrder(0);
+        node.setEffect(null);
+        Anim.to(node, Anim.ease(node.scaleXProperty(), 1.0), Anim.ease(node.scaleYProperty(), 1.0));
     }
 
-    /** Opens the big copy right of the card, or left of it when there is no room on the right; always inside the screen. */
-    private void showBig(CardView view) {
+    /** Opens the big copy right of the node, or left of it when there is no room on the right; always inside the screen. */
+    private void showBig(Node node, Card card) {
         hideBig();
-        Bounds card = layer.sceneToLocal(view.localToScene(view.getBoundsInLocal()));
+        Bounds hovered = layer.sceneToLocal(node.localToScene(node.getBoundsInLocal()));
         double bigH = BIG_W * CardView.H / CardView.W;
 
-        double x = card.getMaxX() + MARGIN;
+        double x = hovered.getMaxX() + MARGIN;
         if (x + BIG_W > ScreenGrid.W - MARGIN) {
-            x = card.getMinX() - MARGIN - BIG_W;
+            x = hovered.getMinX() - MARGIN - BIG_W;
         }
-        double y = card.getCenterY() - bigH / 2;
+        double y = hovered.getCenterY() - bigH / 2;
         y = Math.max(MARGIN, Math.min(ScreenGrid.H - MARGIN - bigH, y));
 
-        big = new CardView(view.getCard(), BIG_W);
+        big = new CardView(card, BIG_W);
         big.setMouseTransparent(true);
         big.setViewOrder(-10);
         big.relocate(x, y);

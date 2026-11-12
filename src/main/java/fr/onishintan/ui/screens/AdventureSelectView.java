@@ -1,5 +1,7 @@
 package fr.onishintan.ui.screens;
 import fr.onishintan.ui.cards.CardView;
+import fr.onishintan.ui.cards.CardPreview;
+import fr.onishintan.ui.cards.DeckListView;
 import fr.onishintan.ui.fx.Fx;
 import fr.onishintan.ui.app.SceneRouter;
 import fr.onishintan.ui.app.Screen;
@@ -13,12 +15,9 @@ import fr.onishintan.model.MinionCard;
 import fr.onishintan.model.Rarity;
 
 import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import javafx.util.Duration;
 
@@ -31,7 +30,7 @@ import javafx.scene.effect.ColorAdjust;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
-import javafx.scene.layout.GridPane;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
@@ -46,6 +45,10 @@ public class AdventureSelectView extends Pane {
     private static final String[] ADVENTURES = { "machi", "taifu", "fuji" };
     private static final double[] LEFT = { 8, 428, 822 }, RIGHT = { 418, 812, 1172 };   // each panel's edges in the image
     private static final String[] BOARDS = { "town", "ship", "fuji" };
+    /** Each battle's music, in the same order as BOARDS: the town, the sea (the ship), Mount Fuji. */
+    private static final String[] BOARD_MUSIC = { "town-map-music", "sea-map-music", "fuji-map-music" };
+    /** The deck list's size inside the frame. */
+    private static final double LIST_W = 370, LIST_H = 530;
     /** Your opponent in battles 1 to 3, per class (GDD, Adventure). */
     private static final Map<HeroClass, HeroClass[]> FOES = Map.of(
             HeroClass.SAMURAI, new HeroClass[] { HeroClass.KANNUSHI, HeroClass.ONI, HeroClass.NINJA },
@@ -73,7 +76,10 @@ public class AdventureSelectView extends Pane {
     }
 
     private final Pane grid = new Pane();
-    private final GridPane list = new GridPane();
+    /** The deck in Ki sections, with cream titles on the dark frame; hovering a card opens it big on the whole grid. */
+    private final DeckListView list = new DeckListView(LIST_W, "#f3ede1", new CardPreview(grid), card -> {});
+    /** The list scrolls inside the frame, between the title and the bonus. */
+    private final ScrollPane deckScroll = deckScroll();
     private final int won;
     private final HeroClass heroClass;
     private final List<String> picked;
@@ -95,7 +101,7 @@ public class AdventureSelectView extends Pane {
         page.setFitWidth(W);
         page.setPreserveRatio(true);
         Label title = text("札  " + heroClass.name() + " DECK", 30);
-        grid.getChildren().addAll(page, title, list, HomeView.back(() -> router.goTo(Screen.CLASS_SELECT)));
+        grid.getChildren().addAll(page, title, deckScroll, HomeView.back(() -> router.goTo(Screen.CLASS_SELECT)));
         Label held = text(String.join("   ", picked), 20);
         held.relocate(1185, 790);
         grid.getChildren().add(held);
@@ -106,9 +112,7 @@ public class AdventureSelectView extends Pane {
             grid.getChildren().add(bonus);
         }
         title.relocate(1185, 130);
-        list.setHgap(16);
-        list.setVgap(6);
-        list.relocate(1185, 185);
+        deckScroll.relocate(1185, 185);
         deckList();
         for (int i = 0; i < ADVENTURES.length; i++) panel(router, i);
         if (won == 3) reward(router);
@@ -157,6 +161,7 @@ public class AdventureSelectView extends Pane {
         if (i == won) HomeView.clickable(banner, true, () -> {
             router.register(Screen.ADVENTURE_BATTLE, () -> OniShinTanApp.match(BOARDS[i], heroClass, FOES.get(heroClass)[i],
                     v -> open(router, heroClass, v ? won + 1 : 0, v ? picked : List.of())));
+            router.setMusic(Screen.ADVENTURE_BATTLE, BOARD_MUSIC[i]);   // the town, the sea or Mount Fuji theme
             router.goTo(Screen.ADVENTURE_BATTLE);
         });
         grid.getChildren().add(banner);
@@ -168,13 +173,18 @@ public class AdventureSelectView extends Pane {
         grid.getChildren().add(stamp);
     }
 
-    /** Fills the frame with the class deck: Ki, name, copies, by Ki cost. */
+    /** Fills the frame with the class deck in Ki sections, 4 cards per row; hovering a card shows it big. */
     private void deckList() {
-        Map<Card, Long> counts = deck().stream().sorted(Comparator.comparingInt(Card::getKiCost))
-                .collect(Collectors.groupingBy(c -> c, LinkedHashMap::new, Collectors.counting()));
-        int row = 0;
-        for (Map.Entry<Card, Long> e : counts.entrySet())
-            list.addRow(row++, text(String.valueOf(e.getKey().getKiCost()), 20), text(e.getKey().getNameRomaji(), 20), text("×" + e.getValue(), 20));
+        list.show(deck());
+    }
+
+    /** A transparent, vertical-only scroll area around the deck list, inside the frame. */
+    private ScrollPane deckScroll() {
+        ScrollPane scroll = new ScrollPane(list);
+        scroll.setPrefSize(LIST_W + 14, LIST_H);
+        scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        scroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
+        return scroll;
     }
 
     /** The deck this class gets for the run. Placeholder: the class's mock cards plus the neutral ones, cycled to 30. */
