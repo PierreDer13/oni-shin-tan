@@ -11,6 +11,7 @@ import javafx.scene.Node;
 import javafx.scene.SnapshotParameters;
 import javafx.scene.control.Label;
 import javafx.scene.effect.DropShadow;
+import javafx.scene.effect.Effect;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.Pane;
@@ -78,6 +79,90 @@ public final class Fx {
                 new KeyFrame(Duration.millis(250), new KeyValue(l.scaleXProperty(), 1.0), new KeyValue(l.scaleYProperty(), 1.0)),
                 new KeyFrame(Duration.millis(450), new KeyValue(l.translateYProperty(), 0), new KeyValue(l.opacityProperty(), 1)),
                 new KeyFrame(Duration.seconds(1.2), new KeyValue(l.translateYProperty(), -50, Interpolator.EASE_OUT),
+                        new KeyValue(l.opacityProperty(), 0, Interpolator.EASE_IN)));
+        tl.setOnFinished(e -> layer.getChildren().remove(l));
+        tl.play();
+    }
+
+    /**
+     * Heal: soft green and gold motes rise from the character, it glows green for a moment,
+     * and a big green "+N" pops up and floats away (the mirror of damageNumber).
+     */
+    public static void heal(Pane layer, Node over, int amount) {
+        if (amount <= 0) {
+            return;
+        }
+        Bounds b = over.getBoundsInParent();
+        healMotes(layer, b);
+        healGlow(over);
+        healNumber(layer, b, amount);
+    }
+
+    /** 18 small glowing motes, spread over the bottom half of the character, that drift up while fading. */
+    private static void healMotes(Pane layer, Bounds b) {
+        for (int i = 0; i < 18; i++) {
+            double x = b.getMinX() + Math.random() * b.getWidth();
+            double y = b.getCenterY() + Math.random() * b.getHeight() / 2;
+            Color colour = Color.web("#7dff9a");
+            if (Math.random() < 0.35) {
+                colour = Color.web("#fff3a8");   // a few golden ones
+            }
+            Circle mote = new Circle(x, y, 2 + Math.random() * 2.5, colour);
+            mote.setEffect(new DropShadow(10, Color.web("#3ccf6e")));
+            mote.setMouseTransparent(true);
+            mote.setViewOrder(-3);
+            mote.setOpacity(0);
+            layer.getChildren().add(mote);
+
+            double rise = 60 + Math.random() * 70;
+            double drift = (Math.random() - 0.5) * 20;
+            Timeline tl = new Timeline(
+                    new KeyFrame(Duration.millis(150), new KeyValue(mote.opacityProperty(), 1)),
+                    new KeyFrame(Duration.millis(1100),
+                            new KeyValue(mote.translateYProperty(), -rise, Interpolator.EASE_OUT),
+                            new KeyValue(mote.translateXProperty(), drift),
+                            new KeyValue(mote.opacityProperty(), 0, Interpolator.EASE_IN)));
+            tl.setDelay(Duration.millis(Math.random() * 300));   // they don't all start at once
+            tl.setOnFinished(e -> layer.getChildren().remove(mote));
+            tl.play();
+        }
+    }
+
+    /** The character glows green, then gets back the effect it had before (its selection border, if any). */
+    private static void healGlow(Node over) {
+        Effect before = over.getEffect();
+        DropShadow glow = new DropShadow(0, Color.web("#3ccf6e"));
+        glow.setSpread(0.35);
+        glow.setInput(before);   // the border stays under the glow
+        over.setEffect(glow);
+        Timeline tl = new Timeline(
+                new KeyFrame(Duration.millis(250), new KeyValue(glow.radiusProperty(), 40)),
+                new KeyFrame(Duration.millis(900), new KeyValue(glow.radiusProperty(), 0)));
+        tl.setOnFinished(e -> {
+            if (over.getEffect() == glow) {
+                over.setEffect(before);   // only if nothing else (a hover) changed it meanwhile
+            }
+        });
+        tl.play();
+    }
+
+    /** A big green "+N" that pops up over the character, then floats up and fades out. */
+    private static void healNumber(Pane layer, Bounds b, int amount) {
+        Label l = new Label("+" + amount);
+        l.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 72; -fx-font-weight: bold; -fx-text-fill: #3ccf6e; -fx-alignment: center;");
+        l.setEffect(new DropShadow(6, Color.BLACK));
+        l.setMouseTransparent(true);
+        l.setViewOrder(-3);
+        l.setPrefWidth(200);
+        l.relocate(b.getCenterX() - 100, b.getCenterY() - 50);
+        l.setScaleX(0.4);
+        l.setScaleY(0.4);
+        layer.getChildren().add(l);
+        Timeline tl = new Timeline(
+                new KeyFrame(Duration.millis(150), new KeyValue(l.scaleXProperty(), 1.25), new KeyValue(l.scaleYProperty(), 1.25)),
+                new KeyFrame(Duration.millis(250), new KeyValue(l.scaleXProperty(), 1.0), new KeyValue(l.scaleYProperty(), 1.0)),
+                new KeyFrame(Duration.millis(450), new KeyValue(l.translateYProperty(), 0), new KeyValue(l.opacityProperty(), 1)),
+                new KeyFrame(Duration.seconds(1.4), new KeyValue(l.translateYProperty(), -70, Interpolator.EASE_OUT),
                         new KeyValue(l.opacityProperty(), 0, Interpolator.EASE_IN)));
         tl.setOnFinished(e -> layer.getChildren().remove(l));
         tl.play();

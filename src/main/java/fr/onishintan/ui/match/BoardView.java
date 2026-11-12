@@ -84,6 +84,8 @@ public class BoardView extends Pane {
     private Combatant selected;
     private BiConsumer<Combatant, Combatant> onAttack = (a, t) -> {};
     private final Map<Combatant, Node> nodes = new HashMap<>();
+    /** Every character's HP at the last redraw: a higher HP at the next one plays the heal effect. */
+    private Map<Combatant, Integer> healthSeen = new HashMap<>();
 
     private static final String HUD = "-fx-background-color: rgba(20,12,8,0.75); -fx-text-fill: #f3ede1; -fx-font-weight: bold;"
         + " -fx-background-radius: 10; -fx-alignment: center; -fx-text-alignment: center;";
@@ -190,7 +192,26 @@ public class BoardView extends Pane {
         live.getChildren().add(hand = new HandView(you, (card, slot) -> { onPlay.accept(card, slot); impact(card.getKiCost(), false); }, this::trade, this::previewCost));
         hand.setVisible(dealt);
         enemyHand(enemy);
+        healEffects();
         if (enemy.getHero().isDead() || you.getHero().isDead()) gameOver(enemy.getHero().isDead());
+    }
+
+    /**
+     * After a redraw: every character whose HP went up since the last redraw shows the heal effect
+     * (heals, lifesteal, and buffs that raise HP). A character seen for the first time (just summoned) doesn't.
+     */
+    private void healEffects() {
+        Map<Combatant, Integer> healthNow = new HashMap<>();
+        for (Map.Entry<Combatant, Node> entry : nodes.entrySet()) {
+            Combatant character = entry.getKey();
+            int health = character.getHealth();
+            healthNow.put(character, health);
+            Integer healthBefore = healthSeen.get(character);
+            if (healthBefore != null && health > healthBefore) {
+                Fx.heal(live, entry.getValue(), health - healthBefore);
+            }
+        }
+        healthSeen = healthNow;
     }
 
 
