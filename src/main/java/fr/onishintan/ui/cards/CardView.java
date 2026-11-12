@@ -6,6 +6,8 @@ import fr.onishintan.model.MinionCard;
 import fr.onishintan.model.Rarity;
 import fr.onishintan.model.SpellCard;
 import fr.onishintan.model.WeaponCard;
+import fr.onishintan.ui.app.Images;
+
 import java.io.InputStream;
 import javafx.geometry.HPos;
 import javafx.geometry.NodeOrientation;
@@ -103,11 +105,14 @@ public class CardView extends Group {
     }
 
     /** The card's art, or the blank frame of its class while the art is missing. */
+    /** The card's art (decoded once, at the card's size, then reused), or the blank frame of its class while the art is missing. */
     private Image art() {
         String folder = card.getHeroClass().name().charAt(0) + card.getHeroClass().name().substring(1).toLowerCase();
-        InputStream in = getClass().getResourceAsStream("/images/cards/" + folder + "/" + card.getId() + ".png");
-        if (in == null) in = getClass().getResourceAsStream("/images/frames/" + card.getHeroClass().name().toLowerCase() + "-base-card.png");
-        return new Image(in);
+        Image art = Images.get("/images/cards/" + folder + "/" + card.getId() + ".png", W, H);
+        if (art == null) {
+            art = Images.get("/images/frames/" + card.getHeroClass().name().toLowerCase() + "-base-card.png", W, H);
+        }
+        return art;
     }
 
 

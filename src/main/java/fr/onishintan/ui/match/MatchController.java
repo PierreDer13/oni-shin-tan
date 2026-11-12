@@ -4,6 +4,7 @@ import fr.onishintan.engine.GameEngine;
 import fr.onishintan.engine.GameEvent;
 import fr.onishintan.model.Card;
 import fr.onishintan.model.Combatant;
+import fr.onishintan.model.Hero;
 import fr.onishintan.model.HeroClass;
 import fr.onishintan.model.KatanaTier;
 import fr.onishintan.model.OathType;
@@ -32,8 +33,15 @@ public class MatchController {
     /** Plays first and starts at the bottom of the screen. */
     private final Player first;
     private final Player second;
+    /** Checks the engine's clock and redraws both times every 200 ms. */
+    private final ClockTicker clockTicker = new ClockTicker(this::tickClock);
+    /** The last clock timeout (from CLOCK_TIMEOUT): the hero who ran out of time and the damage he took. */
+    private Hero timedOutHero;
+    private int timeoutDamage;
     /** How many cards the engine drew during endTurn(), so they can fly in after the pass veil. */
     private int cardsDrawnThisTurn;
+    /** False until the second player's first turn: then their whole opening hand is dealt, not only the 2 cards drawn. */
+    private boolean secondHandDealt;
 
     /** A hotseat match on this board; at the end, onEnd gets whether the first player won. */
     public MatchController(String boardName, HeroClass yours, HeroClass theirs, Consumer<Boolean> onEnd) {
@@ -48,10 +56,11 @@ public class MatchController {
         engine.getBus().subscribe(GameEvent.Type.CARD_DRAWN, event -> cardsDrawnThisTurn++);
         engine.startMatch();
         engine.beginFirstTurn();
+        pauseClock();   // the engine starts the first player's clock: it waits until both Oaths are sworn
 
         // 3. The table, with each action plugged into the engine.
         board = new BoardView(boardName, second, PORTRAIT.get(theirs), first, PORTRAIT.get(yours));
-        board.showClocks("7:00", "7:00", true);
+        showClocks();
         board.setOnPlay(this::playCard);
         board.setOnAttack(this::attack);
         board.setOnPower(this::useHeroPower);
@@ -64,6 +73,11 @@ public class MatchController {
         engine.getBus().subscribe(GameEvent.Type.TRAP_TRIGGERED, event -> board.revealTrap((TrapCard) event.target()));
         // A trap you set is shown big, then flips and glides to its place by your hero.
         engine.getBus().subscribe(GameEvent.Type.TRAP_SET, event -> board.showTrapSet((TrapCard) event.target()));
+        // A clock timeout: remember who ran out and the damage, for the TIME'S UP animation once checkClock() returns.
+        engine.getBus().subscribe(GameEvent.Type.CLOCK_TIMEOUT, event -> {
+            timedOutHero = (Hero) event.target();
+            timeoutDamage = event.amount();
+        });
 
         // 4. Each player swears an Oath behind a pass veil, then the first player's hand is dealt.
         chooseOaths(yours, theirs);
@@ -80,7 +94,11 @@ public class MatchController {
             swear(first, firstOath);
             board.chooseOath(theirs, secondOath -> {
                 swear(second, secondOath);
-                board.passTo(first.getName(), board::dealHand);
+                board.passTo(first.getName(), () -> {
+                    resumeClock();          // both Oaths are sworn: the first player's clock starts now
+                    clockTicker.start();
+                    board.dealHand();
+                });
             });
             board.passTo(second.getName(), () -> {});
         });
@@ -125,7 +143,14 @@ public class MatchController {
     private void endTurn() {
         cardsDrawnThisTurn = 0;
         engine.endTurn();
+        afterTurnEnded();
+    }
 
+    /**
+     * What the table does once the engine has ended a turn (End turn pressed, or a clock timeout):
+     * flip the board to the next player and hide it behind the pass veil. Their clock waits until they click.
+     */
+    private void afterTurnEnded() {
         // A broken Oath can kill its own hero: then the match is over and there is no pass veil.
         if (engine.getState().isOver()) {
             board.render();
@@ -134,11 +159,68 @@ public class MatchController {
 
         // Flip the board so the next player sits at the bottom, then hide it until they click.
         board.swapSides();
+        pauseClock();
+        int drawn = cardsDrawnThisTurn;   // kept now: the clock ticks reset the counter while the veil is up
         board.passTo(engine.active().getName(), () -> {
-            if (cardsDrawnThisTurn > 0) {
-                board.dealDrawnCards(cardsDrawnThisTurn);   // the cards they drew fly in from their deck
+            resumeClock();
+            if (!secondHandDealt) {
+                // The second player's first turn: their opening hand and the cards they just drew all fly in.
+                secondHandDealt = true;
+                board.dealHand();
+            } else if (drawn > 0) {
+                board.dealDrawnCards(drawn);   // the cards they drew fly in from their deck
             }
         });
+    }
+
+    /**
+     * Every ClockTicker.TICK: the engine checks the active player's bank (a timeout hits the hero and ends the turn),
+     * then both times are redrawn. On a timeout the TIME'S UP animation plays, then the pass veil.
+     */
+    private void tickClock() {
+        if (engine.getState().isOver()) {
+            clockTicker.stop();
+            return;
+        }
+        cardsDrawnThisTurn = 0;   // a timeout ends the turn inside checkClock(): count only the cards drawn by it
+        boolean timedOut = engine.checkClock();
+        showClocks();
+        if (!timedOut) {
+            return;
+        }
+        clockTicker.stop();
+        board.showTimeout(timedOutHero, timeoutDamage, () -> {
+            if (engine.getState().isOver()) {
+                return;   // the timeout killed the hero: showTimeout already shows the game over
+            }
+            afterTurnEnded();
+            clockTicker.start();
+        });
+    }
+
+    /** Both chess clocks as m:ss. The active player always sits at the bottom, so the bottom clock is theirs. */
+    private void showClocks() {
+        Player active = engine.active();
+        Player waiting = second;
+        if (active == second) {
+            waiting = first;
+        }
+        String yours = ClockTicker.format(engine.remainingMs(active));
+        String theirs = ClockTicker.format(engine.remainingMs(waiting));
+        board.showClocks(yours, theirs, true);
+    }
+
+    /**
+     * Stops the active player's clock while the table is hidden (Oath choice, pass veil), so hotseat players don't lose time.
+     * Temporary: uses the same time as the engine (System.currentTimeMillis) until GameEngine has pause/resume methods.
+     */
+    private void pauseClock() {
+        engine.active().getClock().pause(System.currentTimeMillis());
+    }
+
+    /** Starts the active player's clock again once they clicked the pass veil. */
+    private void resumeClock() {
+        engine.active().getClock().start(System.currentTimeMillis());
     }
 
     /** Samurai passive Gusoku: start with 10 armour (GDD). Here until the engine applies hero passives. */

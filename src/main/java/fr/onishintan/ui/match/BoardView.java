@@ -3,6 +3,7 @@ import fr.onishintan.ui.cards.CardView;
 import fr.onishintan.ui.cards.MinionView;
 import fr.onishintan.ui.fx.Fx;
 import fr.onishintan.ui.screens.HomeView;
+import fr.onishintan.ui.app.Images;
 import fr.onishintan.ui.app.Sound;
 
 import fr.onishintan.model.Hero;
@@ -83,6 +84,8 @@ public class BoardView extends Pane {
     private Combatant selected;
     private BiConsumer<Combatant, Combatant> onAttack = (a, t) -> {};
     private final Map<Combatant, Node> nodes = new HashMap<>();
+    /** Every character's HP at the last redraw: a higher HP at the next one plays the heal effect. */
+    private Map<Combatant, Integer> healthSeen = new HashMap<>();
 
     private static final String HUD = "-fx-background-color: rgba(20,12,8,0.75); -fx-text-fill: #f3ede1; -fx-font-weight: bold;"
         + " -fx-background-radius: 10; -fx-alignment: center; -fx-text-alignment: center;";
@@ -189,7 +192,26 @@ public class BoardView extends Pane {
         live.getChildren().add(hand = new HandView(you, (card, slot) -> { onPlay.accept(card, slot); impact(card.getKiCost(), false); }, this::trade, this::previewCost));
         hand.setVisible(dealt);
         enemyHand(enemy);
+        healEffects();
         if (enemy.getHero().isDead() || you.getHero().isDead()) gameOver(enemy.getHero().isDead());
+    }
+
+    /**
+     * After a redraw: every character whose HP went up since the last redraw shows the heal effect
+     * (heals, lifesteal, and buffs that raise HP). A character seen for the first time (just summoned) doesn't.
+     */
+    private void healEffects() {
+        Map<Combatant, Integer> healthNow = new HashMap<>();
+        for (Map.Entry<Combatant, Node> entry : nodes.entrySet()) {
+            Combatant character = entry.getKey();
+            int health = character.getHealth();
+            healthNow.put(character, health);
+            Integer healthBefore = healthSeen.get(character);
+            if (healthBefore != null && health > healthBefore) {
+                Fx.heal(live, entry.getValue(), health - healthBefore);
+            }
+        }
+        healthSeen = healthNow;
     }
 
 
@@ -249,6 +271,36 @@ public class BoardView extends Pane {
         enemyClock.setText(theirs);
         clock(yourClock, yourTurn);
         clock(enemyClock, !yourTurn);
+    }
+
+
+    /** How long the TIME'S UP banner stays before the pass veil. */
+    private static final Duration TIMEOUT_SHOW = Duration.millis(1600);
+
+    /**
+     * Chess clock timeout (GameEvent.CLOCK_TIMEOUT): the hero who ran out of time is slashed and shows the damage,
+     * "時間切れ TIME'S UP" covers the table (and blocks clicks), then `then` runs after TIMEOUT_SHOW.
+     */
+    public void showTimeout(Hero hero, int damage, Runnable then) {
+        render();   // the hero's HP after the damage (or the game over, if it killed him)
+        Node heroNode = nodes.get(hero);
+        if (heroNode != null) {
+            Fx.slash(live, heroNode);
+            Fx.damageNumber(live, heroNode, damage);
+        }
+
+        Label banner = new Label("時間切れ\nTIME'S UP");
+        banner.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 72; -fx-font-weight: bold; -fx-text-alignment: center; -fx-text-fill: #c41e1e;");
+        banner.setEffect(new DropShadow(30, Color.BLACK));
+        StackPane cover = new StackPane(new Rectangle(W, H, Color.rgb(0, 0, 0, 0.35)), banner);
+        table.getChildren().add(cover);
+
+        PauseTransition wait = new PauseTransition(TIMEOUT_SHOW);
+        wait.setOnFinished(event -> {
+            table.getChildren().remove(cover);
+            then.run();
+        });
+        wait.play();
     }
 
     /** What happens when you drop a card on your row (the match will call the engine here). */
@@ -527,7 +579,10 @@ public void passTo(String name, Runnable onReady) {
         live.getChildren().add(n);
     }
 
-    static ImageView image(String path) { return new ImageView(new Image(BoardView.class.getResourceAsStream(path))); }
+    /** A picture from the resources in a new ImageView; the picture itself is decoded only once (Images keeps it). */
+    static ImageView image(String path) {
+        return new ImageView(Images.get(path));
+    }
 
     /** Attack selection on one character. Yours that can attack: yellow border (thicker on hover, gold glow when picked),
      *  click to pick or unpick. Once one is picked: legal enemies glow red and attack on click; anything else cancels. */
