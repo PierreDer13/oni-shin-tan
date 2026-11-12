@@ -7,6 +7,8 @@ import fr.onishintan.model.Hero;
 import fr.onishintan.model.Minion;
 import fr.onishintan.model.MinionCard;
 import fr.onishintan.model.Player;
+import fr.onishintan.model.RiteCard;
+import fr.onishintan.model.Keyword;
 import fr.onishintan.model.Shrine;
 import fr.onishintan.model.ShrineCard;
 import fr.onishintan.model.SpellCard;
@@ -246,8 +248,12 @@ public class GameEngine {
         if (card instanceof CurseCard && p.isHeldCurse(card)) return false;   // removed with removeCurse, never played
 
         // A minion needs its chosen slot to be free: check before spending anything
-        if ((card instanceof MinionCard || card instanceof ShrineCard) && !p.getSide().isFree(slot)) {            return false;
+        if ((card instanceof MinionCard || card instanceof ShrineCard) && !p.getSide().isFree(slot)) {
+        return false;
         }
+
+        // A Rite needs at least one free slot for its first Ancestor
+        if (card instanceof RiteCard && p.getSide().isFull()) return false;
 
         // A trap is set face down: TRAP_SET instead of CARD_PLAYED. Only its owner's UI shows the card
         if (card instanceof TrapCard trap) {
@@ -279,6 +285,8 @@ public class GameEngine {
             publish(new GameEvent(GameEvent.Type.SHRINE_PLACED, p, shrine, slot));
         } else if (card instanceof CurseCard cc) {
             giveCurse(p, state.opponent(), cc);        
+        } else if (card instanceof RiteCard rc) {
+            performRite(p, rc, slot, target);
         } else if (card instanceof SpellCard) {
             publish(GameEvent.of(GameEvent.Type.SPELL_CAST, p, card));
             triggerTraps(state.opponent(), TrapTrigger.ON_ENEMY_SPELL, null);
@@ -431,6 +439,36 @@ public class GameEngine {
                 .ifPresent(effect -> effect.apply(new EffectContext(this, victim, null, null)));
         combat.removeDead();
         checkGameOver();
+    }
+
+    // ---------- rites (Samurai) ----------
+
+    /**
+     * Summons the Rite's Ancestors (first on the chosen slot if free, then leftmost free;
+     * no room = the rest are lost), each with the Rite's own keywords and the lasting
+     * bonuses of the Rites before it, then records this Rite for the next Ancestors.
+     */
+    private void performRite(Player p, RiteCard rite, int slot, Combatant target) {
+        for (int i = 0; i < rite.getAncestors(); i++) {
+            int s = (i == 0 && p.getSide().isFree(slot)) ? slot : p.getSide().firstFree();
+            if (s < 0) break;
+            Minion a = new Minion(RiteCard.ancestorCard());
+            for (Keyword k : rite.getNowKeywords()) a.giveKeyword(k);
+            for (RiteCard past : p.getRites()) {
+                a.buff(past.getBonusAttack(), past.getBonusHealth());
+                for (Keyword k : past.getBonusKeywords()) a.giveKeyword(k);
+            }
+            p.getSide().place(a, s);
+            publish(GameEvent.of(GameEvent.Type.MINION_SUMMONED, p, a));
+            for (RiteCard past : p.getRites()) {
+                cardEffects.get(past.getId(), Trigger.BANZAI)
+                        .ifPresent(effect -> effect.apply(new EffectContext(this, p, a, target)));
+            }
+            triggerTraps(state.opponent(), TrapTrigger.ON_ENEMY_SUMMON, a);
+            if (state.isOver()) return;
+        }
+        p.addRite(rite);
+        publish(GameEvent.of(GameEvent.Type.RITE_PERFORMED, p, rite));
     }
 
     /** One trap per action: the first of the owner's traps waiting for it goes off, then is gone. */

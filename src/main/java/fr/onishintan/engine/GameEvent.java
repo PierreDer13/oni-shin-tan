@@ -25,6 +25,7 @@ public record GameEvent(Type type, Object source, Object target, int amount) {
         CURSE_GIVEN,                // source = cursing Player, target = the CurseCard, amount = copies
         CURSE_TRIGGERED,            // source = cursed Player, target = the CurseCard
         CURSE_REMOVED,              // source = Player who paid the removal, target = the CurseCard
+        RITE_PERFORMED,             // source = Player, target = the RiteCard (after its Ancestors are summoned)        
         CLOCK_TIMEOUT,              // source = Player, target = his Hero, amount = damage (ceil(HP / 2))       
         SHRINE_PLACED,              // source = Player, target = the Shrine, amount = slot
         SHRINE_EXPIRED,             // source = Player, target = the Shrine (its slot is free again)       
