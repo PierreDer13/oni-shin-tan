@@ -77,7 +77,8 @@ public class DeckEditorView extends Pane {
         allowed = cardsAllowed();
         FilterBar filterBar = new FilterBar(filter, this::showCollection);
         filterBar.relocate(30, 125);
-        collection = new CollectionPanel(this::addCard, this::removeCard);
+        CardPreview preview = new CardPreview(grid);   // the big copy is drawn on the whole grid, above the deck list too
+        collection = new CollectionPanel(this::addCard, this::removeCard, preview);
         collection.relocate(30, 180);
         deckPanel = new DeckPanel(this::removeCard);
         deckPanel.relocate(1160, 130);
