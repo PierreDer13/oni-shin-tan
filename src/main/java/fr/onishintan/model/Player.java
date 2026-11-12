@@ -27,6 +27,7 @@ public class Player {
     private int maxKi;
     private Oath oath;          // null in Adventure, or before the Oath is sworn
     private final List<TrapCard> traps = new ArrayList<>();   // face down, no limit (GDD)
+    private final ChessClock clock = new ChessClock();
 
 
     public Player(String name, Hero hero, Deck deck) {
@@ -154,6 +155,10 @@ public class Player {
 
     public int getMaxKi() {
         return maxKi;
+    }
+
+    public ChessClock getClock() {
+        return clock;
     }
 
 
