@@ -30,6 +30,7 @@ public class Player {
     private Oath oath;          // null in Adventure, or before the Oath is sworn
     private final List<TrapCard> traps = new ArrayList<>();   // face down, no limit (GDD)
     private final Set<Card> heldCurses = Collections.newSetFromMap(new IdentityHashMap<>());   // Curses the enemy put in this hand    
+    private final List<RiteCard> rites = new ArrayList<>();   // Rites performed this match, in order
     private final ChessClock clock = new ChessClock();
 
 
@@ -120,8 +121,13 @@ public class Player {
         return hand.remove(curse);
     }
 
+    /** After a Rite: its lasting bonus applies to every Ancestor summoned later. */
+    public void addRite(RiteCard rite) { rites.add(rite); }
 
-        /** False if the same trap is already set: one copy per trap (GDD). */
+    public List<RiteCard> getRites() { return Collections.unmodifiableList(rites); }
+
+
+    /** False if the same trap is already set: one copy per trap (GDD). */
     public boolean canSetTrap(TrapCard trap) {
         return traps.stream().noneMatch(t -> t.getId().equals(trap.getId()));
     }
