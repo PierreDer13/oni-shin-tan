@@ -20,6 +20,8 @@ import fr.onishintan.model.HeroClass;
 import fr.onishintan.model.KatanaTier;
 import fr.onishintan.model.Rarity;
 import fr.onishintan.model.Status;
+import fr.onishintan.model.CurseCard;
+import fr.onishintan.model.CurseZone;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -43,6 +45,7 @@ public class GameEngine {
     private final List<GameListener> listeners = new ArrayList<>();
     private final TurnTracker turnTracker = new TurnTracker();
     private final OathRules oathRules = new OathRules();
+    private final Random rng;
 
     private LongSupplier now = System::currentTimeMillis;   // replaced in tests
 
@@ -54,7 +57,8 @@ public class GameEngine {
 
     public GameEngine(Player first, Player second, Random rng) {
         this.state = new GameState(first, second);
-        this.turns = new TurnManager(state, Objects.requireNonNull(rng));
+        this.rng = Objects.requireNonNull(rng);
+        this.turns = new TurnManager(state, this.rng);
         this.combat = new CombatResolver(state, this::publish);
 
         // Rule handlers: they run before the UI hears the event
@@ -70,6 +74,10 @@ public class GameEngine {
              e -> turnTracker.cardPlayed((Card) e.target()));
         bus.subscribe(GameEvent.Type.TURN_ENDED,
              e -> tickShrines((Player) e.source()));
+        bus.subscribe(GameEvent.Type.TURN_ENDED,
+             e -> runHandCurses((Player) e.source()));
+        bus.subscribe(GameEvent.Type.CARD_DRAWN,
+             e -> onCurseDrawn((Player) e.source(), (Card) e.target()));
     }
 
     // ---------- listeners ----------
@@ -235,6 +243,7 @@ public class GameEngine {
     public boolean playCard(Card card, int slot, Combatant target) {
         if (state.isOver() || !canPlay(card)) return false;
         Player p = state.active();
+        if (card instanceof CurseCard && p.isHeldCurse(card)) return false;   // removed with removeCurse, never played
 
         // A minion needs its chosen slot to be free: check before spending anything
         if ((card instanceof MinionCard || card instanceof ShrineCard) && !p.getSide().isFree(slot)) {            return false;
@@ -268,6 +277,8 @@ public class GameEngine {
             Shrine shrine = new Shrine(sc);
             p.getSide().place(shrine, slot);
             publish(new GameEvent(GameEvent.Type.SHRINE_PLACED, p, shrine, slot));
+        } else if (card instanceof CurseCard cc) {
+            giveCurse(p, state.opponent(), cc);        
         } else if (card instanceof SpellCard) {
             publish(GameEvent.of(GameEvent.Type.SPELL_CAST, p, card));
             triggerTraps(state.opponent(), TrapTrigger.ON_ENEMY_SPELL, null);
@@ -376,6 +387,50 @@ public class GameEngine {
         for (Shrine s : owner.getSide().tickShrines()) {
             publish(GameEvent.of(GameEvent.Type.SHRINE_EXPIRED, owner, s));
         }
+    }
+
+    // ---------- curses (Oni) ----------
+
+    private void giveCurse(Player from, Player to, CurseCard curse) {
+        if (curse.getZone() == CurseZone.HAND) {
+            if (!to.receiveCurse(curse)) return;          // hand full: the Curse is lost
+        } else {
+            for (int i = 0; i < curse.getCopies(); i++) to.getDeck().insertRandom(curse, rng);
+        }
+        publish(new GameEvent(GameEvent.Type.CURSE_GIVEN, from, curse, curse.getCopies()));
+    }
+
+    /** The active player pays the removal cost to get rid of a Curse in his hand. Refused = nothing paid. */
+    public boolean removeCurse(CurseCard curse) {
+        Player p = state.active();
+        if (state.isOver() || !p.isHeldCurse(curse) || !p.canAfford(curse.getRemovalCost())) return false;
+        p.spendKi(curse.getRemovalCost());
+        p.removeCurse(curse);
+        publish(GameEvent.of(GameEvent.Type.CURSE_REMOVED, p, curse));
+        return true;
+    }
+
+    /** End of the holder's turn: every hand Curse he holds acts, left to right. */
+    private void runHandCurses(Player holder) {
+        for (Card c : List.copyOf(holder.getHand())) {
+            if (c instanceof CurseCard curse && holder.isHeldCurse(curse)) fireCurse(holder, curse);
+            if (state.isOver()) return;
+        }
+    }
+
+    /** A deck Curse acts as soon as it is drawn, then is gone. */
+    private void onCurseDrawn(Player p, Card card) {
+        if (!(card instanceof CurseCard curse) || curse.getZone() != CurseZone.DECK) return;
+        p.removeFromHand(curse);
+        fireCurse(p, curse);
+    }
+
+    private void fireCurse(Player victim, CurseCard curse) {
+        publish(GameEvent.of(GameEvent.Type.CURSE_TRIGGERED, victim, curse));
+        cardEffects.get(curse.getId(), Trigger.CURSE)
+                .ifPresent(effect -> effect.apply(new EffectContext(this, victim, null, null)));
+        combat.removeDead();
+        checkGameOver();
     }
 
     /** One trap per action: the first of the owner's traps waiting for it goes off, then is gone. */
