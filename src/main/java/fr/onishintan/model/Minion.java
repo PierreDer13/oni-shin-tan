@@ -10,7 +10,7 @@ public class Minion extends Combatant {
     private final Set<Keyword> keywords;
     private boolean summonedThisTurn = true;
     private boolean hidden;     // Shinobi: untargetable until it attacks
-    private boolean hasTorii;   // blocks the next damage, then is lost
+    private int toriiStacks;    // each stack blocks one hit; Torii can be given several times
 
     public Minion(MinionCard source) {
         super(source.getBaseAttack(), source.getBaseHealth());
@@ -19,14 +19,14 @@ public class Minion extends Combatant {
                 ? EnumSet.noneOf(Keyword.class)
                 : EnumSet.copyOf(source.getKeywords());
         this.hidden = keywords.contains(Keyword.SHINOBI);
-        this.hasTorii = keywords.contains(Keyword.TORII);
+        this.toriiStacks = keywords.contains(Keyword.TORII) ? 1 : 0;
     }
 
     @Override
     public int takeDamage(int amount) {
         if (amount <= 0) return 0;
-        if (hasTorii) {          // Torii absorbs the whole hit, whatever its size
-            hasTorii = false;
+        if (toriiStacks > 0) {   // one Torii stack absorbs the whole hit, whatever its size
+            toriiStacks--;
             return 0;
         }
         return super.takeDamage(amount);
@@ -59,7 +59,7 @@ public class Minion extends Combatant {
 
     public void giveKeyword(Keyword k) {
         keywords.add(k);
-        if (k == Keyword.TORII) hasTorii = true;
+        if (k == Keyword.TORII) toriiStacks++;
         if (k == Keyword.SHINOBI) hidden = true;
     }
 
@@ -68,7 +68,9 @@ public class Minion extends Combatant {
     public MinionCard getSource() { return source; }
     public boolean isSummonedThisTurn() { return summonedThisTurn; }
     public boolean isHidden() { return hidden; }
-    public boolean hasTorii() { return hasTorii; }
+    public boolean hasTorii() { return toriiStacks > 0; }
+    public int getToriiStacks() { return toriiStacks; 
+    }
 
     @Override
     public String toString() { return source.getNameRomaji() + " " + attack + "/" + health; }
