@@ -5,7 +5,7 @@ import java.util.EnumSet;
 import java.util.Set;
 
 /** A minion on the board: starts from its card, then gets buffed, damaged, hidden... */
-public class Minion extends Combatant {
+public class Minion extends Combatant implements BoardEntity {
     private final MinionCard source;
     private final Set<Keyword> keywords;
     private boolean summonedThisTurn = true;
@@ -69,8 +69,7 @@ public class Minion extends Combatant {
     public boolean isSummonedThisTurn() { return summonedThisTurn; }
     public boolean isHidden() { return hidden; }
     public boolean hasTorii() { return toriiStacks > 0; }
-    public int getToriiStacks() { return toriiStacks; 
-    }
+    public int getToriiStacks() { return toriiStacks; }
 
     @Override
     public String toString() { return source.getNameRomaji() + " " + attack + "/" + health; }
