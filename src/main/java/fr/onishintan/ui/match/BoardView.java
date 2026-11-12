@@ -14,6 +14,9 @@ import fr.onishintan.model.Combatant;
 import fr.onishintan.model.Minion;
 import fr.onishintan.model.Player;
 import fr.onishintan.model.TrapCard;
+import fr.onishintan.engine.GameEngine;
+import fr.onishintan.model.KatanaTier;
+import fr.onishintan.model.Status;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -112,7 +115,10 @@ public class BoardView extends Pane {
     private BiConsumer<Card, Integer> onPlay = (c, slot) -> {};
 
     private boolean powerUsed;
-    private Runnable onPower = () -> {};
+    private Predicate<Combatant> onPower = target -> false;
+    private Predicate<KatanaTier> onKatana = tier -> false;
+    /** True after pressing a power that needs a target (Shuriken, Jikininki): the next click on a character aims it. */
+    private boolean aiming;
     private Runnable onGameOver = () -> {};
     public void setOnGameOver(Runnable r) { onGameOver = r; }
     private Node preview;
@@ -130,7 +136,7 @@ public class BoardView extends Pane {
         izakaya = board.equals("izakaya");
         bg.setFitWidth(W);
         bg.setFitHeight(H);
-        bg.setOnMouseClicked(e -> { selected = null; render(); });
+        bg.setOnMouseClicked(e -> { selected = null; aiming = false; render(); });
         Scale scale = new Scale();
         table.getTransforms().add(scale);
         InvalidationListener fit = o -> {
@@ -270,8 +276,11 @@ public class BoardView extends Pane {
         render();
     }
 
-    /** What happens when you use your hero power (the match will call the engine here). */
-    public void setOnPower(Runnable onPower) { this.onPower = onPower; }
+    /** What happens when you use a Ninja, Oni or Kannushi power on a target (null for the Miko): true if the engine accepted it. */
+    public void setOnPower(Predicate<Combatant> onPower) { this.onPower = onPower; }
+
+    /** What happens when the Samurai picks a blade: true if the engine accepted it. */
+    public void setOnKatana(Predicate<KatanaTier> onKatana) { this.onKatana = onKatana; }
 
     /** Start of your turn: the hero power can be used again. */
     public void resetPower() {
@@ -337,6 +346,7 @@ public class BoardView extends Pane {
         enemyPortrait = s;
         selected = null;
         powerUsed = false;
+        aiming = false;
         render();
     }
 
@@ -523,6 +533,10 @@ public void passTo(String name, Runnable onReady) {
      *  click to pick or unpick. Once one is picked: legal enemies glow red and attack on click; anything else cancels. */
     private void clickable(Node n, Combatant c, boolean mine) {
         nodes.put(c, n);
+        if (aiming) {
+            aimable(n, c);   // a hero power is waiting for its target: no attack selection now
+            return;
+        }
         if (mine && c.canAttack()) {
             if (c == selected) floatReady(n);
             n.setEffect(c == selected ? new DropShadow(BlurType.GAUSSIAN, Color.GOLD, 28, 0.45, 0, 0) : border(8));
@@ -585,9 +599,9 @@ public void passTo(String name, Runnable onReady) {
 
     /** A hero power in its mock-up zone; yours can be pressed once per turn (pays the Ki), the opponent's is only shown. */
     private void power(Player p, double zoneY, boolean mine) {
-        boolean usable = mine && !powerUsed && you.canAfford(HeroPowerView.COST);
+        boolean usable = mine && !powerUsed && you.canAfford(cheapestPower());
         HeroPowerView v = new HeroPowerView(p.getHero().getHeroClass(), mine && powerUsed, usable, this::previewCost,
-                () -> { powerUsed = true; onPower.run(); render(); });
+                this::pressPower);
         bigOnHover(v, () -> {
             Node b = new HeroPowerView(p.getHero().getHeroClass(), mine && powerUsed, false, c -> {}, () -> {});
             b.setScaleX(2.5);
@@ -595,6 +609,94 @@ public void passTo(String name, Runnable onReady) {
             return b;
         }, 900, 330);
         place(v, 948 + (158 - HeroPowerView.SIZE) / 2, zoneY + (113 - HeroPowerView.SIZE) / 2);
+    }
+
+    /**
+     * Your hero power was pressed. Kannushi: the Miko comes at once. Ninja and Oni: pick a target first.
+     * Samurai: pick a blade first.
+     */
+    private void pressPower() {
+        HeroClass heroClass = you.getHero().getHeroClass();
+        if (heroClass == HeroClass.KANNUSHI) {
+            if (onPower.test(null)) {
+                powerUsed = true;
+            }
+            render();
+        } else if (heroClass == HeroClass.SAMURAI) {
+            chooseBlade();
+        } else {
+            aiming = true;
+            selected = null;   // stop any attack selection
+            render();          // the targets now glow
+        }
+    }
+
+    /** Samurai: the blade picker over the table; the picked blade is equipped if the engine accepts it. */
+    private void chooseBlade() {
+        KatanaPicker picker = new KatanaPicker(you.getKi(), tier -> {
+            if (onKatana.test(tier)) {
+                powerUsed = true;
+            }
+            render();   // the blade appears on the rack, with the ATK badge
+        }, () -> {});
+        table.getChildren().add(picker);
+    }
+
+    /** The least Ki your power can cost: the Bokken (1) for the Samurai, HERO_POWER_COST for the others. */
+    private int cheapestPower() {
+        if (you.getHero().getHeroClass() == HeroClass.SAMURAI) {
+            return KatanaTier.BOKKEN.getKiCost();
+        }
+        return GameEngine.HERO_POWER_COST;
+    }
+
+    /** While aiming a hero power: each character it may hit glows violet and takes the power on click; anything else cancels. */
+    private void aimable(Node n, Combatant c) {
+        if (canPowerTarget(c)) {
+            n.setEffect(new DropShadow(30, Color.web("#b36bff")));
+            n.setOnMouseClicked(e -> {
+                aiming = false;
+                powerHit(c, n);
+            });
+        } else {
+            n.setOnMouseClicked(e -> {
+                aiming = false;
+                render();
+            });
+        }
+    }
+
+    /** Shuriken and Jikininki may hit any living character, except an enemy minion hidden by Shinobi or an enemy hero in Stealth. */
+    private boolean canPowerTarget(Combatant c) {
+        boolean enemyCharacter = c == enemy.getHero() || enemy.getSide().getMinions().contains(c);
+        if (!enemyCharacter) {
+            return true;
+        }
+        if (c instanceof Minion m && m.isHidden()) {
+            return false;
+        }
+        if (c instanceof Hero h && h.hasStatus(Status.STEALTH)) {
+            return false;
+        }
+        return true;
+    }
+
+    /** Shuriken or Jikininki hits `target`: sparks and the red damage number on it, a dead minion is cut, then the board redraws. */
+    private void powerHit(Combatant target, Node node) {
+        int lifeBefore = life(target);
+        if (!onPower.test(target)) {
+            render();   // refused by the engine: nothing happens
+            return;
+        }
+        powerUsed = true;
+        Fx.sparks(live, node);
+        Fx.damageNumber(live, node, lifeBefore - life(target));
+        if (target.isDead()) {
+            Fx.deathCut(live, node);
+        }
+        PauseTransition wait = new PauseTransition(Duration.millis(900));
+        wait.setOnFinished(e -> render());
+        wait.play();
     }
 
     /** Plays an attack (GDD): lunge, slash, red damage on both, dead minions cut in half; the board redraws after. */
