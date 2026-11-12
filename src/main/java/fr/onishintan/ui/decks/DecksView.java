@@ -92,6 +92,9 @@ public class DecksView extends Pane {
         }
 
         Pane shelves = new Pane();
+        // Only the spines and the "+ New deck" slot catch the mouse; the empty space between them lets clicks
+        // through, so this pane (drawn on top of the RETURN button) never blocks it.
+        shelves.setPickOnBounds(false);
         int shelf = 0;
         double x = LEFT_X;
         // One place per deck, plus one more for the "+ New deck" slot.
