@@ -130,12 +130,21 @@ class DeckHolderView extends Pane {
         sliding.play();
     }
 
-    /** The mouse left: the spine goes back into its stand, behind the rail, and the tag hides. */
+    /**
+     * The mouse left: the tag hides at once and the spine slides back into its stand.
+     * It stays in front of the rail (with its shadow) until the slide is over; only then does it go back behind the rail,
+     * so the rail never covers it on the way in.
+     */
     private void putBack() {
+        tag.setVisible(false);
         slide(0, 0, 1);
+        sliding.setOnFinished(event -> backInStand());
+    }
+
+    /** End of the slide back: the spine sits behind the rail again, without its shadow, and the holder goes back among its neighbours. */
+    private void backInStand() {
         spine.setViewOrder(0);
         spine.setEffect(null);
-        tag.setVisible(false);
         setViewOrder(0);
     }
 
