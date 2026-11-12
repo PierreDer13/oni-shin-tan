@@ -4,6 +4,7 @@ import fr.onishintan.model.Card;
 import fr.onishintan.model.Keyword;
 import fr.onishintan.model.MinionCard;
 import fr.onishintan.model.Rarity;
+import fr.onishintan.model.SpellCard;
 import fr.onishintan.model.WeaponCard;
 import java.io.InputStream;
 import javafx.geometry.HPos;
@@ -18,6 +19,7 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.Pane;
+import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Font;
@@ -32,6 +34,8 @@ public class CardView extends Group {
     private static final String SERIF = "Yu Mincho";
     private static final Color INK = Color.web("#1f1b17");
     private static final Color DAMAGED = Color.web("#c41e1e");
+    /** The SPELL tag on the right edge: width, height and top, in card coordinates (530 x 742). */
+    private static final double SPELL_TAG_W = 40, SPELL_TAG_H = 150, SPELL_TAG_Y = 345;
 
     private final Card card;
     private final Pane face = new Pane();
@@ -49,7 +53,7 @@ public class CardView extends Group {
 
         /** Rebuilds the card face from the card's data. */
     public void render() {
-        face.getChildren().setAll(new ImageView(art()));
+        face.getChildren().setAll(artView());
         text(String.valueOf(card.getKiCost()), 50, 25, 24, 100, 82);                     // Ki circle
         text("気 Ki", 14, 25, 88, 100, 20);
         String kanji = card.getNameKanji();
@@ -73,6 +77,9 @@ public class CardView extends Group {
             rarityTag("伝説 LEGENDARY", 190, "#8a6a1c, #f7e08a 30%, #fff6c8 50%, #d4ab4a 70%, #8a6a1c", "#3a2a05", Color.GOLD);
         if (card.getRarity() == Rarity.MYTHIC)
             rarityTag("神話 MYTHIC", 150, "#9fb8d9, #e9f7ff 30%, #ffffff 50%, #c8e6ff 65%, #b6a8ff 85%, #9fb8d9", "#2b3e63", Color.web("#bfe9ff"));
+        if (card instanceof SpellCard) {
+            spellTag();
+        }
     }
 
     /** Pink glow on cards the player can afford (used by the hand). */
@@ -99,6 +106,19 @@ public class CardView extends Group {
         InputStream in = getClass().getResourceAsStream("/images/cards/" + folder + "/" + card.getId() + ".png");
         if (in == null) in = getClass().getResourceAsStream("/images/frames/" + card.getHeroClass().name().toLowerCase() + "-base-card.png");
         return new Image(in);
+    }
+
+
+    /**
+     * The card's art fitted to the card's size (W x H), whatever the PNG's own size is.
+     * Some art is drawn at twice the size (1061 x 1483); without this only its top-left quarter would show.
+     */
+    private ImageView artView() {
+        ImageView view = new ImageView(art());
+        view.setFitWidth(W);
+        view.setFitHeight(H);
+        view.setSmooth(true);
+        return view;
     }
 
     /** Text written top to bottom, one character per line; extra columns go right to left. */
@@ -150,5 +170,26 @@ public class CardView extends Group {
         t.setTextFill(Color.web(ink));
         t.setStyle("-fx-background-color: linear-gradient(to right, " + gradient + "); -fx-background-radius: 6;");
         t.setEffect(new DropShadow(18, glow));
+    }
+
+    /**
+     * Purple "SPELL" tag on the right edge, one letter under the other.
+     * Spells (Traps included) have no ATK or HP, so this tells them apart from minions at a glance.
+     */
+    private void spellTag() {
+        VBox tag = new VBox(-4);
+        tag.setAlignment(Pos.CENTER);
+        tag.setPrefSize(SPELL_TAG_W, SPELL_TAG_H);
+        tag.relocate(W - SPELL_TAG_W, SPELL_TAG_Y);
+        tag.setStyle("-fx-background-color: linear-gradient(to bottom, #5b2380, #8e44ad 50%, #5b2380);"
+                + " -fx-background-radius: 8 0 0 8;");
+        tag.setEffect(new DropShadow(10, Color.web("#8e44ad")));
+        for (String letter : "SPELL".split("")) {
+            Label label = new Label(letter);
+            label.setFont(Font.font(SERIF, FontWeight.BOLD, 20));
+            label.setTextFill(Color.web("#f3ede1"));
+            tag.getChildren().add(label);
+        }
+        face.getChildren().add(tag);
     }
 }
