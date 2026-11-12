@@ -2,6 +2,7 @@ package fr.onishintan.ui.match;
 import fr.onishintan.ui.fx.Anim;
 
 import fr.onishintan.model.HeroClass;
+import fr.onishintan.engine.GameEngine;
 
 import java.util.Map;
 import java.util.function.IntConsumer;
@@ -17,7 +18,7 @@ import javafx.scene.layout.VBox;
  *  Usable: yellow outline, hover previews the Ki and grows a little, press uses it. Used: dimmed for the turn. */
 public class HeroPowerView extends StackPane {
     public static final double SIZE = 120;
-    public static final int COST = 2;   // placeholder until balanced
+    public static final int COST = GameEngine.HERO_POWER_COST;   // Pierre's engine decides the price
 
     /** Hero powers until the engine has them: the GDD names. */
     private static final Map<HeroClass, String[]> POWER = Map.of(
@@ -31,7 +32,7 @@ public class HeroPowerView extends StackPane {
         ImageView frame = BoardView.image("/images/hud/hero-power.png");
         frame.setFitWidth(SIZE);
         frame.setPreserveRatio(true);
-        Label cost = new Label(String.valueOf(COST));
+        Label cost = new Label(costText(hero));
         cost.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: " + 26 * k + "; -fx-font-weight: bold; -fx-text-fill: #1f1b17;");
         cost.setTranslateY(-SIZE * 0.28);
         String[] info = POWER.get(hero);   // English name, Japanese name, effect
@@ -62,5 +63,13 @@ public class HeroPowerView extends StackPane {
         l.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: " + size + "; -fx-font-weight: bold; -fx-text-fill: #1f1b17; -fx-text-alignment: center;");
         l.setWrapText(true);
         return l;
+    }
+
+    /** The Ki shown in the circle: the Samurai's blades cost 1 to 9, so it shows "1+"; the others pay COST. */
+    private static String costText(HeroClass hero) {
+        if (hero == HeroClass.SAMURAI) {
+            return "1+";
+        }
+        return String.valueOf(COST);
     }
 }
