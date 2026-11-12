@@ -3,6 +3,7 @@ import fr.onishintan.ui.cards.CardView;
 import fr.onishintan.ui.cards.MinionView;
 import fr.onishintan.ui.fx.Fx;
 import fr.onishintan.ui.screens.HomeView;
+import fr.onishintan.ui.app.Images;
 import fr.onishintan.ui.app.Sound;
 
 import fr.onishintan.model.Hero;
@@ -249,6 +250,36 @@ public class BoardView extends Pane {
         enemyClock.setText(theirs);
         clock(yourClock, yourTurn);
         clock(enemyClock, !yourTurn);
+    }
+
+
+    /** How long the TIME'S UP banner stays before the pass veil. */
+    private static final Duration TIMEOUT_SHOW = Duration.millis(1600);
+
+    /**
+     * Chess clock timeout (GameEvent.CLOCK_TIMEOUT): the hero who ran out of time is slashed and shows the damage,
+     * "時間切れ TIME'S UP" covers the table (and blocks clicks), then `then` runs after TIMEOUT_SHOW.
+     */
+    public void showTimeout(Hero hero, int damage, Runnable then) {
+        render();   // the hero's HP after the damage (or the game over, if it killed him)
+        Node heroNode = nodes.get(hero);
+        if (heroNode != null) {
+            Fx.slash(live, heroNode);
+            Fx.damageNumber(live, heroNode, damage);
+        }
+
+        Label banner = new Label("時間切れ\nTIME'S UP");
+        banner.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 72; -fx-font-weight: bold; -fx-text-alignment: center; -fx-text-fill: #c41e1e;");
+        banner.setEffect(new DropShadow(30, Color.BLACK));
+        StackPane cover = new StackPane(new Rectangle(W, H, Color.rgb(0, 0, 0, 0.35)), banner);
+        table.getChildren().add(cover);
+
+        PauseTransition wait = new PauseTransition(TIMEOUT_SHOW);
+        wait.setOnFinished(event -> {
+            table.getChildren().remove(cover);
+            then.run();
+        });
+        wait.play();
     }
 
     /** What happens when you drop a card on your row (the match will call the engine here). */
@@ -527,7 +558,10 @@ public void passTo(String name, Runnable onReady) {
         live.getChildren().add(n);
     }
 
-    static ImageView image(String path) { return new ImageView(new Image(BoardView.class.getResourceAsStream(path))); }
+    /** A picture from the resources in a new ImageView; the picture itself is decoded only once (Images keeps it). */
+    static ImageView image(String path) {
+        return new ImageView(Images.get(path));
+    }
 
     /** Attack selection on one character. Yours that can attack: yellow border (thicker on hover, gold glow when picked),
      *  click to pick or unpick. Once one is picked: legal enemies glow red and attack on click; anything else cancels. */
