@@ -15,7 +15,8 @@ import fr.onishintan.model.HeroClass;
 
 /**
  * Left side of the deck editor: the cards you may add, as a scrolling grid.
- * A title row starts each class's cards (the deck's class first, then Neutral). Left click adds a copy, right click removes one.
+ * A title row starts each class's cards (the deck's class first, then Neutral). Left click adds a copy, right click removes one;
+ * hovering a card grows it and opens a big copy beside it (CardPreview).
  */
 class CollectionPanel extends ScrollPane {
     private static final double CARD_W = 160, GAP = 16;
@@ -26,10 +27,13 @@ class CollectionPanel extends ScrollPane {
     private final FlowPane cardGrid = new FlowPane(GAP, GAP);
     private final Consumer<Card> onAdd;
     private final Consumer<Card> onRemove;
+    /** The hover effect: the card grows and a big copy opens beside it. */
+    private final CardPreview preview;
 
-    CollectionPanel(Consumer<Card> onAdd, Consumer<Card> onRemove) {
+    CollectionPanel(Consumer<Card> onAdd, Consumer<Card> onRemove, CardPreview preview) {
         this.onAdd = onAdd;
         this.onRemove = onRemove;
+        this.preview = preview;
         cardGrid.setPrefWrapLength(ROW_W);
         cardGrid.setPadding(new Insets(10));
 
@@ -78,6 +82,7 @@ class CollectionPanel extends ScrollPane {
                 onRemove.accept(card);
             }
         });
+        preview.attach(view);
         return view;
     }
 }
