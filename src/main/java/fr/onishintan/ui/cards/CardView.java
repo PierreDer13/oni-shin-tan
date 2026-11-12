@@ -34,8 +34,9 @@ public class CardView extends Group {
     private static final String SERIF = "Yu Mincho";
     private static final Color INK = Color.web("#1f1b17");
     private static final Color DAMAGED = Color.web("#c41e1e");
-    /** The SPELL tag on the right edge: width, height and top, in card coordinates (530 x 742). */
-    private static final double SPELL_TAG_W = 40, SPELL_TAG_H = 150, SPELL_TAG_Y = 345;
+    /** The edge tags (SPELL on the right, the family on the left), in card coordinates (530 x 742):
+     *  width, top, height per letter and the extra height around the letters (SPELL: 30 + 5 x 24 = 150). */
+    private static final double SIDE_TAG_W = 40, SIDE_TAG_Y = 345, SIDE_TAG_LETTER_H = 24, SIDE_TAG_PADDING = 30;
 
     private final Card card;
     private final Pane face = new Pane();
@@ -79,6 +80,7 @@ public class CardView extends Group {
             rarityTag("神話 MYTHIC", 150, "#9fb8d9, #e9f7ff 30%, #ffffff 50%, #c8e6ff 65%, #b6a8ff 85%, #9fb8d9", "#2b3e63", Color.web("#bfe9ff"));
         if (card instanceof SpellCard) {
             spellTag();
+            familyTag();
         }
     }
 
@@ -172,19 +174,45 @@ public class CardView extends Group {
         t.setEffect(new DropShadow(18, glow));
     }
 
-    /**
-     * Purple "SPELL" tag on the right edge, one letter under the other.
-     * Spells (Traps included) have no ATK or HP, so this tells them apart from minions at a glance.
-     */
+    /** Purple "SPELL" tag on the right edge: spells (Traps included) have no ATK or HP, so this tells them apart from minions. */
     private void spellTag() {
+        sideTag("SPELL", "#5b2380, #8e44ad 50%, #5b2380", Color.web("#8e44ad"), true);
+    }
+
+    /** The family tag on the left edge (TRAP, SHRINE, RITUAL or CURSE), for spells of a class family. */
+    private void familyTag() {
+        CardFamily family = CardFamily.of(card);
+        if (family == null) {
+            return;   // a plain spell: no family tag
+        }
+        sideTag(family.getWord(), family.getGradient(), family.getGlow(), false);
+    }
+
+    /**
+     * A tag on the card's edge, one letter under the other.
+     * @param word     the word to write
+     * @param gradient the background colours, top to bottom (CSS list)
+     * @param glow     the colour of the soft glow around it
+     * @param onRight  true for the right edge, false for the left
+     */
+    private void sideTag(String word, String gradient, Color glow, boolean onRight) {
         VBox tag = new VBox(-4);
         tag.setAlignment(Pos.CENTER);
-        tag.setPrefSize(SPELL_TAG_W, SPELL_TAG_H);
-        tag.relocate(W - SPELL_TAG_W, SPELL_TAG_Y);
-        tag.setStyle("-fx-background-color: linear-gradient(to bottom, #5b2380, #8e44ad 50%, #5b2380);"
-                + " -fx-background-radius: 8 0 0 8;");
-        tag.setEffect(new DropShadow(10, Color.web("#8e44ad")));
-        for (String letter : "SPELL".split("")) {
+        double height = SIDE_TAG_PADDING + SIDE_TAG_LETTER_H * word.length();
+        tag.setPrefSize(SIDE_TAG_W, height);
+
+        String corners;
+        if (onRight) {
+            tag.relocate(W - SIDE_TAG_W, SIDE_TAG_Y);
+            corners = "8 0 0 8";   // rounded on the inner side only
+        } else {
+            tag.relocate(0, SIDE_TAG_Y);
+            corners = "0 8 8 0";
+        }
+        tag.setStyle("-fx-background-color: linear-gradient(to bottom, " + gradient + "); -fx-background-radius: " + corners + ";");
+        tag.setEffect(new DropShadow(10, glow));
+
+        for (String letter : word.split("")) {
             Label label = new Label(letter);
             label.setFont(Font.font(SERIF, FontWeight.BOLD, 20));
             label.setTextFill(Color.web("#f3ede1"));
