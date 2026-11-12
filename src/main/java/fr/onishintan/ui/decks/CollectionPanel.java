@@ -2,6 +2,7 @@ package fr.onishintan.ui.decks;
 
 import fr.onishintan.model.Card;
 import fr.onishintan.ui.cards.CardView;
+import fr.onishintan.ui.cards.CardPreview;
 
 import java.util.List;
 import java.util.function.Consumer;
@@ -82,7 +83,7 @@ class CollectionPanel extends ScrollPane {
                 onRemove.accept(card);
             }
         });
-        preview.attach(view);
+        preview.attach(view, card);
         return view;
     }
 }

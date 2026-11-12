@@ -3,7 +3,6 @@ package fr.onishintan.ui;
 import fr.onishintan.model.HeroClass;
 import fr.onishintan.ui.app.SceneRouter;
 import fr.onishintan.ui.app.Screen;
-import fr.onishintan.ui.app.Sound;
 import fr.onishintan.ui.match.BoardView;
 import fr.onishintan.ui.match.MatchController;
 import fr.onishintan.ui.screens.ClassSelectView;
@@ -13,16 +12,17 @@ import fr.onishintan.ui.screens.InventoryView;
 import java.util.function.Consumer;
 
 import javafx.application.Application;
-import javafx.scene.media.MediaPlayer;
 import javafx.stage.Stage;
 
 public class OniShinTanApp extends Application {
-    private MediaPlayer music;
 
     @Override
     public void start(Stage stage) {
         SceneRouter router = new SceneRouter(stage);
-        music = Sound.music("music", 0.35);
+        // Music per screen; Home, the Deck Builder and the Inventory keep the main theme ("music").
+        router.setMusic(Screen.CLASS_SELECT, "adventure-music");
+        router.setMusic(Screen.ADVENTURE_SELECT, "adventure-music");
+        router.setMusic(Screen.MATCH, "battle-music");
         router.register(Screen.HOME, () -> new HomeView(router));
         router.register(Screen.CLASS_SELECT, () -> new ClassSelectView(router));
         router.register(Screen.INVENTORY, () -> new InventoryView(router));
