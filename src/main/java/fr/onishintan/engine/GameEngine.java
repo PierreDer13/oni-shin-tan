@@ -1,6 +1,7 @@
 package fr.onishintan.engine;
 
 import fr.onishintan.model.Card;
+import fr.onishintan.model.ChessClock;
 import fr.onishintan.model.Combatant;
 import fr.onishintan.model.Hero;
 import fr.onishintan.model.Minion;
@@ -23,6 +24,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
+import java.util.function.LongSupplier;
 
 /**
  * The only entry point the UI uses. Every rule goes through here, and every change
@@ -39,6 +41,13 @@ public class GameEngine {
     private final List<GameListener> listeners = new ArrayList<>();
     private final TurnTracker turnTracker = new TurnTracker();
     private final OathRules oathRules = new OathRules();
+
+    private LongSupplier now = System::currentTimeMillis;   // replaced in tests
+
+    /** Tests drive the clocks with a fake time. */
+    public void setTimeSource(LongSupplier now) {
+        this.now = Objects.requireNonNull(now);
+    }
 
 
     public GameEngine(Player first, Player second, Random rng) {
@@ -87,11 +96,14 @@ public class GameEngine {
         Player p = state.active();
         turns.startTurn().forEach(card -> publishDraw(p, card));
         publish(GameEvent.of(GameEvent.Type.TURN_STARTED, p, null));
+        p.getClock().start(now.getAsLong());
     }
 
     /** Ends the active turn (end-of-turn effects, then the Oath) and starts the opponent's. */
     public void endTurn() {
         Player ending = state.active();
+        ending.getClock().pause(now.getAsLong());
+        ending.getClock().add(ChessClock.INCREMENT_MS);
         publish(GameEvent.of(GameEvent.Type.TURN_ENDED, ending, null));
         resolveOath(ending);
         if (state.isOver()) return;           // an Oath break can kill its own hero
@@ -99,6 +111,29 @@ public class GameEngine {
         Player next = state.active();
         drawn.forEach(card -> publishDraw(next, card));
         publish(GameEvent.of(GameEvent.Type.TURN_STARTED, next, null));
+        next.getClock().start(now.getAsLong());
+    }
+
+    /** Time left in a player's bank, in ms (the UI shows it). */
+    public long remainingMs(Player p) {
+        return p.getClock().remaining(now.getAsLong());
+    }
+
+    /**
+     * The UI calls this about every 200 ms. Bank empty: the active hero takes
+     * half his HP (rounded up), gets +30 s, and his turn ends.
+     * @return true if a timeout happened
+     */
+    public boolean checkClock() {
+        if (state.isOver()) return false;
+        Player p = state.active();
+        if (p.getClock().remaining(now.getAsLong()) > 0) return false;
+        int damage = (p.getHero().getHealth() + 1) / 2;
+        p.getClock().add(ChessClock.TIMEOUT_BONUS_MS);
+        publish(new GameEvent(GameEvent.Type.CLOCK_TIMEOUT, p, p.getHero(), damage));
+        dealDamage(p.getClock(), p.getHero(), damage);
+        if (!state.isOver()) endTurn();
+        return true;
     }
 
     /** Drag a card onto the deck: once per turn, cost Player.TRADE_COST. */
