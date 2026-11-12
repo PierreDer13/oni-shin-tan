@@ -22,6 +22,9 @@ public record GameEvent(Type type, Object source, Object target, int amount) {
         OATH_RESTORED,              // Oathbreaker over: the player may re-swear
         TRAP_SET,                   // source = Player, target = the TrapCard (UI: face down unless source is the local player), amount = traps set now        
         TRAP_TRIGGERED,             // source = trap owner, target = the TrapCard, now revealed       
+        CURSE_GIVEN,                // source = cursing Player, target = the CurseCard, amount = copies
+        CURSE_TRIGGERED,            // source = cursed Player, target = the CurseCard
+        CURSE_REMOVED,              // source = Player who paid the removal, target = the CurseCard
         CLOCK_TIMEOUT,              // source = Player, target = his Hero, amount = damage (ceil(HP / 2))       
         SHRINE_PLACED,              // source = Player, target = the Shrine, amount = slot
         SHRINE_EXPIRED,             // source = Player, target = the Shrine (its slot is free again)       

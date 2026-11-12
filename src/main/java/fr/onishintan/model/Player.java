@@ -6,6 +6,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
+import java.util.IdentityHashMap;
+import java.util.Set;
 
 /**
  * One side of a match: hero, deck, hand, board and Ki. The chess clock comes
@@ -27,6 +29,7 @@ public class Player {
     private int maxKi;
     private Oath oath;          // null in Adventure, or before the Oath is sworn
     private final List<TrapCard> traps = new ArrayList<>();   // face down, no limit (GDD)
+    private final Set<Card> heldCurses = Collections.newSetFromMap(new IdentityHashMap<>());   // Curses the enemy put in this hand    
     private final ChessClock clock = new ChessClock();
 
 
@@ -100,6 +103,23 @@ public class Player {
         if (hand.size() < MAX_HAND)
             hand.add(c);
     }
+
+    /** An enemy Curse lands in this hand. False if the hand is full (the Curse is lost). */
+    public boolean receiveCurse(CurseCard curse) {
+        if (hand.size() >= MAX_HAND) return false;
+        hand.add(curse);
+        heldCurses.add(curse);
+        return true;
+    }
+
+    /** True for a Curse the enemy gave: it cannot be played, only removed. */
+    public boolean isHeldCurse(Card c) { return heldCurses.contains(c); }
+
+    public boolean removeCurse(CurseCard curse) {
+        heldCurses.remove(curse);
+        return hand.remove(curse);
+    }
+
 
         /** False if the same trap is already set: one copy per trap (GDD). */
     public boolean canSetTrap(TrapCard trap) {
