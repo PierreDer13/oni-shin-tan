@@ -7,6 +7,8 @@ import fr.onishintan.model.Hero;
 import fr.onishintan.model.Minion;
 import fr.onishintan.model.MinionCard;
 import fr.onishintan.model.Player;
+import fr.onishintan.model.Shrine;
+import fr.onishintan.model.ShrineCard;
 import fr.onishintan.model.SpellCard;
 import fr.onishintan.model.Oath;
 import fr.onishintan.model.OathType;
@@ -66,6 +68,8 @@ public class GameEngine {
              e -> turnTracker.reset());
         bus.subscribe(GameEvent.Type.CARD_PLAYED,
              e -> turnTracker.cardPlayed((Card) e.target()));
+        bus.subscribe(GameEvent.Type.TURN_ENDED,
+             e -> tickShrines((Player) e.source()));
     }
 
     // ---------- listeners ----------
@@ -233,8 +237,7 @@ public class GameEngine {
         Player p = state.active();
 
         // A minion needs its chosen slot to be free: check before spending anything
-        if (card instanceof MinionCard && !p.getSide().isFree(slot)) {
-            return false;
+        if ((card instanceof MinionCard || card instanceof ShrineCard) && !p.getSide().isFree(slot)) {            return false;
         }
 
         // A trap is set face down: TRAP_SET instead of CARD_PLAYED. Only its owner's UI shows the card
@@ -261,6 +264,10 @@ public class GameEngine {
         } else if (card instanceof WeaponCard wc) {
             p.getHero().equip(new Weapon(wc));
             publish(GameEvent.of(GameEvent.Type.WEAPON_EQUIPPED, p, p.getHero()));
+            } else if (card instanceof ShrineCard sc) {
+            Shrine shrine = new Shrine(sc);
+            p.getSide().place(shrine, slot);
+            publish(new GameEvent(GameEvent.Type.SHRINE_PLACED, p, shrine, slot));
         } else if (card instanceof SpellCard) {
             publish(GameEvent.of(GameEvent.Type.SPELL_CAST, p, card));
             triggerTraps(state.opponent(), TrapTrigger.ON_ENEMY_SPELL, null);
@@ -361,6 +368,13 @@ public class GameEngine {
     private void runForBoard(Trigger trigger, Player owner) {
         for (Minion m : List.copyOf(owner.getSide().getMinions())) {
             runTrigger(trigger, owner, m, null);
+        }
+    }
+
+    /** End of the owner's turn: Shrines lose a turn, the expired ones leave the board. */
+    private void tickShrines(Player owner) {
+        for (Shrine s : owner.getSide().tickShrines()) {
+            publish(GameEvent.of(GameEvent.Type.SHRINE_EXPIRED, owner, s));
         }
     }
 
