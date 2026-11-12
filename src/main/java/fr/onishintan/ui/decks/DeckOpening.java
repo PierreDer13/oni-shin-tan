@@ -3,102 +3,199 @@ package fr.onishintan.ui.decks;
 import fr.onishintan.model.HeroClass;
 import fr.onishintan.ui.app.ScreenGrid;
 
+import javafx.animation.Interpolator;
 import javafx.animation.KeyFrame;
 import javafx.animation.KeyValue;
 import javafx.animation.Timeline;
+import javafx.geometry.Rectangle2D;
+import javafx.scene.Group;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.Pane;
-import javafx.scene.transform.Scale;
+import javafx.scene.shape.Rectangle;
 import javafx.util.Duration;
 
 /**
- * A deck holder opening: the lid folds back, the whole deck stack rises out of the box, glides to the middle
- * of the screen while growing, then flips over. Then onOpened runs (DecksView shows the cards).
- * It plays on its own copy of the holder, drawn on top of the screen, so it can leave the scrolling list.
+ * Opening a deck from the shelf, as one timeline: the spine slides out of its row, glides to the middle of the
+ * screen growing, turns to show the holder's front, the lid snaps open, the whole deck stack rises out of the box,
+ * glides to the centre and flips over. Then the cards spread out (DeckReveal).
+ * close() plays the same timeline backwards, so the deck goes back exactly where it came from.
  */
 final class DeckOpening {
     // When each step ends, counted from the click.
-    private static final Duration LID_OPEN = Duration.millis(250);
-    private static final Duration STACK_OUT = Duration.millis(650);
-    private static final Duration AT_CENTRE = Duration.millis(1050);
-    private static final Duration FLIPPED = Duration.millis(1250);
+    private static final Duration PULLED_OUT = Duration.millis(600);    // slow pull out of the shelf
+    private static final Duration AT_CENTRE = Duration.millis(1100);
+    private static final Duration SIDE_GONE = Duration.millis(1250);
+    private static final Duration FRONT_SHOWN = Duration.millis(1400);
+    private static final Duration LID_OPEN = Duration.millis(1650);
+    private static final Duration STACK_OUT = Duration.millis(2050);
+    private static final Duration CLIP_OFF = Duration.millis(2060);
+    private static final Duration STACK_CENTRE = Duration.millis(2450);
+    private static final Duration FLIPPED = Duration.millis(2650);
 
-    /** deck-stack.png is 1052 x 1494. */
-    private static final double STACK_IMAGE_W = 1052, STACK_IMAGE_H = 1494;
+    /** In the middle of the screen, a holder picture is drawn BOX_W wide with its top-left corner at (BOX_X, BOX_Y). */
+    private static final double BOX_W = 300, BOX_X = ScreenGrid.W / 2 - BOX_W / 2, BOX_Y = 280;
+    /** From image pixels to grid pixels, at that size. */
+    private static final double K = BOX_W / DeckHolderView.IMAGE_W;
+    /** The row of the open holder's front edge in its image: the stack comes out from behind it. */
+    private static final double RIM_ROW = 500;
+    private static final double RIM_Y = BOX_Y + RIM_ROW * K;
+    /** deck-stack.png is 1052 x 1494; the stack is drawn STACK_W wide inside the box. */
+    private static final double STACK_W = 190, STACK_H = STACK_W * 1494 / 1052;
     /** How much the stack grows in the middle of the screen. */
     private static final double CENTRE_SCALE = 1.6;
+    /** On click the spine slides further out of the shelf: this many times its hover distance, before gliding away. */
+    private static final double PULL = 2.5;
+    /** On click the spine also keeps growing, to this many times its shelf size, as it comes further towards you. */
+    private static final double PULL_SCALE = 1.15;
 
-    private DeckOpening() {
-        // Only static methods.
-    }
+    private final Pane layer;
+    private final Group pieces = new Group();
+    private final Timeline timeline;
 
-    /** Plays on `layer` (the 1600 x 900 grid) for a holder of this class whose top-left corner is at (x, y). */
-    static void play(Pane layer, HeroClass heroClass, double x, double y, Runnable onOpened) {
-        double width = DeckHolderView.WIDTH;
-        double lidH = DeckHolderView.lidHeight(width);
+    /** Prepares the opening on `layer` (the 1600 x 900 grid) for the spine at (spineX, spineY), spineW x spineH on its shelf. */
+    DeckOpening(Pane layer, HeroClass heroClass, double spineX, double spineY, double spineW, double spineH) {
+        this.layer = layer;
 
-        // The pieces, back to front: the stack (hidden inside the box at first), the box, the lid.
-        double stackW = width * 0.8;
-        double stackH = stackW * STACK_IMAGE_H / STACK_IMAGE_W;
-        double stackX = (width - stackW) / 2;
-        double stackY = lidH + 10;
-        ImageView stack = stackImage(stackW);
-        stack.relocate(stackX, stackY);
+        // 1. The spine, exactly as it looks under the mouse: slid out by (OUT_DX, OUT_DY) and grown by OUT_SCALE
+        //    around its centre, so its top-left corner moves by half of what it grew.
+        double outW = spineW * DeckHolderView.OUT_SCALE;
+        double outH = spineH * DeckHolderView.OUT_SCALE;
+        double outX = spineX + DeckHolderView.OUT_DX - (outW - spineW) / 2;
+        double outY = spineY + DeckHolderView.OUT_DY - (outH - spineH) / 2;
+        // On click it comes further out the same way: PULL times as far, and PULL_SCALE times its shelf size.
+        double pulledW = spineW * PULL_SCALE;
+        double pulledH = spineH * PULL_SCALE;
+        double pulledX = spineX + DeckHolderView.OUT_DX * PULL - (pulledW - spineW) / 2;
+        double pulledY = spineY + DeckHolderView.OUT_DY * PULL - (pulledH - spineH) / 2;
 
-        ImageView body = DeckHolderView.body(heroClass, width);
-        body.setLayoutY(lidH);
+        ImageView side = DeckHolderView.side(heroClass, outW, outH);
+        side.relocate(outX, outY);
+        side.setEffect(DeckHolderView.OUT_SHADOW);
 
-        ImageView lid = DeckHolderView.lid(heroClass, width);
-        Scale fold = new Scale(1, 1, 0, 0);   // squashes the lid upwards, pinned at its top edge: it looks like it tilts back
-        lid.getTransforms().add(fold);
+        // 2. The closed front and the open box, in the middle of the screen, hidden for now.
+        ImageView front = DeckHolderView.front(heroClass, BOX_W);
+        front.relocate(BOX_X, BOX_Y);
+        front.setScaleX(0);
+        ImageView open = DeckHolderView.open(heroClass, BOX_W);
+        open.relocate(BOX_X, BOX_Y);
+        open.setOpacity(0);
 
-        Pane box = new Pane(stack, body, lid);
-        box.relocate(x, y);
-        box.setMouseTransparent(true);
-        layer.getChildren().add(box);
+        // 3. The stack, sitting inside the box. It is drawn in front of the box but cut off (clipped) below the box's
+        //    front edge, so it seems to come out from behind the front. Once it is out, the clip is lifted.
+        ImageView stack = stackImage();
+        stack.relocate(ScreenGrid.W / 2 - STACK_W / 2, RIM_Y);
+        Rectangle clip = new Rectangle(0, 0, ScreenGrid.W, RIM_Y);
+        Group stackLayer = new Group(stack);
+        stackLayer.setClip(clip);
 
-        // How far the stack travels: first straight up out of the box, then to the centre of the screen.
-        double rise = -(stackH + 20);
-        double toCentreX = ScreenGrid.W / 2 - (x + stackX + stackW / 2);
-        double toCentreY = ScreenGrid.H / 2 - (y + stackY + stackH / 2);
+        pieces.getChildren().addAll(side, front, open, stackLayer);
+        pieces.setMouseTransparent(true);
 
-        Timeline opening = new Timeline(
-                // 1. The lid folds back. The stack waits inside the box.
-                new KeyFrame(LID_OPEN,
-                        new KeyValue(fold.yProperty(), 0.15),
-                        new KeyValue(stack.translateYProperty(), 0)),
-                // 2. The whole stack rises out of the box at once.
-                new KeyFrame(STACK_OUT,
-                        new KeyValue(stack.translateYProperty(), rise),
-                        new KeyValue(stack.translateXProperty(), 0),
+        // Where things travel.
+        // In the middle, the spine takes its real proportions, exactly where it sits inside the big front picture.
+        Rectangle2D area = DeckHolderView.spineArea(heroClass);
+        double sideCentreX = BOX_X + area.getMinX() * K;
+        double sideCentreY = BOX_Y + area.getMinY() * K;
+        double sideCentreW = area.getWidth() * K;
+        double sideCentreH = area.getHeight() * K;
+        double rise = -(STACK_H + 10);                              // until its bottom edge is above the box's front
+        double toScreenCentre = ScreenGrid.H / 2 - (RIM_Y + STACK_H / 2);
+
+        timeline = new Timeline(
+                // At the click: everything as built above. close() ends here too.
+                new KeyFrame(Duration.ZERO,
+                        new KeyValue(side.layoutXProperty(), outX),
+                        new KeyValue(side.layoutYProperty(), outY),
+                        new KeyValue(side.fitWidthProperty(), outW),
+                        new KeyValue(side.fitHeightProperty(), outH),
+                        new KeyValue(side.scaleXProperty(), 1),
+                        new KeyValue(front.scaleXProperty(), 0),
+                        new KeyValue(front.opacityProperty(), 1),
+                        new KeyValue(open.opacityProperty(), 0),
+                        new KeyValue(stack.translateYProperty(), 0),
                         new KeyValue(stack.scaleXProperty(), 1),
                         new KeyValue(stack.scaleYProperty(), 1),
-                        new KeyValue(body.opacityProperty(), 1),
-                        new KeyValue(lid.opacityProperty(), 1)),
-                // 3. It glides to the middle of the screen and grows, while the empty box fades away.
+                        new KeyValue(clip.heightProperty(), RIM_Y)),
+                // 1. Slides further out of the shelf, the same way (down and to the left).
+                new KeyFrame(PULLED_OUT,
+                        new KeyValue(side.layoutXProperty(), pulledX),
+                        new KeyValue(side.layoutYProperty(), pulledY),
+                        new KeyValue(side.fitWidthProperty(), pulledW),
+                        new KeyValue(side.fitHeightProperty(), pulledH)),
+                // 2. Glides to the middle of the screen, growing.
                 new KeyFrame(AT_CENTRE,
-                        new KeyValue(stack.translateXProperty(), toCentreX),
-                        new KeyValue(stack.translateYProperty(), toCentreY),
+                        new KeyValue(side.layoutXProperty(), sideCentreX, Interpolator.EASE_BOTH),
+                        new KeyValue(side.layoutYProperty(), sideCentreY, Interpolator.EASE_BOTH),
+                        new KeyValue(side.fitWidthProperty(), sideCentreW, Interpolator.EASE_BOTH),
+                        new KeyValue(side.fitHeightProperty(), sideCentreH, Interpolator.EASE_BOTH),
+                        new KeyValue(side.scaleXProperty(), 1)),
+                // 3. It turns: the spine narrows to nothing...
+                new KeyFrame(SIDE_GONE,
+                        new KeyValue(side.scaleXProperty(), 0),
+                        new KeyValue(front.scaleXProperty(), 0)),
+                // ... and the closed front widens.
+                new KeyFrame(FRONT_SHOWN,
+                        new KeyValue(front.scaleXProperty(), 1),
+                        new KeyValue(front.opacityProperty(), 1),
+                        new KeyValue(open.opacityProperty(), 0)),
+                // 4. The lid snaps open: the open picture replaces the closed one at once (DISCRETE = no fade).
+                new KeyFrame(LID_OPEN,
+                        new KeyValue(front.opacityProperty(), 0, Interpolator.DISCRETE),
+                        new KeyValue(open.opacityProperty(), 1, Interpolator.DISCRETE),
+                        new KeyValue(stack.translateYProperty(), 0),
+                        new KeyValue(clip.heightProperty(), RIM_Y)),
+                // 5. The whole stack rises out of the box.
+                new KeyFrame(STACK_OUT,
+                        new KeyValue(stack.translateYProperty(), rise),
+                        new KeyValue(stack.scaleXProperty(), 1),
+                        new KeyValue(stack.scaleYProperty(), 1),
+                        new KeyValue(open.opacityProperty(), 1),
+                        new KeyValue(clip.heightProperty(), RIM_Y)),
+                // It is out of the box: nothing to hide any more.
+                new KeyFrame(CLIP_OFF,
+                        new KeyValue(clip.heightProperty(), ScreenGrid.H, Interpolator.DISCRETE)),
+                // 6. It glides to the centre and grows, while the empty box fades away.
+                new KeyFrame(STACK_CENTRE,
+                        new KeyValue(stack.translateYProperty(), toScreenCentre, Interpolator.EASE_BOTH),
                         new KeyValue(stack.scaleXProperty(), CENTRE_SCALE),
                         new KeyValue(stack.scaleYProperty(), CENTRE_SCALE),
-                        new KeyValue(body.opacityProperty(), 0),
-                        new KeyValue(lid.opacityProperty(), 0)),
-                // 4. It flips over: it narrows to nothing, as if seen edge-on. The cards then open up from there.
+                        new KeyValue(open.opacityProperty(), 0)),
+                // 7. It flips over (it narrows to nothing, seen edge-on); the cards then spread out from there.
                 new KeyFrame(FLIPPED,
                         new KeyValue(stack.scaleXProperty(), 0)));
-        opening.setOnFinished(event -> {
-            layer.getChildren().remove(box);
-            onOpened.run();
-        });
-        opening.play();
     }
 
-    /** The deck-stack picture (a pile of card backs), `width` wide. */
-    private static ImageView stackImage(double width) {
+    /** Plays the opening; onOpened runs once the stack has flipped. */
+    void open(Runnable onOpened) {
+        layer.getChildren().add(pieces);
+        timeline.setRate(1);
+        timeline.setOnFinished(event -> onOpened.run());
+        timeline.playFromStart();
+    }
+
+    /** Plays everything backwards, back onto the shelf; then removes the pieces and runs onClosed. */
+    void close(Runnable onClosed) {
+        timeline.setOnFinished(event -> {
+            layer.getChildren().remove(pieces);
+            onClosed.run();
+        });
+        timeline.jumpTo(timeline.getTotalDuration());   // start from the end...
+        timeline.setRate(-1);                           // ... and run towards the beginning
+        timeline.play();
+    }
+
+    /** Removes the pieces at once, without the backwards animation (used for Delete). */
+    void remove() {
+        timeline.stop();
+        layer.getChildren().remove(pieces);
+    }
+
+    /** The deck-stack picture (a pile of card backs), STACK_W wide. */
+    private static ImageView stackImage() {
         Image image = new Image(DeckOpening.class.getResourceAsStream("/images/deck-builder/deck-stack.png"));
         ImageView stack = new ImageView(image);
-        stack.setFitWidth(width);
+        stack.setFitWidth(STACK_W);
         stack.setPreserveRatio(true);
         return stack;
     }

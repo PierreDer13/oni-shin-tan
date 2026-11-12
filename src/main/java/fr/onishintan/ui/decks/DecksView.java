@@ -9,13 +9,11 @@ import fr.onishintan.ui.screens.HomeView;
 import java.util.List;
 import java.util.Map;
 
-import javafx.geometry.Insets;
-import javafx.geometry.Point2D;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.Label;
-import javafx.scene.control.ScrollPane;
-import javafx.scene.layout.FlowPane;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
@@ -24,14 +22,18 @@ import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
 
 /**
- * Deck Builder, screen 1: each saved deck is shown as its class's deck holder. Click one to open it: the lid opens,
- * the stack comes out and flips, and its cards spread out. A "+ New deck" slot makes a new deck.
+ * Deck Builder, screen 1: the decks stand on wooden shelves as their holders' spines, like books.
+ * Click one to open it (DeckOpening), and its cards spread out (DeckReveal). A dashed slot makes a new deck.
  * Opened from the Home bottom bar (every deck) or from a class banner (only that class's decks).
  */
 public class DecksView extends Pane {
     public static final double W = ScreenGrid.W, H = ScreenGrid.H;
-    private static final double GAP = 40;
-    private static final int PER_ROW = 5;
+    /** Where a spine's bottom edge stands on each of the background's three shelves (grid y), top to bottom. */
+    private static final double[] SHELF_TOPS = { 312, 588, 828 };
+    /** How tall a deck in its stand is on each shelf (spine top to stand feet): as tall as that shelf has room for. */
+    private static final double[] HEIGHTS = { 250, 205, 170 };
+    /** Spines stand from LEFT_X to RIGHT_X (inside the shelves' side boards), GAP apart, starting at the left like books. */
+    private static final double LEFT_X = 120, RIGHT_X = 1490, GAP = 10;
 
     /** Each class's main ink colour (GDD, card layout), used for class buttons and card stripes. */
     static final Map<HeroClass, String> CLASS_COLOUR = Map.of(
@@ -50,8 +52,8 @@ public class DecksView extends Pane {
     private final HeroClass onlyClass;
     /** Everything is placed on this 1600 x 900 grid, which is scaled to fit the window. */
     private final Pane grid = new Pane();
-    /** The scrolling area with the holders; rebuilt after a deck is deleted. */
-    private ScrollPane list;
+    /** The spines standing on the shelves; rebuilt after a deck is deleted. */
+    private Pane list;
 
     /** Shows the deck list: onlyClass = a class to show only its decks, or null for every deck. */
     public static void open(SceneRouter router, HeroClass onlyClass) {
@@ -64,99 +66,113 @@ public class DecksView extends Pane {
         this.onlyClass = onlyClass;
         ScreenGrid.fitToWindow(this, grid);
 
-        // Plain washi-paper background, until the painted one exists.
-        Rectangle paper = new Rectangle(W, H, Color.web(PAPER));
-        grid.getChildren().add(paper);
+        // The wooden shelves the decks stand on, stretched to the 1600 x 900 grid (the image is 1672 x 941, the same shape).
+        ImageView shelves = new ImageView(new Image(getClass().getResourceAsStream("/images/deck-builder/shelves.png")));
+        shelves.setFitWidth(W);
+        shelves.setFitHeight(H);
+        grid.getChildren().add(shelves);
 
         grid.getChildren().add(HomeView.back(() -> router.goTo(Screen.HOME)));
-        grid.getChildren().add(title());
 
-        list = holderList();
+        list = spineList();
         grid.getChildren().add(list);
     }
 
-    /** "札 DECKS" at the top, or e.g. "侍 SAMURAI DECKS" when only one class is shown. */
-    private Label title() {
-        String words = "札  DECKS";
-        if (onlyClass != null) {
-            words = onlyClass.getKanji() + "  " + onlyClass.getDisplayName().toUpperCase() + " DECKS";
-        }
-        Label title = text(words, 44, INK);
-        title.setPrefWidth(W);
-        title.setAlignment(Pos.CENTER);
-        title.relocate(0, 50);
-        title.setMouseTransparent(true);   // it spans the whole width: let clicks reach the RETURN button
-        return title;
-    }
-
-    /** One holder per deck, then "+ New deck", in rows of PER_ROW that scroll when there are many. */
-    private ScrollPane holderList() {
-        FlowPane holders = new FlowPane(GAP, 30);
-        holders.setPrefWrapLength(PER_ROW * DeckHolderView.WIDTH + (PER_ROW - 1) * GAP);
-        holders.setPadding(new Insets(10));
-
+    /**
+     * The decks stand on the three shelves in their card stands, in creation order, left to right, then the "+ New deck" slot.
+     * Each shelf has its own height (HEIGHTS); when a shelf is full, the next deck goes on the shelf below.
+     * Anything that doesn't fit on the three shelves is not shown.
+     */
+    private Pane spineList() {
         List<SavedDeck> decks;
         if (onlyClass == null) {
             decks = DeckStore.all();
         } else {
             decks = DeckStore.ofClass(onlyClass);
         }
-        for (SavedDeck deck : decks) {
-            DeckHolderView holder = new DeckHolderView(deck);
-            holder.setOnOpen(() -> openDeck(deck, holder));
-            holders.getChildren().add(holder);
-        }
-        holders.getChildren().add(newDeckSlot());
 
-        ScrollPane scroll = new ScrollPane(holders);
-        scroll.setPrefSize(PER_ROW * DeckHolderView.WIDTH + (PER_ROW - 1) * GAP + 40, 700);
-        scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
-        scroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
-        scroll.relocate((W - scroll.getPrefWidth()) / 2, 150);
-        return scroll;
+        Pane shelves = new Pane();
+        int shelf = 0;
+        double x = LEFT_X;
+        // One place per deck, plus one more for the "+ New deck" slot.
+        for (int i = 0; i <= decks.size(); i++) {
+            double height = HEIGHTS[shelf];
+            double width = DeckHolderView.width(height);
+
+            // No room left on this shelf: go on to the next one (stop after the last shelf).
+            if (x + width > RIGHT_X) {
+                shelf++;
+                if (shelf == SHELF_TOPS.length) {
+                    break;
+                }
+                x = LEFT_X;
+                height = HEIGHTS[shelf];
+                width = DeckHolderView.width(height);
+            }
+
+            if (i < decks.size()) {
+                SavedDeck deck = decks.get(i);
+                DeckHolderView holder = new DeckHolderView(deck, height);
+                holder.setOnOpen(() -> openDeck(deck, holder));
+                holder.relocate(x, SHELF_TOPS[shelf] - height);   // its stand's feet on the shelf
+                shelves.getChildren().add(holder);
+            } else {
+                double slotHeight = DeckHolderView.standHeight(height);   // as tall as an empty stand
+                StackPane slot = newDeckSlot(width, slotHeight);
+                slot.relocate(x, SHELF_TOPS[shelf] - slotHeight);
+                shelves.getChildren().add(slot);
+            }
+            x += width + GAP;
+        }
+        return shelves;
     }
 
-    /** Rebuilds the holders from DeckStore (after a deck was deleted). */
+    /** Rebuilds the spines from DeckStore (after a deck was deleted). */
     private void refreshList() {
         grid.getChildren().remove(list);
-        list = holderList();
+        list = spineList();
         grid.getChildren().add(list);
     }
 
     /**
-     * Click on a holder: the real one hides and its opening plays on top of the screen, then its cards are shown.
-     * The list ignores clicks meanwhile, so only one deck opens at a time.
+     * Click on a spine: the real one hides and the opening plays on top of the screen, then the cards are shown.
+     * The shelves ignore clicks meanwhile, so only one deck opens at a time.
      */
     private void openDeck(SavedDeck deck, DeckHolderView holder) {
-        Point2D corner = grid.sceneToLocal(holder.picture().localToScene(0, 0));   // where the holder is on the grid
-        holder.setVisible(false);
+        // The stands' Pane sits at (0, 0) on the grid, so a stand's layout position is its position on the grid.
+        double spineX = holder.getLayoutX() + holder.spineX();
+        double spineY = holder.getLayoutY();   // the spine's top is the top of the whole
+        DeckOpening opening = new DeckOpening(grid, deck.getHeroClass(), spineX, spineY,
+                holder.spineWidth(), holder.spineHeight());
+        holder.hideSpine();   // the empty stand stays on the shelf
         list.setMouseTransparent(true);
-        DeckOpening.play(grid, deck.getHeroClass(), corner.getX(), corner.getY(), () -> showCards(deck, holder));
+        opening.open(() -> showCards(deck, holder, opening));
     }
 
-    /** The opened deck's cards, with Edit, Delete and Close. */
-    private void showCards(SavedDeck deck, DeckHolderView holder) {
+    /** The opened deck's cards, with Edit, Delete and Close. Close sends the deck back onto its shelf, in reverse. */
+    private void showCards(SavedDeck deck, DeckHolderView holder, DeckOpening opening) {
         DeckReveal reveal = new DeckReveal(deck,
                 () -> openEditor(deck),
                 () -> {
+                    opening.remove();
                     backToList(holder);
                     confirmDelete(deck);
                 },
-                () -> backToList(holder));
+                () -> opening.close(() -> backToList(holder)));
         grid.getChildren().add(reveal);
     }
 
-    /** The holder is back on the list and the list takes clicks again. */
+    /** The spine is back on its shelf and the shelves take clicks again. */
     private void backToList(DeckHolderView holder) {
-        holder.setVisible(true);
+        holder.showSpine();
         list.setMouseTransparent(false);
     }
 
-    /** The "+ New deck" slot, the size of a holder: makes a deck of the shown class, or asks which class when every deck is shown. */
-    private StackPane newDeckSlot() {
-        StackPane slot = new StackPane(text("+  New deck", 24, INK));
-        slot.setPrefSize(DeckHolderView.WIDTH, DeckHolderView.height(DeckHolderView.WIDTH));
-        slot.setStyle("-fx-border-color: " + INK + "; -fx-border-width: 3; -fx-border-style: dashed; -fx-border-radius: 10;");
+    /** The "+ New deck" slot: a dashed spine-sized outline. Makes a deck of the shown class, or asks which class. */
+    private StackPane newDeckSlot(double width, double height) {
+        StackPane slot = new StackPane(text("+", 22, INK));
+        slot.setPrefSize(width, height);
+        slot.setStyle("-fx-border-color: " + INK + "; -fx-border-width: 2; -fx-border-style: dashed; -fx-border-radius: 6;");
         HomeView.clickable(slot, false, () -> {
             if (onlyClass == null) {
                 askClass();
@@ -201,7 +217,7 @@ public class DecksView extends Pane {
         grid.getChildren().add(veil);
     }
 
-    /** Asks before deleting: Yes deletes the deck and redraws the list, No just closes the question. */
+    /** Asks before deleting: Yes deletes the deck and redraws the shelves, No just closes the question. */
     private void confirmDelete(SavedDeck deck) {
         VBox box = new VBox(24);
         box.setAlignment(Pos.CENTER);

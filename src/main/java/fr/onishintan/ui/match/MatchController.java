@@ -5,8 +5,10 @@ import fr.onishintan.engine.GameEvent;
 import fr.onishintan.model.Card;
 import fr.onishintan.model.Combatant;
 import fr.onishintan.model.HeroClass;
+import fr.onishintan.model.KatanaTier;
 import fr.onishintan.model.OathType;
 import fr.onishintan.model.Player;
+import fr.onishintan.model.TrapCard;
 import fr.onishintan.ui.MockCards;
 
 import java.util.Map;
@@ -53,9 +55,15 @@ public class MatchController {
         board.setOnPlay(this::playCard);
         board.setOnAttack(this::attack);
         board.setOnPower(this::useHeroPower);
+        board.setOnKatana(this::useKatana);
         board.setOnTrade(this::trade);
         board.setOnEndTurn(this::endTurn);
         board.setOnGameOver(() -> onEnd.accept(!first.getHero().isDead()));
+
+        // A trap that goes off is shown to both players (the engine has already applied its effect).
+        engine.getBus().subscribe(GameEvent.Type.TRAP_TRIGGERED, event -> board.revealTrap((TrapCard) event.target()));
+        // A trap you set is shown big, then flips and glides to its place by your hero.
+        engine.getBus().subscribe(GameEvent.Type.TRAP_SET, event -> board.showTrapSet((TrapCard) event.target()));
 
         // 4. Each player swears an Oath behind a pass veil, then the first player's hand is dealt.
         chooseOaths(yours, theirs);
@@ -95,9 +103,14 @@ public class MatchController {
         engine.attack(attacker, target);
     }
 
-    /** Hero power. Pierre's engine doesn't have powers yet (engine-hero-powers), so for now it only pays the Ki. */
-    private void useHeroPower() {
-        engine.active().spendKi(HeroPowerView.COST);
+    /** Hero power with a target (Ninja Shuriken, Oni Jikininki) or without (Kannushi Miko: target is null). True if the engine accepted it. */
+    private boolean useHeroPower(Combatant target) {
+        return engine.useHeroPower(target);
+    }
+
+    /** Samurai power: equip the chosen blade. True if the engine accepted it (enough Ki, not used yet this turn). */
+    private boolean useKatana(KatanaTier tier) {
+        return engine.useKatana(tier);
     }
 
     /** A hand card dropped on the deck: the engine shuffles it in and draws another (once per turn). True if it was accepted. */
