@@ -5,6 +5,8 @@ import fr.onishintan.model.Deck;
 import fr.onishintan.ui.app.ScreenGrid;
 import fr.onishintan.ui.cards.CardView;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 import javafx.animation.KeyFrame;
@@ -21,15 +23,20 @@ import javafx.scene.shape.Rectangle;
 import javafx.util.Duration;
 
 /**
- * What you see once a deck holder is opened: the deck's cards over a dark veil, flying out of the middle of the
- * screen to their places (each different card once, with its copy count), plus Edit, Delete and Close.
+ * What you see once a deck is opened: the deck's cards over a dark veil, flying out of the middle of the screen
+ * to their places (each different card once, with its copy count), plus Edit, Delete and Close.
+ * Close first gathers the cards back into the middle, then the deck goes back onto its shelf.
  */
 class DeckReveal extends Pane {
     private static final double CARD_W = 120, GAP = 14;
     private static final int PER_ROW = 10;
     private static final double AREA_W = ScreenGrid.W - 120, AREA_H = 740;
-    /** How long the cards take to reach their places. */
+    /** How long the cards take to reach their places (and to come back on Close). */
     private static final Duration SPREAD = Duration.millis(350);
+
+    /** The cards on show, and the point in the middle they all start from (and go back to on Close). */
+    private final List<VBox> shownCards = new ArrayList<>();
+    private double startX, startY;
 
     DeckReveal(SavedDeck deck, Runnable onEdit, Runnable onDelete, Runnable onClose) {
         setPrefSize(ScreenGrid.W, ScreenGrid.H);
@@ -45,11 +52,11 @@ class DeckReveal extends Pane {
         // Middle: the cards.
         getChildren().add(cardArea(deck));
 
-        // Bottom: the buttons. Each one first closes this view, then does its job.
+        // Bottom: the buttons. Edit and Delete close this view at once; Close gathers the cards first.
         HBox buttons = new HBox(20,
                 DecksView.button("Edit", () -> closeThen(onEdit)),
                 DecksView.button("Delete", () -> closeThen(onDelete)),
-                DecksView.button("Close", () -> closeThen(onClose)));
+                DecksView.button("Close", () -> gatherThen(onClose)));
         buttons.relocate(60, 840);
         getChildren().add(buttons);
     }
@@ -72,8 +79,8 @@ class DeckReveal extends Pane {
         double cardH = CARD_W * CardView.H / CardView.W;
         double rowH = cardH + GAP + 24;   // + room for the copy count under each card
         // The middle of the screen, in the card area's own coordinates: every card starts there.
-        double startX = AREA_W / 2 - CARD_W / 2;
-        double startY = AREA_H / 2 - cardH / 2;
+        startX = AREA_W / 2 - CARD_W / 2;
+        startY = AREA_H / 2 - cardH / 2;
 
         int index = 0;
         for (Card card : copies.keySet()) {
@@ -86,6 +93,7 @@ class DeckReveal extends Pane {
             shown.relocate(startX, startY);
             shown.setScaleX(0);   // edge-on, like the stack at the end of its flip
             cards.getChildren().add(shown);
+            shownCards.add(shown);
 
             Timeline fly = new Timeline(new KeyFrame(SPREAD,
                     new KeyValue(shown.layoutXProperty(), x),
@@ -106,6 +114,23 @@ class DeckReveal extends Pane {
         VBox box = new VBox(4, new CardView(card, CARD_W), DecksView.text(countText, 18, DecksView.PAPER));
         box.setAlignment(Pos.TOP_CENTER);
         return box;
+    }
+
+    /** Close: every card flies back to the middle and turns edge-on (the spread in reverse), then this view goes away. */
+    private void gatherThen(Runnable action) {
+        if (shownCards.isEmpty()) {
+            closeThen(action);
+            return;
+        }
+        Timeline gather = new Timeline();
+        for (VBox card : shownCards) {
+            gather.getKeyFrames().add(new KeyFrame(SPREAD,
+                    new KeyValue(card.layoutXProperty(), startX),
+                    new KeyValue(card.layoutYProperty(), startY),
+                    new KeyValue(card.scaleXProperty(), 0)));
+        }
+        gather.setOnFinished(event -> closeThen(action));
+        gather.play();
     }
 
     /** Removes this view from the screen, then does the button's job. */
