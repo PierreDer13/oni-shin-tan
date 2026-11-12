@@ -4,17 +4,15 @@ import fr.onishintan.model.HeroClass;
 import fr.onishintan.ui.app.SceneRouter;
 import fr.onishintan.ui.app.Screen;
 import fr.onishintan.ui.app.Sound;
-import fr.onishintan.ui.cards.CardView;
 import fr.onishintan.ui.match.BoardView;
 import fr.onishintan.ui.match.MatchController;
 import fr.onishintan.ui.screens.ClassSelectView;
 import fr.onishintan.ui.screens.HomeView;
+import fr.onishintan.ui.screens.InventoryView;
 
 import java.util.function.Consumer;
 
 import javafx.application.Application;
-import javafx.geometry.Pos;
-import javafx.scene.layout.FlowPane;
 import javafx.scene.media.MediaPlayer;
 import javafx.stage.Stage;
 
@@ -27,12 +25,7 @@ public class OniShinTanApp extends Application {
         music = Sound.music("music", 0.35);
         router.register(Screen.HOME, () -> new HomeView(router));
         router.register(Screen.CLASS_SELECT, () -> new ClassSelectView(router));
-        router.register(Screen.INVENTORY, () -> {
-            FlowPane grid = new FlowPane(20, 20);
-            grid.setAlignment(Pos.CENTER);
-            MockCards.ALL.forEach(c -> grid.getChildren().add(new CardView(c, 230)));
-            return grid;
-        });
+        router.register(Screen.INVENTORY, () -> new InventoryView(router));
         router.register(Screen.MATCH, () -> match("izakaya", HeroClass.SAMURAI, HeroClass.ONI, won -> router.goTo(Screen.HOME)));
         router.goTo(Screen.HOME);
         stage.setTitle("Oni Shin Tan");
