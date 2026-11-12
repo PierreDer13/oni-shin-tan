@@ -36,6 +36,11 @@ public class DeckEditorView extends Pane {
     private final Label countLabel = DecksView.text("", 26, DecksView.INK);
     private final Label messageLabel = DecksView.text("", 18, "#c41e1e");
     private final DeckPanel deckPanel;
+    /** What the collection shows: search, Ki and card type. The FilterBar changes it. */
+    private final CardFilter filter = new CardFilter();
+    /** Every card this deck may hold, in display order (the deck's class first, then Neutral). */
+    private final List<Card> allowed;
+    private final CollectionPanel collection;
 
     /** Opens the editor for this deck. listClass = the class filter of the list we came from (null = every deck). */
     public static void open(SceneRouter router, SavedDeck deck, HeroClass listClass) {
@@ -68,18 +73,22 @@ public class DeckEditorView extends Pane {
         save.relocate(1460, 36);
         grid.getChildren().addAll(nameField, countLabel, messageLabel, cancel, save);
 
-        // Left: every card this deck may hold. Right: the deck.
-        CollectionPanel collection = new CollectionPanel(cardsAllowed(), this::addCard, this::removeCard);
-        collection.relocate(30, 130);
+               // Left: the filter bar, then every card this deck may hold. Right: the deck.
+        allowed = cardsAllowed();
+        FilterBar filterBar = new FilterBar(filter, this::showCollection);
+        filterBar.relocate(30, 125);
+        collection = new CollectionPanel(this::addCard, this::removeCard);
+        collection.relocate(30, 180);
         deckPanel = new DeckPanel(this::removeCard);
         deckPanel.relocate(1160, 130);
-        grid.getChildren().addAll(collection, deckPanel);
+        grid.getChildren().addAll(filterBar, collection, deckPanel);
+        showCollection();
 
         refresh();
     }
 
     /**
-     * The cards of the deck's class plus the Neutral ones, cheapest first.
+     * The cards of the deck's class, then the Neutral ones; each group cheapest first, then by name.
      * Placeholder: every test card from MockCards, until the player's own collection is saved.
      */
     private List<Card> cardsAllowed() {
@@ -90,8 +99,28 @@ public class DeckEditorView extends Pane {
                 allowed.add(card);
             }
         }
-        allowed.sort(Comparator.comparingInt(Card::getKiCost));
+        Comparator<Card> classFirst = Comparator.comparing(DeckEditorView::isNeutral);   // false (the deck's class) before true (Neutral)
+        Comparator<Card> byKi = Comparator.comparingInt(Card::getKiCost);
+        Comparator<Card> byName = Comparator.comparing(Card::getNameRomaji);
+        allowed.sort(classFirst.thenComparing(byKi).thenComparing(byName));
         return allowed;
+    }
+
+
+    /** Shows in the collection the allowed cards that pass the filters, keeping their order (the deck's class first, then Neutral). */
+    private void showCollection() {
+        List<Card> shown = new ArrayList<>();
+        for (Card card : allowed) {
+            if (filter.matches(card)) {
+                shown.add(card);
+            }
+        }
+        collection.show(shown);
+    }
+
+    /** True for a Neutral card: used to sort the deck's class cards first. */
+    private static boolean isNeutral(Card card) {
+        return card.getHeroClass() == HeroClass.NEUTRAL;
     }
 
     /** Left click in the collection: adds one copy, unless the deck is full or already has the most copies allowed. */
