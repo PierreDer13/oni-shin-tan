@@ -22,6 +22,11 @@ public class SceneRouter {
     private final Scene scene = new Scene(new StackPane(content, doors), 1280, 720);
     private final Map<Screen, Supplier<Parent>> screens = new EnumMap<>(Screen.class);
     private final ImageCursor pointer = cursor("pointer"), grab = cursor("grab");
+    /** The main theme, for every screen that has no track of its own. */
+    private static final String DEFAULT_TRACK = "music";
+    /** The background music, and which track each screen plays. */
+    private final Music music = new Music();
+    private final Map<Screen, String> tracks = new EnumMap<>(Screen.class);
 
     public SceneRouter(Stage stage) {
         stage.setScene(scene);
@@ -33,12 +38,28 @@ public class SceneRouter {
     /** Tells the router how to build a screen. */
     public void register(Screen s, Supplier<Parent> builder) { screens.put(s, builder); }
 
-    /** Shows a screen: straight away the first time, then behind the shōji doors.
-     *  The doors start at once; the next screen is built while they are closed, so a slow screen never delays the click. */
+    /**
+     * Shows a screen: straight away the first time, then behind the shōji doors.
+     * The doors start at once; the next screen is built while they are closed, so a slow screen never delays the click.
+     * The screen's music starts as it appears (if it is the track already playing, it plays on).
+     */
     public void goTo(Screen s) {
         Supplier<Parent> next = screens.getOrDefault(s, () -> placeholder(s));
-        if (content.getChildren().isEmpty()) content.getChildren().setAll(next.get());
-        else doors.play(() -> content.getChildren().setAll(next.get()));
+        String track = tracks.getOrDefault(s, DEFAULT_TRACK);
+        if (content.getChildren().isEmpty()) {
+            content.getChildren().setAll(next.get());
+            music.play(track);
+        } else {
+            doors.play(() -> {
+                content.getChildren().setAll(next.get());
+                music.play(track);
+            });
+        }
+    }
+
+    /** The track a screen plays (/sounds/<track>.mp3). Screens without one play DEFAULT_TRACK. */
+    public void setMusic(Screen s, String track) {
+        tracks.put(s, track);
     }
 
     /** Stand-in until the real screen exists: its name and a way back home. */
