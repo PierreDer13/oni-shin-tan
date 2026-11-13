@@ -65,6 +65,51 @@ class HeroPowerTest {
         assertEquals(3, miko.getHealth());
     }
 
+    /** Uses the Kannushi power, then a full round back to my turn with Ki. */
+    private void mikoTurn() {
+        assertTrue(engine.useHeroPower(null));
+        engine.endTurn();
+        engine.endTurn();
+        me.gainTemporaryKi(10);
+    }
+
+    @Test
+    void mikoTokenUsesTheMikoArtId() {
+        start(HeroClass.KANNUSHI);
+        assertTrue(engine.useHeroPower(null));
+        assertEquals("miko", me.getSide().getAt(0).getSource().getId());
+    }
+
+    @Test
+    void everyThirdMikoCallGivesEveryMikoPlusOne() {
+        start(HeroClass.KANNUSHI);
+        mikoTurn();
+        mikoTurn();
+        assertEquals(3, me.getSide().getAt(0).getAttack());     // 2 calls: no bonus yet
+        mikoTurn();                                              // 3rd call: all +1/+1
+        for (int slot = 0; slot < 3; slot++) {
+            assertEquals(4, me.getSide().getAt(slot).getAttack());
+            assertEquals(4, me.getSide().getAt(slot).getHealth());
+        }
+        assertTrue(engine.useHeroPower(null));                   // 4th: arrives as a 4/4
+        assertEquals(4, me.getSide().getAt(3).getAttack());
+        assertEquals(4, me.getSide().getAt(3).getHealth());
+    }
+
+    @Test
+    void aMikoCardPlayedLaterGetsTheBonus() {
+        start(HeroClass.KANNUSHI);
+        mikoTurn();
+        mikoTurn();
+        mikoTurn();
+        Card mikoCard = new MinionCard("miko", "Miko", "巫女", "みこ", 1, Rarity.COMMON,
+                HeroClass.KANNUSHI, "", "", 3, 3, EnumSet.noneOf(Keyword.class));
+        me.removeFromHand(me.getHand().get(0));                  // room in a full hand
+        me.addToHand(mikoCard);
+        assertTrue(engine.playCard(mikoCard, 5, null));
+        assertEquals(4, me.getSide().getAt(5).getAttack());
+    }
+
     @Test
     void jikininkiDrainsAndHeals() {
         start(HeroClass.ONI);
