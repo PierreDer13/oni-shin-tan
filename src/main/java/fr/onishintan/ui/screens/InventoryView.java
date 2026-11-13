@@ -2,38 +2,29 @@ package fr.onishintan.ui.screens;
 
 import fr.onishintan.model.Card;
 import fr.onishintan.ui.MockCards;
-import fr.onishintan.ui.app.TatamiFloor;
 import fr.onishintan.ui.app.SceneRouter;
 import fr.onishintan.ui.app.Screen;
 import fr.onishintan.ui.app.ScreenGrid;
-import fr.onishintan.ui.cards.SleevedCard;
+import fr.onishintan.ui.cards.CardShelves;
 
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
-import javafx.geometry.Insets;
-import javafx.geometry.Pos;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.input.ScrollEvent;
-import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.Pane;
 
 /**
- * Inventory: every card in the game as a grid you scroll with the mouse wheel.
+ * Inventory: every card in the game standing on wooden shelves you scroll with the mouse wheel.
  * Sorted by class, then Ki, then name. Home goes back to the home screen.
  */
 public class InventoryView extends Pane {
     private static final String PAPER = "#f3ede1";
-    /** Height of the top bar: the first row of cards starts under it. */
-    private static final double TOP_BAR_H = 100;
     private static final String INK = "#1f1b17";
     private static final String FONT = "-fx-font-family: 'Yu Mincho'; -fx-font-weight: bold;";
 
-    private static final double CARD_W = 190;
-    private static final double GAP = 24;
-    private static final int PER_ROW = 7;
     /** Pixels moved per mouse-wheel notch (JavaFX's default of about 40 is too slow for big cards). */
     private static final double SCROLL_SPEED = 3;
 
@@ -43,7 +34,7 @@ public class InventoryView extends Pane {
         ScreenGrid.fitToWindow(this, grid);
         List<Card> cards = allCards();
 
-        // The cards fill the whole page and scroll on their tatami floor.
+        // The cards stand on shelves that fill the whole page and scroll with them.
         ScrollPane scroll = cardArea(cards);
         grid.getChildren().add(scroll);
 
@@ -69,31 +60,23 @@ public class InventoryView extends Pane {
         return cards;
     }
 
-    /** The cards as a centred grid on a tatami floor that repeats downwards, in a vertical-only ScrollPane the size of the page. */
+    /** The cards standing on wooden shelves that repeat downwards, in a vertical-only ScrollPane the size of the page. */
     private ScrollPane cardArea(List<Card> cards) {
-        FlowPane cardGrid = new FlowPane(GAP, GAP);
-        cardGrid.setPrefWrapLength(PER_ROW * CARD_W + (PER_ROW - 1) * GAP);
-        cardGrid.setAlignment(Pos.TOP_CENTER);
-        cardGrid.setPadding(new Insets(TOP_BAR_H, 10, 30, 10));   // the first row starts under the top bar
-        cardGrid.setMinHeight(ScreenGrid.H);                       // the floor fills the page even with few cards
-        cardGrid.setBackground(TatamiFloor.background());          // the floor scrolls with the cards
-        for (Card card : cards) {
-            cardGrid.getChildren().add(new SleevedCard(card, CARD_W));
-        }
+        CardShelves shelves = new CardShelves(cards);   // the shelves scroll with the cards
 
-        ScrollPane scroll = new ScrollPane(cardGrid);
+        ScrollPane scroll = new ScrollPane(shelves);
         scroll.setPrefSize(ScreenGrid.W, ScreenGrid.H);
         scroll.setFitToWidth(true);
         scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         scroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
         scroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
-        scroll.addEventFilter(ScrollEvent.SCROLL, event -> scrollFaster(scroll, cardGrid, event));
+        scroll.addEventFilter(ScrollEvent.SCROLL, event -> scrollFaster(scroll, shelves, event));
         return scroll;
     }
 
     /** Moves the grid by SCROLL_SPEED times the wheel's distance, instead of JavaFX's slow default. */
-    private void scrollFaster(ScrollPane scroll, FlowPane cardGrid, ScrollEvent event) {
-        double hiddenHeight = cardGrid.getHeight() - scroll.getViewportBounds().getHeight();
+    private void scrollFaster(ScrollPane scroll, CardShelves shelves, ScrollEvent event) {
+        double hiddenHeight = shelves.getHeight() - scroll.getViewportBounds().getHeight();
         if (hiddenHeight <= 0) {
             return;   // everything fits: nothing to scroll
         }
