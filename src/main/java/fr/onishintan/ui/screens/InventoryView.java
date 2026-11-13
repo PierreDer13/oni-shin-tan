@@ -2,10 +2,11 @@ package fr.onishintan.ui.screens;
 
 import fr.onishintan.model.Card;
 import fr.onishintan.ui.MockCards;
+import fr.onishintan.ui.app.TatamiFloor;
 import fr.onishintan.ui.app.SceneRouter;
 import fr.onishintan.ui.app.Screen;
 import fr.onishintan.ui.app.ScreenGrid;
-import fr.onishintan.ui.cards.CardView;
+import fr.onishintan.ui.cards.SleevedCard;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -18,8 +19,6 @@ import javafx.scene.control.ScrollPane;
 import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.Pane;
-import javafx.scene.paint.Color;
-import javafx.scene.shape.Rectangle;
 
 /**
  * Inventory: every card in the game as a grid you scroll with the mouse wheel.
@@ -27,6 +26,8 @@ import javafx.scene.shape.Rectangle;
  */
 public class InventoryView extends Pane {
     private static final String PAPER = "#f3ede1";
+    /** Height of the top bar: the first row of cards starts under it. */
+    private static final double TOP_BAR_H = 100;
     private static final String INK = "#1f1b17";
     private static final String FONT = "-fx-font-family: 'Yu Mincho'; -fx-font-weight: bold;";
 
@@ -40,24 +41,19 @@ public class InventoryView extends Pane {
 
     public InventoryView(SceneRouter router) {
         ScreenGrid.fitToWindow(this, grid);
-
-        // Plain washi-paper background, until the painted one exists.
-        grid.getChildren().add(new Rectangle(ScreenGrid.W, ScreenGrid.H, Color.web(PAPER)));
-
         List<Card> cards = allCards();
 
-        // Top bar: Home on the left, the card count next to it.
+        // The cards fill the whole page and scroll on their tatami floor.
+        ScrollPane scroll = cardArea(cards);
+        grid.getChildren().add(scroll);
+
+        // Top bar, fixed over the scrolling cards: Home on the left, the card count next to it.
         Label home = button("Home");
         HomeView.clickable(home, false, () -> router.goTo(Screen.HOME));
         home.relocate(30, 36);
-        Label count = text(cards.size() + " cards", 26, INK);
-        count.relocate(150, 34);
+        Label count = button(cards.size() + " cards");   // same dark pill as Home, readable over the cards
+        count.relocate(150, 36);
         grid.getChildren().addAll(home, count);
-
-        // The cards, in a scrolling area under the top bar.
-        ScrollPane scroll = cardArea(cards);
-        scroll.relocate(30, 110);
-        grid.getChildren().add(scroll);
     }
 
     /**
@@ -73,18 +69,20 @@ public class InventoryView extends Pane {
         return cards;
     }
 
-    /** The cards as a centred grid inside a vertical-only ScrollPane. */
+    /** The cards as a centred grid on a tatami floor that repeats downwards, in a vertical-only ScrollPane the size of the page. */
     private ScrollPane cardArea(List<Card> cards) {
         FlowPane cardGrid = new FlowPane(GAP, GAP);
         cardGrid.setPrefWrapLength(PER_ROW * CARD_W + (PER_ROW - 1) * GAP);
         cardGrid.setAlignment(Pos.TOP_CENTER);
-        cardGrid.setPadding(new Insets(10));
+        cardGrid.setPadding(new Insets(TOP_BAR_H, 10, 30, 10));   // the first row starts under the top bar
+        cardGrid.setMinHeight(ScreenGrid.H);                       // the floor fills the page even with few cards
+        cardGrid.setBackground(TatamiFloor.background());          // the floor scrolls with the cards
         for (Card card : cards) {
-            cardGrid.getChildren().add(new CardView(card, CARD_W));
+            cardGrid.getChildren().add(new SleevedCard(card, CARD_W));
         }
 
         ScrollPane scroll = new ScrollPane(cardGrid);
-        scroll.setPrefSize(ScreenGrid.W - 60, ScreenGrid.H - 130);
+        scroll.setPrefSize(ScreenGrid.W, ScreenGrid.H);
         scroll.setFitToWidth(true);
         scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         scroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);

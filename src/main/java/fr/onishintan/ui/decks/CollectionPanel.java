@@ -1,7 +1,7 @@
 package fr.onishintan.ui.decks;
 
 import fr.onishintan.model.Card;
-import fr.onishintan.ui.cards.CardView;
+import fr.onishintan.ui.cards.SleevedCard;
 import fr.onishintan.ui.cards.CardPreview;
 
 import java.util.List;
@@ -73,9 +73,9 @@ class CollectionPanel extends ScrollPane {
         return title;
     }
 
-    /** One card of the grid: left click adds a copy to the deck, right click takes one out. */
-    private CardView cardView(Card card) {
-        CardView view = new CardView(card, CARD_W);
+    /** One card of the grid, in its sleeve: left click adds a copy to the deck, right click takes one out. */
+    private SleevedCard cardView(Card card) {
+        SleevedCard view = new SleevedCard(card, CARD_W);
         view.setOnMousePressed(event -> {
             if (event.getButton() == MouseButton.PRIMARY) {
                 onAdd.accept(card);

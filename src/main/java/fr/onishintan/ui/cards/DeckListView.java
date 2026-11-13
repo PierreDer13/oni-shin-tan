@@ -11,7 +11,6 @@ import java.util.TreeMap;
 import java.util.function.Consumer;
 
 import javafx.scene.control.Label;
-import javafx.scene.input.MouseButton;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
@@ -19,7 +18,7 @@ import javafx.scene.layout.VBox;
 /**
  * A deck as Ki sections, cheapest first, one under the other: the Ki ("3 気"), the deck's cards of that cost
  * as CardChips (PER_ROW per row, each different card once with its copies), then a faint line.
- * Hovering a chip opens its big copy (CardPreview); a right click calls onRightClick.
+ * Hovering a chip opens its big copy (CardPreview); clicking a chip calls onClick.
  */
 public class DeckListView extends VBox {
     private static final int PER_ROW = 4;
@@ -29,20 +28,20 @@ public class DeckListView extends VBox {
     private final double width;
     private final String headerColour;
     private final CardPreview preview;
-    private final Consumer<Card> onRightClick;
+    private final Consumer<Card> onClick;
 
     /**
      * @param width        the list's width; the chips share it, PER_ROW per row
      * @param headerColour colour of the Ki titles and lines (ink on paper, cream on a dark frame)
      * @param preview      the hover effect (the chip grows, the big card opens)
-     * @param onRightClick what a right click on a chip does (the deck editor takes a copy out); card -> {} for nothing
+     * @param onClick      what a click on a chip does (the deck editor takes a copy out); card -> {} for nothing
      */
-    public DeckListView(double width, String headerColour, CardPreview preview, Consumer<Card> onRightClick) {
+    public DeckListView(double width, String headerColour, CardPreview preview, Consumer<Card> onClick) {
         super(6);
         this.width = width;
         this.headerColour = headerColour;
         this.preview = preview;
-        this.onRightClick = onRightClick;
+        this.onClick = onClick;
         setPrefWidth(width);
     }
 
@@ -92,10 +91,10 @@ public class DeckListView extends VBox {
             Card card = entry.getKey();
             CardChip chip = new CardChip(card, entry.getValue(), chipW);
             preview.attach(chip, card);
+            // A click (left or right button) takes one copy out; the big copy closes, since the list is redrawn.
             chip.setOnMousePressed(event -> {
-                if (event.getButton() == MouseButton.SECONDARY) {
-                    onRightClick.accept(card);
-                }
+                preview.hide();
+                onClick.accept(card);
             });
             rows.getChildren().add(chip);
         }
