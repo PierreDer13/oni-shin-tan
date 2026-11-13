@@ -86,8 +86,15 @@ public class CardView extends Group {
         }
     }
 
-    /** Pink glow on cards the player can afford (used by the hand). */
-    public void setPlayable(boolean playable) { setEffect(playable ? new DropShadow(40, Color.HOTPINK) : null); }
+    /** Pink outline hugging the border of cards the player can afford (used by the hand). */
+    public void setPlayable(boolean playable) {
+        if (!playable) {
+            setEffect(null);
+            return;
+        }
+        // small radius keeps the pink close to the edge, high spread turns it into a solid band
+        setEffect(new DropShadow(BlurType.GAUSSIAN, Color.HOTPINK, 12, 0.85, 0, 0));
+    }
 
     public Card getCard() { return card; }
 
