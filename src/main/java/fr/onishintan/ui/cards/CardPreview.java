@@ -93,4 +93,10 @@ public class CardPreview {
             big = null;
         }
     }
+
+
+    /** Closes the big copy now: for a node about to disappear, like a deck list chip just clicked. */
+    public void hide() {
+        hideBig();
+    }
 }
