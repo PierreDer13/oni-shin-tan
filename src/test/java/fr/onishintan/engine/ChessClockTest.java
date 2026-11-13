@@ -34,6 +34,18 @@ class ChessClockTest {
         engine = new GameEngine(me, enemy, new Random(42));
         engine.setTimeSource(() -> time[0]);
         engine.startMatch();
+        engine.swearOath(me, OathType.SILENCE);       // both heroes are Ninja
+        engine.swearOath(enemy, OathType.SILENCE);
+        engine.beginFirstTurn();
+    }
+
+    /** Same match, but no Oath sworn yet (or Adventure). */
+    private void startWithoutOaths() {
+        me = player("Pierre");
+        enemy = player("Kayne");
+        engine = new GameEngine(me, enemy, new Random(42));
+        engine.setTimeSource(() -> time[0]);
+        engine.startMatch();
         engine.beginFirstTurn();
     }
 
@@ -74,5 +86,40 @@ class ChessClockTest {
         assertEquals(hp - (hp + 1) / 2, me.getHero().getHealth());
         assertEquals(ChessClock.TIMEOUT_BONUS_MS + ChessClock.INCREMENT_MS, engine.remainingMs(me));
         assertEquals(ChessClock.BANK_MS, engine.remainingMs(enemy));   // his turn, t = 0 for him
+    }
+
+    @Test
+    void clockWaitsForBothOaths() {
+        startWithoutOaths();
+        time[0] = 10_000;
+        assertEquals(ChessClock.BANK_MS, engine.remainingMs(me));
+        engine.swearOath(me, OathType.SILENCE);
+        assertEquals(ChessClock.BANK_MS, engine.remainingMs(me));    // one Oath is not enough
+        engine.swearOath(enemy, OathType.SILENCE);                   // starts at t = 10 s
+        time[0] = 15_000;
+        assertEquals(ChessClock.BANK_MS - 5_000, engine.remainingMs(me));
+    }
+
+    @Test
+    void pauseFreezesTheBankAndTheTimeout() {
+        start();
+        time[0] = 10_000;
+        engine.pauseClock();
+        time[0] = ChessClock.BANK_MS + 60_000;                       // long past the bank
+        assertFalse(engine.checkClock());
+        assertEquals(ChessClock.BANK_MS - 10_000, engine.remainingMs(me));
+        engine.resumeClock();
+        time[0] += 5_000;
+        assertEquals(ChessClock.BANK_MS - 15_000, engine.remainingMs(me));
+    }
+
+    @Test
+    void noOathNoClock() {
+        startWithoutOaths();                                         // Adventure
+        time[0] = 2 * ChessClock.BANK_MS;
+        assertFalse(engine.checkClock());
+        engine.endTurn();
+        assertEquals(ChessClock.BANK_MS, engine.remainingMs(me));    // no +2 s either
+        assertEquals(ChessClock.BANK_MS, engine.remainingMs(enemy));
     }
 }

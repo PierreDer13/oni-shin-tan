@@ -56,6 +56,36 @@ public class GameEngine {
         this.now = Objects.requireNonNull(now);
     }
 
+    /** True once beginFirstTurn() ran: the clocks may start from then on. */
+    private boolean turnsBegun;
+    /** True while the table is hidden (Oath choice, hotseat pass veil): no clock runs. */
+    private boolean clockPaused;
+
+    /**
+     * The clocks run only once both players have sworn an Oath (PvP).
+     * Adventure has no Oath, so its matches have no clock.
+     */
+    public boolean clocksEnabled() {
+        return state.getFirst().getOath() != null && state.getSecond().getOath() != null;
+    }
+
+    /** Hides the table (pass veil): the active clock stops, using the engine's time. */
+    public void pauseClock() {
+        clockPaused = true;
+        state.active().getClock().pause(now.getAsLong());
+    }
+
+    /** The active player clicked the veil: his clock runs again. */
+    public void resumeClock() {
+        clockPaused = false;
+        startClock(state.active());
+    }
+
+    /** Starts p's clock, unless the clocks are off (no Oaths) or paused. */
+    private void startClock(Player p) {
+        if (turnsBegun && clocksEnabled() && !clockPaused) p.getClock().start(now.getAsLong());
+    }
+
 
     public GameEngine(Player first, Player second, Random rng) {
         this.state = new GameState(first, second);
@@ -110,14 +140,15 @@ public class GameEngine {
         Player p = state.active();
         turns.startTurn().forEach(card -> publishDraw(p, card));
         publish(GameEvent.of(GameEvent.Type.TURN_STARTED, p, null));
-        p.getClock().start(now.getAsLong());
+        turnsBegun = true;
+        startClock(p);
     }
 
     /** Ends the active turn (end-of-turn effects, then the Oath) and starts the opponent's. */
     public void endTurn() {
         Player ending = state.active();
         ending.getClock().pause(now.getAsLong());
-        ending.getClock().add(ChessClock.INCREMENT_MS);
+        if (clocksEnabled()) ending.getClock().add(ChessClock.INCREMENT_MS);
         publish(GameEvent.of(GameEvent.Type.TURN_ENDED, ending, null));
         resolveOath(ending);
         if (state.isOver()) return;           // an Oath break can kill its own hero
@@ -125,7 +156,7 @@ public class GameEngine {
         Player next = state.active();
         drawn.forEach(card -> publishDraw(next, card));
         publish(GameEvent.of(GameEvent.Type.TURN_STARTED, next, null));
-        next.getClock().start(now.getAsLong());
+        startClock(next);
     }
 
     /** Time left in a player's bank, in ms (the UI shows it). */
@@ -141,6 +172,7 @@ public class GameEngine {
     public boolean checkClock() {
         if (state.isOver()) return false;
         Player p = state.active();
+        if (!p.getClock().isRunning()) return false;   // no Oaths yet, Adventure, or paused
         if (p.getClock().remaining(now.getAsLong()) > 0) return false;
         int damage = (p.getHero().getHealth() + 1) / 2;
         p.getClock().add(ChessClock.TIMEOUT_BONUS_MS);
@@ -167,6 +199,7 @@ public class GameEngine {
         Oath oath = new Oath(type);
         p.setOath(oath);
         publish(GameEvent.of(GameEvent.Type.OATH_SWORN, p, oath));
+        startClock(state.active());   // the second Oath sworn: the active clock starts
         return true;
     }
 
