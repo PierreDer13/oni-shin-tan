@@ -2,27 +2,21 @@ package fr.onishintan.ui.cards;
 
 import fr.onishintan.model.Card;
 import fr.onishintan.model.TrapCard;
-
-import java.util.Set;
+import fr.onishintan.model.CurseCard;
+import fr.onishintan.model.RiteCard;
+import fr.onishintan.model.ShrineCard;
 
 import javafx.scene.paint.Color;
 
 /**
  * The class spell families, each with the tag written on the card's left edge.
- * Temporary: Traps are found by their class (TrapCard); Shrines, Rituals and Curses by their ids,
- * until the engine has a class (or a field) for each family.
+ * Found by the card's class: TrapCard, ShrineCard, RiteCard, CurseCard (Pierre's engine).
  */
 public enum CardFamily {
     TRAP("TRAP", "#0b1430, #1c2b4f 50%, #0b1430", "#1c2b4f"),          // Ninja: dark blue
     SHRINE("SHRINE", "#5e4b8b, #9a86c4 50%, #5e4b8b", "#b7a6dd"),      // Kannushi: lavender
     RITUAL("RITUAL", "#5c0a14, #b0172b 50%, #5c0a14", "#dc143c"),      // Samurai: crimson
     CURSE("CURSE", "#000000, #2b2622 50%, #000000", "#000000");        // Oni: black
-
-    private static final Set<String> SHRINES = Set.of("heiwa-no-torii", "meiji-otorii", "itsukushima",
-            "kumano-hongu-taisha", "fushimi-inari", "motonosumi-shrine");
-    private static final Set<String> RITUALS = Set.of("rite-of-shokan", "rite-of-gokito", "rite-of-ujigami-mairi",
-            "rite-of-daijosai", "rite-of-sanpasen", "rite-of-mukaebi");
-    private static final Set<String> CURSES = Set.of("bakeneko", "gagoze", "hinoeuma", "tatari", "gaki", "gokiburi");
 
     private final String word;
     private final String gradient;
@@ -42,14 +36,13 @@ public enum CardFamily {
         if (card instanceof TrapCard) {
             return TRAP;
         }
-        String id = card.getId();
-        if (SHRINES.contains(id)) {
+        if (card instanceof ShrineCard) {
             return SHRINE;
         }
-        if (RITUALS.contains(id)) {
+        if (card instanceof RiteCard) {
             return RITUAL;
         }
-        if (CURSES.contains(id)) {
+        if (card instanceof CurseCard) {
             return CURSE;
         }
         return null;

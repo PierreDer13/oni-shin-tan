@@ -3,6 +3,7 @@ package fr.onishintan.ui.match;
 import fr.onishintan.engine.GameEngine;
 import fr.onishintan.engine.GameEvent;
 import fr.onishintan.model.Card;
+import fr.onishintan.model.CurseCard;
 import fr.onishintan.model.Combatant;
 import fr.onishintan.model.Hero;
 import fr.onishintan.model.HeroClass;
@@ -112,7 +113,12 @@ public class MatchController {
 
     /** A card dropped on a slot: the engine checks the Ki and the slot, plays it and runs its Banzai. */
     private void playCard(Card card, int slot) {
-        engine.playCard(card, slot, null);   // null = no target yet; choosing targets for spells and Banzai comes later
+        Player active = engine.active();
+        if (card instanceof CurseCard curse && active.isHeldCurse(curse)) {
+            engine.removeCurse(curse);   // a Curse the enemy gave you: dropping it on the board pays its removal Ki
+        } else {
+            engine.playCard(card, slot, null);   // null = no target yet; choosing targets for spells and Banzai comes later
+        }
         board.render();
     }
 
@@ -200,6 +206,10 @@ public class MatchController {
 
     /** Both chess clocks as m:ss. The active player always sits at the bottom, so the bottom clock is theirs. */
     private void showClocks() {
+        if (!engine.clocksEnabled()) {
+            board.hideClocks();   // no clock yet (Oaths not sworn) or none at all (Adventure)
+            return;
+        }
         Player active = engine.active();
         Player waiting = second;
         if (active == second) {
@@ -210,17 +220,14 @@ public class MatchController {
         board.showClocks(yours, theirs, true);
     }
 
-    /**
-     * Stops the active player's clock while the table is hidden (Oath choice, pass veil), so hotseat players don't lose time.
-     * Temporary: uses the same time as the engine (System.currentTimeMillis) until GameEngine has pause/resume methods.
-     */
+    /** Stops the active player's clock while the table is hidden (Oath choice, pass veil), on the engine's own time. */
     private void pauseClock() {
-        engine.active().getClock().pause(System.currentTimeMillis());
+        engine.pauseClock();
     }
 
     /** Starts the active player's clock again once they clicked the pass veil. */
     private void resumeClock() {
-        engine.active().getClock().start(System.currentTimeMillis());
+        engine.resumeClock();
     }
 
     /** Samurai passive Gusoku: start with 10 armour (GDD). Here until the engine applies hero passives. */

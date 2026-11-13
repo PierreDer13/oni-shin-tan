@@ -5,6 +5,7 @@ import fr.onishintan.ui.cards.CardView;
 import fr.onishintan.model.BoardSide;
 import fr.onishintan.model.Card;
 import fr.onishintan.model.MinionCard;
+import fr.onishintan.model.ShrineCard;
 import fr.onishintan.model.Player;
 import java.util.ArrayList;
 import java.util.List;
@@ -120,10 +121,10 @@ public class HandView extends Group {
             Card card = v.getCard();
             if (DECK.contains(p)) {
                 onTrade.accept(card);                  // on your deck: trade it
-            } else if (card instanceof MinionCard) {
+            } else if (card instanceof MinionCard || card instanceof ShrineCard) {
                 int slot = slotUnder(p);
                 if (slot >= 0 && free(slot)) {
-                    onPlay.accept(card, slot);         // a minion needs a free slot of your row
+                    onPlay.accept(card, slot);         // a minion or a Shrine needs a free slot of your row
                 } else {
                     fan(true, true);                   // anywhere else: back to the hand
                 }
