@@ -120,7 +120,14 @@ public class GameEngine {
              e -> turnTracker.curseGiven());
         bus.subscribe(GameEvent.Type.TURN_STARTED,
              e -> turnTracker.clearHeroAttackers(state.opponentOf((Player) e.source())));
-    }
+        // A Miko arrives with the bonus of every 3 Kannushi power uses so far
+        bus.subscribe(GameEvent.Type.MINION_SUMMONED, e -> {
+            if (e.source() instanceof Player p && e.target() instanceof Minion m && isMiko(m)) {
+                int bonus = p.getMikoCalls() / MIKO_BONUS_EVERY;
+                if (bonus > 0) m.buff(bonus, bonus);
+            }
+        });    
+}
 
     // ---------- listeners ----------
 
@@ -367,7 +374,9 @@ public class GameEngine {
     public static final int HERO_POWER_COST = 2;     // GDD, proposed for Shuriken, Miko, Jikininki
     public static final int SHURIKEN_DAMAGE = 6;
     public static final int JIKININKI_DRAIN = 4;
-    static final MinionCard MIKO = new MinionCard("power-miko", "Miko", "巫女", "みこ", 0,
+    public static final String MIKO_ID = "miko";       // same id as the Miko card: art images/cards/Kannushi/miko.png
+    public static final int MIKO_BONUS_EVERY = 3;      // every 3rd Kannushi power use: all Miko +1/+1
+    static final MinionCard MIKO = new MinionCard(MIKO_ID, "Miko", "巫女", "みこ", 0,
             Rarity.COMMON, HeroClass.KANNUSHI, "", "", 3, 3, null);
 
     /**
@@ -392,6 +401,10 @@ public class GameEngine {
                 p.getSide().place(miko, slot);
                 publish(GameEvent.of(GameEvent.Type.MINION_SUMMONED, p, miko));
                 triggerTraps(state.opponent(), TrapTrigger.ON_ENEMY_SUMMON, miko);
+                p.addMikoCall();
+                if (p.getMikoCalls() % MIKO_BONUS_EVERY == 0) {
+                    p.getSide().getMinions().stream().filter(GameEngine::isMiko).forEach(m -> m.buff(1, 1));
+                }
             }
             case ONI -> {
                 if (!isPowerTarget(target)) return false;
@@ -427,6 +440,10 @@ public class GameEngine {
         publish(new GameEvent(GameEvent.Type.HERO_POWER_USED, p, p.getHero(), cost));
     }
 
+    private static boolean isMiko(Minion m) {
+        return MIKO_ID.equals(m.getSource().getId());
+    }
+        
     /** Any living character on the board, except a hidden enemy minion or a stealthed enemy hero. */
     private boolean isPowerTarget(Combatant t) {
         if (t == null || t.isDead()) return false;
