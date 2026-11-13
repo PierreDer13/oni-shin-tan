@@ -46,7 +46,7 @@ public class GameEngine {
     private final CardEffects cardEffects = new CardEffects();
     private final List<GameListener> listeners = new ArrayList<>();
     private final TurnTracker turnTracker = new TurnTracker();
-    private final OathRules oathRules = new OathRules();
+    private final OathRules oathRules;
     private final Random rng;
 
     private LongSupplier now = System::currentTimeMillis;   // replaced in tests
@@ -92,6 +92,7 @@ public class GameEngine {
         this.rng = Objects.requireNonNull(rng);
         this.turns = new TurnManager(state, this.rng);
         this.combat = new CombatResolver(state, this::publish);
+        this.oathRules = new OathRules(combat);
 
         // Rule handlers: they run before the UI hears the event
         bus.subscribe(GameEvent.Type.MINION_DIED,
@@ -110,6 +111,15 @@ public class GameEngine {
              e -> runHandCurses((Player) e.source()));
         bus.subscribe(GameEvent.Type.CARD_DRAWN,
              e -> onCurseDrawn((Player) e.source(), (Card) e.target()));
+        // What the Oath rules read at the end of the turn
+        bus.subscribe(GameEvent.Type.ATTACK,
+             e -> onAttack((Combatant) e.source(), (Combatant) e.target()));
+        bus.subscribe(GameEvent.Type.DAMAGE,
+             e -> onDamage(e.target(), e.amount()));
+        bus.subscribe(GameEvent.Type.CURSE_GIVEN,
+             e -> turnTracker.curseGiven());
+        bus.subscribe(GameEvent.Type.TURN_STARTED,
+             e -> turnTracker.clearHeroAttackers(state.opponentOf((Player) e.source())));
     }
 
     // ---------- listeners ----------
@@ -126,6 +136,28 @@ public class GameEngine {
         bus.publish(event);
         for (GameListener l : List.copyOf(listeners)) l.onEvent(event, state);
     }
+
+    /** Honor, Peace and Justice: who attacked what this turn. */
+    private void onAttack(Combatant attacker, Combatant target) {
+        Player enemy = state.opponent();
+        turnTracker.attacked(target);
+        if (!(attacker instanceof Minion m)) return;
+        if (target instanceof Hero) {
+            turnTracker.minionHitHero(enemy.getSide().size() > 0);
+            turnTracker.markHeroAttacker(enemy, m);
+        } else if (combat.legalTargets(m).contains(enemy.getHero())) {
+            turnTracker.minionSkippedHero();
+        }
+    }
+
+    /** Havoc: damage taken by the enemy's hero and minions during this turn. */
+    private void onDamage(Object target, int amount) {
+        Player enemy = state.opponent();
+        if (target == enemy.getHero() || (target instanceof Minion m && enemy.getSide().getMinions().contains(m))) {
+            turnTracker.addDamage(amount);
+        }
+    }
+
 
     // ---------- match flow ----------
 
