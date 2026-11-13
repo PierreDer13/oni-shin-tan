@@ -2,10 +2,11 @@ package fr.onishintan.ui.screens;
 
 import fr.onishintan.model.Card;
 import fr.onishintan.ui.MockCards;
+import fr.onishintan.ui.app.Images;
 import fr.onishintan.ui.app.SceneRouter;
 import fr.onishintan.ui.app.Screen;
 import fr.onishintan.ui.app.ScreenGrid;
-import fr.onishintan.ui.cards.CardView;
+import fr.onishintan.ui.cards.SleevedCard;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -18,8 +19,7 @@ import javafx.scene.control.ScrollPane;
 import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.Pane;
-import javafx.scene.paint.Color;
-import javafx.scene.shape.Rectangle;
+import javafx.scene.image.ImageView;
 
 /**
  * Inventory: every card in the game as a grid you scroll with the mouse wheel.
@@ -27,6 +27,7 @@ import javafx.scene.shape.Rectangle;
  */
 public class InventoryView extends Pane {
     private static final String PAPER = "#f3ede1";
+    private static final String TATAMI = "/images/deck-builder/inventory-tatami.png";
     private static final String INK = "#1f1b17";
     private static final String FONT = "-fx-font-family: 'Yu Mincho'; -fx-font-weight: bold;";
 
@@ -41,8 +42,9 @@ public class InventoryView extends Pane {
     public InventoryView(SceneRouter router) {
         ScreenGrid.fitToWindow(this, grid);
 
-        // Plain washi-paper background, until the painted one exists.
-        grid.getChildren().add(new Rectangle(ScreenGrid.W, ScreenGrid.H, Color.web(PAPER)));
+        // Tatami floor over the whole page (the picture has the grid's shape, 1672 x 941).
+        ImageView tatami = new ImageView(Images.get(TATAMI, ScreenGrid.W, ScreenGrid.H));
+        grid.getChildren().add(tatami);
 
         List<Card> cards = allCards();
 
@@ -80,7 +82,7 @@ public class InventoryView extends Pane {
         cardGrid.setAlignment(Pos.TOP_CENTER);
         cardGrid.setPadding(new Insets(10));
         for (Card card : cards) {
-            cardGrid.getChildren().add(new CardView(card, CARD_W));
+            cardGrid.getChildren().add(new SleevedCard(card, CARD_W));
         }
 
         ScrollPane scroll = new ScrollPane(cardGrid);

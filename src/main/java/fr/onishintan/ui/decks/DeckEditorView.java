@@ -4,6 +4,7 @@ import fr.onishintan.model.Card;
 import fr.onishintan.model.Deck;
 import fr.onishintan.model.HeroClass;
 import fr.onishintan.ui.MockCards;
+import fr.onishintan.ui.app.Images;
 import fr.onishintan.ui.app.SceneRouter;
 import fr.onishintan.ui.app.Screen;
 import fr.onishintan.ui.app.ScreenGrid;
@@ -16,8 +17,7 @@ import java.util.List;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.Pane;
-import javafx.scene.paint.Color;
-import javafx.scene.shape.Rectangle;
+import javafx.scene.image.ImageView;
 
 /**
  * Deck Builder, screen 2: edit one deck.
@@ -25,6 +25,7 @@ import javafx.scene.shape.Rectangle;
  * Left click a card to add it, right click to take it out. Save keeps the changes, Cancel forgets them.
  */
 public class DeckEditorView extends Pane {
+    private static final String TATAMI = "/images/deck-builder/inventory-tatami.png";
     private final SceneRouter router;
     private final SavedDeck deck;
     /** The deck list's class filter, so Save and Cancel go back to the same list. */
@@ -56,8 +57,9 @@ public class DeckEditorView extends Pane {
         this.cards = deck.getCards();   // getCards() gives a copy, so the real deck changes only on Save
         ScreenGrid.fitToWindow(this, grid);
 
-        // Plain washi-paper background, until the painted one exists.
-        grid.getChildren().add(new Rectangle(ScreenGrid.W, ScreenGrid.H, Color.web(DecksView.PAPER)));
+        // Tatami floor over the whole page (the picture has the grid's shape, 1672 x 941).
+        ImageView tatami = new ImageView(Images.get(TATAMI, ScreenGrid.W, ScreenGrid.H));
+        grid.getChildren().add(tatami);
 
         // Top bar: the deck name you can type in, the card count, a message line, Cancel and Save.
         nameField = new TextField(deck.getName());
