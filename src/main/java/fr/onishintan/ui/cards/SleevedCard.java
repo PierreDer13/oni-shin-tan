@@ -2,7 +2,7 @@ package fr.onishintan.ui.cards;
 
 import fr.onishintan.model.Card;
 import fr.onishintan.ui.app.Images;
-
+import javafx.scene.CacheHint;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.Pane;
 
@@ -39,6 +39,9 @@ public class SleevedCard extends Pane {
         setPrefSize(width, height);
         setMinSize(width, height);
         setMaxSize(width, height);
+        // Drawn once into a picture and reused while scrolling, so dozens of cards with text and glows scroll smoothly.
+        setCache(true);
+        setCacheHint(CacheHint.SPEED);
     }
 
     /** The card inside the sleeve. */
