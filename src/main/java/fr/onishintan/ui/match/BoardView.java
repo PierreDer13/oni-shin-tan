@@ -1,6 +1,7 @@
 package fr.onishintan.ui.match;
 import fr.onishintan.ui.cards.CardView;
 import fr.onishintan.ui.cards.MinionView;
+import fr.onishintan.ui.cards.ShrineView;
 import fr.onishintan.ui.fx.Fx;
 import fr.onishintan.ui.screens.HomeView;
 import fr.onishintan.ui.app.Images;
@@ -8,11 +9,13 @@ import fr.onishintan.ui.app.Sound;
 
 import fr.onishintan.model.Hero;
 import fr.onishintan.model.BoardSide;
+import fr.onishintan.model.BoardEntity;
 import fr.onishintan.model.HeroClass;
 import fr.onishintan.model.Keyword;
 import fr.onishintan.model.Card;
 import fr.onishintan.model.Combatant;
 import fr.onishintan.model.Minion;
+import fr.onishintan.model.Shrine;
 import fr.onishintan.model.Player;
 import fr.onishintan.model.TrapCard;
 import fr.onishintan.engine.GameEngine;
@@ -265,8 +268,16 @@ public class BoardView extends Pane {
         table.getChildren().add(end);
     }
 
+    /** No clock in this match (Adventure), or not yet (Oaths not sworn): both clocks hidden. */
+    public void hideClocks() {
+        yourClock.setVisible(false);
+        enemyClock.setVisible(false);
+    }
+
     /** Both chess clocks: the active one is big and bright, the other small and grey (GDD). */
     public void showClocks(String yours, String theirs, boolean yourTurn) {
+        yourClock.setVisible(true);
+        enemyClock.setVisible(true);
         yourClock.setText(yours);
         enemyClock.setText(theirs);
         clock(yourClock, yourTurn);
@@ -469,6 +480,11 @@ public void passTo(String name, Runnable onReady) {
     /** One side's 7 fixed slots, left to right. Each minion is drawn in the slot it was dropped on; empty slots stay empty. */
     private void row(Player p, double y) {
         for (int slot = 0; slot < BoardSide.MAX; slot++) {
+            BoardEntity entity = p.getSide().entityAt(slot);
+            if (entity instanceof Shrine shrine) {
+                shrine(shrine, slot, y);   // a Shrine stands here: drawn on its own, it cannot be selected or attacked
+                continue;
+            }
             Minion minion = p.getSide().getAt(slot);
             if (minion == null) {
                 continue;   // empty slot: nothing to draw
@@ -506,6 +522,45 @@ public void passTo(String name, Runnable onReady) {
                 status.seppuku(x, y);
             }
         }
+    }
+
+    /** A Shrine in its slot: its card with the turns it has left, a big copy on hover, and its aura glowing on the two slots beside it. */
+    private void shrine(Shrine shrine, int slot, double y) {
+        double x = SLOT_X + 2 + slot * SLOT_STEP;
+        groundShadow(x, y);
+        ShrineView view = new ShrineView(shrine, MINION_W);
+        place(view, x, y);
+
+        // The big copy opens on the left for the right-hand slots, so it stays on screen (like a minion's).
+        double bigW = 280;
+        double bigH = bigW * CardView.H / CardView.W;
+        double bigX = x + MINION_W + 20;
+        if (slot >= 4) {
+            bigX = x - 20 - bigW;
+        }
+        double bigY = Math.max(10, Math.min(H - bigH - 10, y + 80 - bigH / 2));
+        bigOnHover(view, () -> new ShrineView(shrine, bigW), bigX, bigY);
+
+        if (slot > 0) {
+            auraGlow(slot - 1, y);
+        }
+        if (slot < BoardSide.MAX - 1) {
+            auraGlow(slot + 1, y);
+        }
+    }
+
+    /** A Shrine's aura on a neighbouring slot: a soft lavender glow behind whatever stands there. */
+    private void auraGlow(int slot, double y) {
+        double x = SLOT_X + 2 + slot * SLOT_STEP;
+        double cardH = MINION_W * CardView.H / CardView.W;
+        Rectangle glow = new Rectangle(MINION_W, cardH, Color.web("#b7a6dd", 0.25));
+        glow.setArcWidth(16);
+        glow.setArcHeight(16);
+        glow.setEffect(new DropShadow(30, Color.web("#b7a6dd")));
+        glow.setMouseTransparent(true);
+        glow.setViewOrder(1);   // behind the cards
+        glow.relocate(x, y);
+        live.getChildren().add(glow);
     }
 
     /** The hero's scroll, centred on the screen in its row, with HP in the scroll's bottom-right corner. */

@@ -1,6 +1,8 @@
 package fr.onishintan.ui;
 
 import fr.onishintan.model.Card;
+import fr.onishintan.model.CurseCard;
+import fr.onishintan.model.CurseZone;
 import fr.onishintan.model.Deck;
 import fr.onishintan.model.Hero;
 import fr.onishintan.model.HeroClass;
@@ -9,6 +11,8 @@ import fr.onishintan.model.Minion;
 import fr.onishintan.model.MinionCard;
 import fr.onishintan.model.Player;
 import fr.onishintan.model.Rarity;
+import fr.onishintan.model.RiteCard;
+import fr.onishintan.model.ShrineCard;
 import fr.onishintan.model.SpellCard;
 import fr.onishintan.model.TrapCard;
 import fr.onishintan.model.TrapTrigger;
@@ -107,27 +111,9 @@ public final class MockCards {
             new TrapCard("dondengaeshi", "Dondengaeshi", "どんでん返し", "", 6, Rarity.COMMON, HeroClass.NINJA,
                     "The enemy plays a minion: summon a copy of it on your side", "", TrapTrigger.ON_ENEMY_SUMMON));
 
-    /** The class spells (GDD, 9 Nov): the families (Kannushi Shrines, Oni Curses, Samurai Rites), then the plain spells.
-     *  Ninja Traps are in TRAPS. id | name | kanji | class | Ki | text */
+    /** The 16 plain class spells (GDD, 12 Nov). The family cards are built in familyCards(); Ninja Traps are in TRAPS.
+     *  id | name | kanji | class | Ki | text */
     private static final String SPELL_TABLE = """
-            heiwa-no-torii|Heiwa no Torii|平和の鳥居|KANNUSHI|1|Shrine, 3 turns. Adjacent minions: +0/+2; heal 2 at the end of your turn
-            meiji-otorii|Meiji Ōtorii|明治大鳥居|KANNUSHI|2|Shrine, 3 turns. Adjacent minions: +2 ATK; heal 3 after attacking
-            itsukushima|Itsukushima|厳島|KANNUSHI|3|Shrine, 3 turns. Adjacent minions regain Torii at the start of your turn
-            kumano-hongu-taisha|Kumano Hongū Taisha|熊野本宮大社|KANNUSHI|4|Shrine, 4 turns. Adjacent minions: +0/+4 and Shirodu
-            fushimi-inari|Fushimi Inari|伏見稲荷|KANNUSHI|5|Shrine, 3 turns. On the opponent's turns, adjacent minions cannot die from a single hit
-            motonosumi-shrine|Motonosumi Jinja|元乃隅神社|KANNUSHI|7|Shrine, 3 turns. Adjacent minions: +3/+3; a minion played next to it gets Tatakae
-            bakeneko|Bakeneko|化け猫|ONI|2|Curse in the enemy hand (removal 2 Ki): while held, their minions cost 1 more Ki
-            gagoze|Gagoze|元興寺|ONI|2|Curse, 3 into the enemy deck: when drawn, 4 damage to a random minion of that player
-            hinoeuma|Hinoeuma|丙午|ONI|3|Curse in the enemy hand (removal 2 Ki): end of their turn, 3 damage to their hero and 2 to a random minion of theirs
-            tatari|Tatari|祟り|ONI|3|Curse, 5 into the enemy deck: when drawn, 4 damage to that hero
-            gaki|Gaki|餓鬼|ONI|4|Curse in the enemy hand (removal 5 Ki): end of their turn, they have 1 less Ki next turn
-            gokiburi|Gokiburi|ゴキブリ|ONI|4|Curse in the enemy hand (removal 3 Ki): end of their turn, destroys the card to its left
-            rite-of-shokan|Rite of Shōkan|召喚の儀|SAMURAI|2|Summon a 4/4 Ancestor. Future Ancestors: +1/+1
-            rite-of-gokito|Rite of Gokitō|御祈祷の儀|SAMURAI|3|Summon a 4/4 Ancestor. Future Ancestors: Banzai: draw a card
-            rite-of-ujigami-mairi|Rite of Ujigami-mairi|氏神参りの儀|SAMURAI|4|Summon a 4/4 Ancestor with Torii. Future Ancestors: Torii
-            rite-of-daijosai|Rite of Daijōsai|大嘗祭|SAMURAI|5|Summon a 4/4 Ancestor with Tatakae. Future Ancestors: Tatakae and +2/+2
-            rite-of-sanpasen|Rite of Sanpasen|儀式|SAMURAI|6|Summon 2 Ancestors with Shirodu. Future Ancestors: Shirodu
-            rite-of-mukaebi|Rite of Mukaebi|迎え火|SAMURAI|7|Summon 3 Ancestors. Future Ancestors: +2/+2
             kakuremino|Kakuremino|隠れ蓑|NINJA|5|Give all friendly minions Shinobi
             kemuri-dama|Kemuri-dama|煙玉|NINJA|2|Give a friendly minion Shinobi and +1 ATK
             kuji-in|Kuji-in|九字印|NINJA|3|Refresh your hero power
@@ -160,11 +146,11 @@ public final class MockCards {
     }
 
     /**
-     * Builds the spells from the SPELL_TABLE, one line per card.
-     * @return the 18 family spells (Shrines, Curses, Rites) and the 16 plain class spells, all common
+     * Builds the spells: the 18 family cards first (familyCards), then one plain spell per SPELL_TABLE line.
+     * @return the 18 family cards (Shrines, Curses, Rites) and the 16 plain class spells, all common
      */
     private static List<Card> spells() {
-        List<Card> spells = new ArrayList<>();
+        List<Card> spells = new ArrayList<>(familyCards());
         for (String line : SPELL_TABLE.lines().toList()) {
             String[] field = line.split("\\|", -1);
             String id = field[0];
@@ -176,6 +162,59 @@ public final class MockCards {
             spells.add(new SpellCard(id, name, kanji, "", ki, Rarity.COMMON, heroClass, text, ""));
         }
         return spells;
+    }
+
+    /** The 18 class family cards (GDD, 9 Nov) as the engine's own classes, so the engine runs them. */
+    private static List<Card> familyCards() {
+        List<Card> family = new ArrayList<>();
+
+        // Kannushi Shrines: id, name, kanji, Ki, turns on the board, text
+        family.add(shrine("heiwa-no-torii", "Heiwa no Torii", "平和の鳥居", 1, 3, "Shrine, 3 turns. Adjacent minions: +0/+2; heal 2 at the end of your turn"));
+        family.add(shrine("meiji-otorii", "Meiji Ōtorii", "明治大鳥居", 2, 3, "Shrine, 3 turns. Adjacent minions: +2 ATK; heal 3 after attacking"));
+        family.add(shrine("itsukushima", "Itsukushima", "厳島", 3, 3, "Shrine, 3 turns. Adjacent minions regain Torii at the start of your turn"));
+        family.add(shrine("kumano-hongu-taisha", "Kumano Hongū Taisha", "熊野本宮大社", 4, 4, "Shrine, 4 turns. Adjacent minions: +0/+4 and Shirodu"));
+        family.add(shrine("fushimi-inari", "Fushimi Inari", "伏見稲荷", 5, 3, "Shrine, 3 turns. On the opponent's turns, adjacent minions cannot die from a single hit"));
+        family.add(shrine("motonosumi-shrine", "Motonosumi Jinja", "元乃隅神社", 7, 3, "Shrine, 3 turns. Adjacent minions: +3/+3; a minion played next to it gets Tatakae"));
+
+        // Oni Curses: id, name, kanji, Ki, where it goes, copies, removal Ki, text
+        family.add(curse("bakeneko", "Bakeneko", "化け猫", 2, CurseZone.HAND, 1, 2, "Curse in the enemy hand (removal 2 Ki): while held, their minions cost 1 more Ki"));
+        family.add(curse("gagoze", "Gagoze", "元興寺", 2, CurseZone.DECK, 3, 0, "Curse, 3 into the enemy deck: when drawn, 4 damage to a random minion of that player"));
+        family.add(curse("hinoeuma", "Hinoeuma", "丙午", 3, CurseZone.HAND, 1, 2, "Curse in the enemy hand (removal 2 Ki): end of their turn, 3 damage to their hero and 2 to a random minion of theirs"));
+        family.add(curse("tatari", "Tatari", "祟り", 3, CurseZone.DECK, 5, 0, "Curse, 5 into the enemy deck: when drawn, 4 damage to that hero"));
+        family.add(curse("gaki", "Gaki", "餓鬼", 4, CurseZone.HAND, 1, 5, "Curse in the enemy hand (removal 5 Ki): end of their turn, they have 1 less Ki next turn"));
+        family.add(curse("gokiburi", "Gokiburi", "ゴキブリ", 4, CurseZone.HAND, 1, 3, "Curse in the enemy hand (removal 3 Ki): end of their turn, destroys the card to its left"));
+
+        // Samurai Rites: id, name, kanji, Ki, Ancestors now, their keywords, lasting +ATK / +HP, lasting keywords, text
+        family.add(rite("rite-of-shokan", "Rite of Shōkan", "召喚の儀", 2, 1, Set.of(), 1, 1, Set.of(),
+                "Summon a 4/4 Ancestor. Future Ancestors: +1/+1"));
+        family.add(rite("rite-of-gokito", "Rite of Gokitō", "御祈祷の儀", 3, 1, Set.of(), 0, 0, Set.of(Keyword.BANZAI),
+                "Summon a 4/4 Ancestor. Future Ancestors: Banzai: draw a card (stacks)"));
+        family.add(rite("rite-of-ujigami-mairi", "Rite of Ujigami-mairi", "氏神参りの儀", 4, 1, Set.of(Keyword.TORII), 0, 0, Set.of(Keyword.TORII),
+                "Summon a 4/4 Ancestor with Torii. Future Ancestors: +1 Torii (stacks)"));
+        family.add(rite("rite-of-daijosai", "Rite of Daijōsai", "大嘗祭", 5, 1, Set.of(Keyword.TATAKAE), 2, 2, Set.of(Keyword.TATAKAE),
+                "Summon a 4/4 Ancestor with Tatakae. Future Ancestors: Tatakae and +2/+2"));
+        family.add(rite("rite-of-sanpasen", "Rite of Sanpasen", "儀式", 6, 2, Set.of(Keyword.SHIRODU), 0, 0, Set.of(Keyword.SHIRODU),
+                "Summon 2 Ancestors with Shirodu. Future Ancestors: Shirodu"));
+        family.add(rite("rite-of-mukaebi", "Rite of Mukaebi", "迎え火", 7, 3, Set.of(), 2, 2, Set.of(),
+                "Summon 3 Ancestors. Future Ancestors: +2/+2"));
+        return family;
+    }
+
+    /** A Kannushi Shrine that stays `turns` of its owner's turns on the board. */
+    private static ShrineCard shrine(String id, String name, String kanji, int ki, int turns, String text) {
+        return new ShrineCard(id, name, kanji, "", ki, Rarity.COMMON, HeroClass.KANNUSHI, text, "", turns);
+    }
+
+    /** An Oni Curse: into the enemy hand (1 copy, removable for `removalKi`) or shuffled into the enemy deck (`copies`, removal 0). */
+    private static CurseCard curse(String id, String name, String kanji, int ki, CurseZone zone, int copies, int removalKi, String text) {
+        return new CurseCard(id, name, kanji, "", ki, Rarity.COMMON, HeroClass.ONI, text, "", zone, copies, removalKi);
+    }
+
+    /** A Samurai Rite: `ancestors` 4/4 Ancestors now with `nowKeywords`, and a lasting bonus for every later Ancestor. */
+    private static RiteCard rite(String id, String name, String kanji, int ki, int ancestors, Set<Keyword> nowKeywords,
+                                 int bonusAttack, int bonusHealth, Set<Keyword> bonusKeywords, String text) {
+        return new RiteCard(id, name, kanji, "", ki, Rarity.COMMON, HeroClass.SAMURAI, text, "",
+                ancestors, nowKeywords, bonusAttack, bonusHealth, bonusKeywords);
     }
 
     /**

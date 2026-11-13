@@ -9,6 +9,7 @@ import fr.onishintan.model.WeaponCard;
 import fr.onishintan.ui.app.Images;
 
 import java.io.InputStream;
+import java.util.Map;
 import javafx.geometry.HPos;
 import javafx.geometry.NodeOrientation;
 import javafx.geometry.Orientation;
@@ -39,6 +40,8 @@ public class CardView extends Group {
     /** The edge tags (SPELL on the right, the family on the left), in card coordinates (530 x 742):
      *  width, top, height per letter and the extra height around the letters (SPELL: 30 + 5 x 24 = 150). */
     private static final double SIDE_TAG_W = 40, SIDE_TAG_Y = 345, SIDE_TAG_LETTER_H = 24, SIDE_TAG_PADDING = 30;
+    /** Engine tokens drawn with another card's art: token id -> card id (the Kannushi hero power summons "power-miko"). */
+    private static final Map<String, String> ART_OF = Map.of("power-miko", "miko");
 
     private final Card card;
     private final Pane face = new Pane();
@@ -104,11 +107,14 @@ public class CardView extends Group {
         return null;
     }
 
-    /** The card's art, or the blank frame of its class while the art is missing. */
-    /** The card's art (decoded once, at the card's size, then reused), or the blank frame of its class while the art is missing. */
+    /**
+     * The card's art (decoded once, at the card's size, then reused), or the blank frame of its class while the art is missing.
+     * A few engine tokens are drawn with another card's art (ART_OF): the hero power's Miko uses the Miko card's.
+     */
     private Image art() {
         String folder = card.getHeroClass().name().charAt(0) + card.getHeroClass().name().substring(1).toLowerCase();
-        Image art = Images.get("/images/cards/" + folder + "/" + card.getId() + ".png", W, H);
+        String artId = ART_OF.getOrDefault(card.getId(), card.getId());
+        Image art = Images.get("/images/cards/" + folder + "/" + artId + ".png", W, H);
         if (art == null) {
             art = Images.get("/images/frames/" + card.getHeroClass().name().toLowerCase() + "-base-card.png", W, H);
         }
