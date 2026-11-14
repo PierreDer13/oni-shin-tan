@@ -48,11 +48,18 @@ public class MatchController {
     /** False until the second player's first turn: then their whole opening hand is dealt, not only the 2 cards drawn. */
     private boolean secondHandDealt;
 
-    /** A hotseat match on this board; at the end, onEnd gets whether the first player won. */
+    /** A hotseat match with test decks from MockCards (the Adventure uses this); at the end, onEnd gets whether the first player won. */
     public MatchController(String boardName, HeroClass yours, HeroClass theirs, Consumer<Boolean> onEnd) {
-        // 1. The two players, with test decks from MockCards until real decks are saved.
-        first = MockCards.player("Kayne", yours, 0);
-        second = MockCards.player(theirs.name(), theirs, 0);
+        this(boardName, MockCards.player("Kayne", yours, 0), MockCards.player(theirs.name(), theirs, 0), onEnd);
+    }
+
+    /** A hotseat match between these two players (PvP: the decks they chose); at the end, onEnd gets whether the first player won. */
+    public MatchController(String boardName, Player first, Player second, Consumer<Boolean> onEnd) {
+        HeroClass yours = first.getHero().getHeroClass();
+        HeroClass theirs = second.getHero().getHeroClass();
+        // 1. The two players, each given their Gusoku armour.
+        this.first = first;
+        this.second = second;
         giveGusokuArmour(first);
         giveGusokuArmour(second);
 

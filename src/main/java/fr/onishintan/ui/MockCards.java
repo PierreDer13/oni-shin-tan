@@ -228,8 +228,8 @@ public final class MockCards {
         return all;
     }
 
-    /** A test player: their class's minions, Traps and spells plus the neutral minions as the deck; the board holds n of them. */
-    public static Player player(String name, HeroClass heroClass, int minions) {
+    /** A test deck: the class's minions, Traps and spells plus the neutral minions. Also the PvP starter decks. */
+    public static List<Card> deckCards(HeroClass heroClass) {
         List<Card> deck = new ArrayList<>(MINIONS.stream().filter(c -> c.getHeroClass() == heroClass || c.getHeroClass() == HeroClass.NEUTRAL).toList());
         for (Card trap : TRAPS) {
             if (trap.getHeroClass() == heroClass) {
@@ -241,6 +241,12 @@ public final class MockCards {
                 deck.add(spell);
             }
         }
+        return deck;
+    }
+
+    /** A test player with deckCards() as the deck; the board holds n of them. */
+    public static Player player(String name, HeroClass heroClass, int minions) {
+        List<Card> deck = deckCards(heroClass);
         Player p = new Player(name, new Hero(heroClass), new Deck(deck));
         for (int i = 0; i < minions; i++) p.getSide().place(new Minion((MinionCard) deck.get(i % deck.size())), i);
         return p;

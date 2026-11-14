@@ -79,7 +79,7 @@ public class HomeView extends Pane {
         add("scroll", 175, 20, 170);
         profile(175, 20, PLAYER_NAME, PLAYER_REI);
         button("adventure", 480, 610, 300, Screen.CLASS_SELECT);
-        button("pvp", 820, 610, 300, Screen.MATCH);
+        button("pvp", 820, 610, 300, Screen.DECK_SELECT);
         // Bottom bar: Deck Builder shows every deck; the other buttons simply go to their screen.
         clickable(add("button-deck-builder", 390, 790, 190), false, () -> DecksView.open(router, null));
         String[] bar = { "inventory", "profile", "settings" };
