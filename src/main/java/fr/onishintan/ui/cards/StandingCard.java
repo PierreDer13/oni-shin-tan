@@ -28,6 +28,8 @@ public class StandingCard extends Pane {
     private static final double FEET = 1260 / PICTURE_H;
 
     private final Card card;
+    /** The card in its sleeve, standing between the posts. */
+    private final SleevedCard sleeved;
 
     /** The card standing in a stand `width` wide. */
     public StandingCard(Card card, double width) {
@@ -38,7 +40,7 @@ public class StandingCard extends Pane {
         double slotLeft = width * SLOT_LEFT;
         double slotWidth = width * (SLOT_RIGHT - SLOT_LEFT);
         double sleeveWidth = slotWidth * SLEEVE_IN_SLOT;
-        SleevedCard sleeved = new SleevedCard(card, sleeveWidth);
+        sleeved = new SleevedCard(card, sleeveWidth);
         double sleeveX = slotLeft + (slotWidth - sleeveWidth) / 2;
         double sleeveY = height * SLEEVE_BOTTOM - sleeved.getPrefHeight();
         sleeved.relocate(sleeveX, sleeveY);
@@ -66,5 +68,10 @@ public class StandingCard extends Pane {
     /** The card in the stand. */
     public Card getCard() {
         return card;
+    }
+
+    /** The card in its sleeve, without the stand: the part that grows when hovered. */
+    public SleevedCard getSleeve() {
+        return sleeved;
     }
 }
