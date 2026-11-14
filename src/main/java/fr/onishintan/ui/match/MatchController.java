@@ -4,14 +4,18 @@ import fr.onishintan.engine.GameEngine;
 import fr.onishintan.engine.GameEvent;
 import fr.onishintan.model.Card;
 import fr.onishintan.model.CurseCard;
+import fr.onishintan.model.CurseZone;
 import fr.onishintan.model.Combatant;
 import fr.onishintan.model.Hero;
 import fr.onishintan.model.HeroClass;
 import fr.onishintan.model.KatanaTier;
 import fr.onishintan.model.OathType;
 import fr.onishintan.model.Player;
+import fr.onishintan.model.RiteCard;
+import fr.onishintan.model.Shrine;
 import fr.onishintan.model.TrapCard;
 import fr.onishintan.ui.MockCards;
+import javafx.scene.paint.Color;
 
 import java.util.Map;
 import java.util.Random;
@@ -80,6 +84,9 @@ public class MatchController {
             timeoutDamage = event.amount();
         });
 
+        // Curses, Rites and Shrines get a banner across the table.
+        announceFamilyEvents();
+
         // 4. Each player swears an Oath behind a pass veil, then the first player's hand is dealt.
         chooseOaths(yours, theirs);
     }
@@ -87,6 +94,45 @@ public class MatchController {
     /** The table to show on screen. */
     public BoardView getBoard() {
         return board;
+    }
+
+
+    /** Banner colours: the glow of each family's kanji. */
+    private static final Color CURSE_RED = Color.web("#c41e1e");
+    private static final Color PURIFIED = Color.web("#f3ede1");
+    private static final Color RITE_CRIMSON = Color.web("#dc143c");
+    private static final Color SHRINE_LAVENDER = Color.web("#b7a6dd");
+
+    /** Curses, Rites and Shrines are announced across the table, so both players see what happened. */
+    private void announceFamilyEvents() {
+        engine.getBus().subscribe(GameEvent.Type.CURSE_GIVEN, event -> {
+            CurseCard curse = (CurseCard) event.target();
+            String where = "into the enemy's hand";
+            if (curse.getZone() == CurseZone.DECK) {
+                where = event.amount() + " shuffled into the enemy's deck";
+            }
+            board.announce("呪", curse.getNameRomaji(), where, CURSE_RED);
+        });
+        engine.getBus().subscribe(GameEvent.Type.CURSE_TRIGGERED, event -> {
+            CurseCard curse = (CurseCard) event.target();
+            board.announce("祟", curse.getNameRomaji(), "the curse strikes", CURSE_RED);
+        });
+        engine.getBus().subscribe(GameEvent.Type.CURSE_REMOVED, event -> {
+            CurseCard curse = (CurseCard) event.target();
+            board.announce("祓", curse.getNameRomaji(), "purified", PURIFIED);
+        });
+        engine.getBus().subscribe(GameEvent.Type.RITE_PERFORMED, event -> {
+            RiteCard rite = (RiteCard) event.target();
+            String rise = rite.getAncestors() + " Ancestors rise";
+            if (rite.getAncestors() == 1) {
+                rise = "1 Ancestor rises";
+            }
+            board.announce("儀", rite.getNameRomaji(), rise, RITE_CRIMSON);
+        });
+        engine.getBus().subscribe(GameEvent.Type.SHRINE_PLACED, event -> {
+            Shrine shrine = (Shrine) event.target();
+            board.announce("社", shrine.getSource().getNameRomaji(), "a shrine stands", SHRINE_LAVENDER);
+        });
     }
 
     /** Oath choice (GDD): the first player picks, the veil passes to the second, who picks; then the first player's hand is dealt. */

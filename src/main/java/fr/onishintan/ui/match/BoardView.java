@@ -2,6 +2,7 @@ package fr.onishintan.ui.match;
 import fr.onishintan.ui.cards.CardView;
 import fr.onishintan.ui.cards.MinionView;
 import fr.onishintan.ui.cards.ShrineView;
+import fr.onishintan.ui.fx.EventBanner;
 import fr.onishintan.ui.fx.Fx;
 import fr.onishintan.ui.screens.HomeView;
 import fr.onishintan.ui.app.Images;
@@ -255,6 +256,12 @@ public class BoardView extends Pane {
             arriving = null;
             render();   // now traps() draws it in its place
         });
+    }
+
+
+    /** A short announcement across the middle of the table (Curses, Rites, Shrines). On `table`, so a redraw doesn't erase it. */
+    public void announce(String kanji, String title, String subtitle, Color colour) {
+        EventBanner.show(table, kanji, title, subtitle, colour);
     }
 
     /** Game over: a dark veil over the whole table blocks every click, with VICTORY or DEFEAT in the middle. */
