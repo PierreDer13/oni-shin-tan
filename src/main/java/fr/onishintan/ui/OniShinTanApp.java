@@ -1,8 +1,10 @@
 package fr.onishintan.ui;
 
 import fr.onishintan.model.HeroClass;
+import fr.onishintan.model.Player;
 import fr.onishintan.ui.app.SceneRouter;
 import fr.onishintan.ui.app.Screen;
+import fr.onishintan.ui.decks.DeckPickView;
 import fr.onishintan.ui.match.BoardView;
 import fr.onishintan.ui.match.MatchController;
 import fr.onishintan.ui.screens.ClassSelectView;
@@ -26,7 +28,7 @@ public class OniShinTanApp extends Application {
         router.register(Screen.HOME, () -> new HomeView(router));
         router.register(Screen.CLASS_SELECT, () -> new ClassSelectView(router));
         router.register(Screen.INVENTORY, () -> new InventoryView(router));
-        router.register(Screen.MATCH, () -> match("izakaya", HeroClass.SAMURAI, HeroClass.ONI, won -> router.goTo(Screen.HOME)));
+        router.register(Screen.DECK_SELECT, () -> new DeckPickView(router));   // PvP: both players choose a deck, then the match starts
         router.goTo(Screen.HOME);
         stage.setTitle("Oni Shin Tan");
         stage.show();
@@ -35,6 +37,12 @@ public class OniShinTanApp extends Application {
     /** A hotseat match: you play first, at the bottom; at the end, onEnd gets whether you won. */
     public static BoardView match(String boardName, HeroClass yours, HeroClass theirs, Consumer<Boolean> onEnd) {
         MatchController match = new MatchController(boardName, yours, theirs, onEnd);
+        return match.getBoard();
+    }
+
+    /** A hotseat match between two players with their own decks (PvP): at the end, onEnd gets whether the first player won. */
+    public static BoardView match(String boardName, Player first, Player second, Consumer<Boolean> onEnd) {
+        MatchController match = new MatchController(boardName, first, second, onEnd);
         return match.getBoard();
     }
 
