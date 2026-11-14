@@ -97,6 +97,37 @@ final class OathView extends StackPane {
         return Arrays.stream(OATHS.get(c)).filter(o -> o[0].equals(name)).findFirst().orElseThrow();
     }
 
+    /** The reward text of this Oath at 3, 6 or 9 stacks (for the reward banner). */
+    static String reward(HeroClass c, String name, int stacks) {
+        String[] oath = find(c, name);
+        int column = 2 + stacks / 3;   // 3 stacks -> column 3, 6 -> 4, 9 -> 5
+        return oath[column];
+    }
+
+    /** What breaking this Oath costs (for the Oathbreaker banner). */
+    static String breakText(HeroClass c, String name) {
+        return find(c, name)[6];
+    }
+
+
+    /** The name of this Oath's break penalty, before the colon on its scroll: "Dishonour", "Banishment", "Exposed"... */
+    static String penaltyName(HeroClass c, String name) {
+        String text = breakText(c, name);
+        int colon = text.indexOf(':');
+        return text.substring(0, colon);
+    }
+
+    /** What the break does besides the damage ("destroy your strongest minion"), or "" when it is only damage. */
+    static String penaltyEffect(HeroClass c, String name) {
+        String text = breakText(c, name);
+        int plus = text.indexOf(" + ");
+        if (plus < 0) {
+            return "";   // e.g. Disturbance: 15.
+        }
+        String effect = text.substring(plus + 3);
+        return effect.substring(0, effect.length() - 1);   // without the final full stop
+    }
+
     /** One Oath on a scroll in brush lettering, with the painted frame where the 承認 seal lands (children: bg, text, frame, stamp). */
     private static StackPane scroll(String[] o) {
         ImageView bg = new ImageView(SCROLL);

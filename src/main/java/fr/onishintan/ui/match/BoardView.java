@@ -16,6 +16,7 @@ import fr.onishintan.model.Keyword;
 import fr.onishintan.model.Card;
 import fr.onishintan.model.Combatant;
 import fr.onishintan.model.Minion;
+import fr.onishintan.model.Oath;
 import fr.onishintan.model.Shrine;
 import fr.onishintan.model.Player;
 import fr.onishintan.model.TrapCard;
@@ -116,6 +117,7 @@ public class BoardView extends Pane {
             SWITCH_OFF = new Image(BoardView.class.getResourceAsStream("/images/hud/end-turn-off.png"));
     private final ImageView endTurn = new ImageView(SWITCH_ON);
     private Runnable onEndTurn = () -> {};
+    private Runnable onReswear = () -> {};
     private final Label yourClock = hud(new Label(), 1381, 545, 190, 71, 30);
     private Predicate<Card> onTrade = card -> false;
     private final Label enemyClock = hud(new Label(), 1381, 255, 190, 71, 30);
@@ -259,9 +261,74 @@ public class BoardView extends Pane {
     }
 
 
-    /** A short announcement across the middle of the table (Curses, Rites, Shrines). On `table`, so a redraw doesn't erase it. */
+    /** True from the end of a turn until the pass veil is clicked: banners and stamps wait, so the veil doesn't hide them. */
+    private boolean holdingEffects;
+    /** The banners and stamps waiting for the veil to lift, in order. */
+    private final List<Runnable> heldEffects = new ArrayList<>();
+    /** Time between two held effects, so they don't play on top of each other. */
+    private static final Duration HELD_GAP = Duration.millis(1900);
+
+    /** From now until the next pass veil is clicked, banners and stamps wait (MatchController calls it as a turn ends). */
+    public void holdEffects() {
+        holdingEffects = true;
+    }
+
+    /** Runs the effect now, or keeps it for when the pass veil lifts. */
+    private void runOrHold(Runnable effect) {
+        if (holdingEffects) {
+            heldEffects.add(effect);
+            return;
+        }
+        effect.run();
+    }
+
+    /** The veil has lifted: the waiting effects play one after the other. */
+    private void releaseEffects() {
+        holdingEffects = false;
+        for (int i = 0; i < heldEffects.size(); i++) {
+            Runnable effect = heldEffects.get(i);
+            PauseTransition wait = new PauseTransition(HELD_GAP.multiply(i));
+            wait.setOnFinished(event -> effect.run());
+            wait.play();
+        }
+        heldEffects.clear();
+    }
+
+    /** A short announcement across the middle of the table (Curses, Rites, Shrines, Oaths). On `table`, so a redraw doesn't erase it. */
     public void announce(String kanji, String title, String subtitle, Color colour) {
-        EventBanner.show(table, kanji, title, subtitle, colour);
+        runOrHold(() -> EventBanner.show(table, kanji, title, subtitle, colour));
+    }
+
+    /** An Oath reward (3, 6 or 9 stacks): the red seal slams onto the player's small Oath scroll. */
+    public void stampOath(Player p) {
+        runOrHold(() -> {
+            // Where the player's small scroll is now (the board may have flipped since the reward).
+            double zoneY = 107;
+            if (p == you) {
+                zoneY = 637;
+            }
+            ImageView seal = image("/images/hud/stamp-seal.png");
+            seal.setFitWidth(60);
+            seal.setPreserveRatio(true);
+            seal.setRotate(-8);
+            seal.relocate(1115, zoneY + 30);
+            seal.setMouseTransparent(true);
+            seal.setOpacity(0);
+            seal.setScaleX(3);
+            seal.setScaleY(3);
+            table.getChildren().add(seal);
+
+            // Slams down from big to small, stays a moment, then fades away.
+            KeyFrame land = new KeyFrame(Duration.millis(160),
+                    new KeyValue(seal.opacityProperty(), 1),
+                    new KeyValue(seal.scaleXProperty(), 1, Interpolator.EASE_IN),
+                    new KeyValue(seal.scaleYProperty(), 1, Interpolator.EASE_IN));
+            KeyFrame stay = new KeyFrame(Duration.millis(1400), new KeyValue(seal.opacityProperty(), 1));
+            KeyFrame gone = new KeyFrame(Duration.millis(1800), new KeyValue(seal.opacityProperty(), 0));
+            Timeline slam = new Timeline(land, stay, gone);
+            slam.setOnFinished(event -> table.getChildren().remove(seal));
+            slam.play();
+        });
     }
 
     /** Game over: a dark veil over the whole table blocks every click, with VICTORY or DEFEAT in the middle. */
@@ -365,6 +432,8 @@ public class BoardView extends Pane {
     public void previewCost(int cost) { ki.preview(cost); }
 
     public void setOnEndTurn(Runnable r) { onEndTurn = r; }
+    /** What happens when you click "Swear again" on your Oath once Oathbreaker is over. */
+    public void setOnReswear(Runnable r) { onReswear = r; }
 
     /** Start of a match: the class's Oath choice covers the table until one is sworn (GDD, Oaths). */
     public void chooseOath(HeroClass c, Consumer<String> onSworn) { table.getChildren().add(new OathView(c, onSworn)); }
@@ -373,7 +442,10 @@ public class BoardView extends Pane {
     /** Records the Oath a player swore; it then shows next to their hero. */
     public void swear(Player p, String oath) { oaths.put(p, oath); render(); }
 
-    /** The sworn Oath as a small stamped scroll right of the hero power; hover it to reread it (an enemy Ninja's stays hidden below 3 stacks). */
+    /**
+     * The sworn Oath as a small stamped scroll right of the hero power; hover it to reread it (an enemy Ninja's stays hidden below 3 stacks).
+     * A broken Oath is greyed with its Oathbreaker countdown; once the countdown is over, you can click to swear it again.
+     */
     private void oath(Player p, double zoneY) {
         if (!oaths.containsKey(p)) return;
         HeroClass c = p.getHero().getHeroClass();
@@ -381,6 +453,21 @@ public class BoardView extends Pane {
         StackPane mini = OathView.mini(c, oaths.get(p), hidden);
         place(mini, 1120, zoneY - 15);
         bigOnHover(mini, () -> OathView.sworn(c, oaths.get(p)), 850, 80);
+
+        Oath sworn = p.getOath();
+        if (sworn == null || sworn.isSworn()) {
+            return;   // a kept Oath: nothing more to draw
+        }
+        mini.setEffect(new ColorAdjust(0, -1, -0.4, 0));   // grey: the Oath is broken
+        if (sworn.getState() == Oath.State.OATHBREAKER) {
+            String penalty = OathView.penaltyName(c, oaths.get(p));
+            Label countdown = hud(new Label("破約 " + penalty + " · " + sworn.getOathbreakerTurnsLeft()), 0, 0, 200, 30, 15);
+            place(countdown, 1060, zoneY + 45);
+        } else if (p == you) {
+            Label again = hud(new Label("再誓 Swear again"), 0, 0, 170, 30, 15);
+            HomeView.clickable(again, false, onReswear);
+            place(again, 1060, zoneY + 45);
+        }
     }
 
     /** Your Oath stacks, bottom left: 9 marks, the 3 / 6 / 9 reward marks bigger with a gold ring; earned marks are red. */
@@ -425,7 +512,7 @@ public void passTo(String name, Runnable onReady) {
         Label text = new Label("次の番\nPass to " + name + "\n\nclick when ready");
         text.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 56; -fx-font-weight: bold; -fx-text-alignment: center; -fx-text-fill: #f3ede1;");
         StackPane veil = new StackPane(new Rectangle(W, H, Color.rgb(0, 0, 0, 0.95)), text);
-        veil.setOnMousePressed(e -> { table.getChildren().remove(veil); onReady.run(); });
+        veil.setOnMousePressed(e -> { table.getChildren().remove(veil); onReady.run(); releaseEffects(); });
         table.getChildren().add(veil);
     }
 
