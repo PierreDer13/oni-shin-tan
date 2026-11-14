@@ -4,6 +4,7 @@ import fr.onishintan.ui.cards.CardView;
 
 import fr.onishintan.model.BoardSide;
 import fr.onishintan.model.Card;
+import fr.onishintan.model.CurseCard;
 import fr.onishintan.model.MinionCard;
 import fr.onishintan.model.ShrineCard;
 import fr.onishintan.model.Player;
@@ -63,7 +64,13 @@ public class HandView extends Group {
             CardView v = new CardView(c, CARD_W);
             // Every card can be dragged: onto the deck to trade it (free, even when you can't afford it),
             // or onto the board to play it (the engine refuses it if you can't pay). The pink glow shows what you can afford.
-            boolean affordable = player.canAfford(c.getKiCost());
+            int cost = c.getKiCost();
+            // A Curse the enemy gave you can't be played, only removed: it goes dark and shows its removal cost.
+            if (c instanceof CurseCard curse && player.isHeldCurse(curse)) {
+                v.showAsHeldCurse(curse.getRemovalCost());
+                cost = curse.getRemovalCost();
+            }
+            boolean affordable = player.canAfford(cost);
             v.setPlayable(affordable);
             drag(v);
             cards.add(v);
