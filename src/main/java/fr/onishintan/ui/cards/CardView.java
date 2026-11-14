@@ -99,6 +99,12 @@ public class CardView extends Group {
         setEffect(new DropShadow(BlurType.GAUSSIAN, Color.HOTPINK, 12, 0.85, 0, 0));
     }
 
+
+    /** Darkens a Curse the enemy put in your hand and stamps its removal cost on it (used by the hand). */
+    public void showAsHeldCurse(int removalCost) {
+        face.getChildren().add(new CurseSeal(removalCost));
+    }
+
     public Card getCard() { return card; }
 
     /** ATK and HP (durability for weapons) shown at the bottom, or null for spells. MinionView shows live values. */
