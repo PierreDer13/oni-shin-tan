@@ -7,6 +7,7 @@ import fr.onishintan.model.Rarity;
 import fr.onishintan.model.SpellCard;
 import fr.onishintan.model.WeaponCard;
 import fr.onishintan.ui.app.Images;
+import fr.onishintan.ui.fx.CurseFumes;
 
 import java.io.InputStream;
 import java.util.Map;
@@ -103,6 +104,11 @@ public class CardView extends Group {
     /** Darkens a Curse the enemy put in your hand and stamps its removal cost on it (used by the hand). */
     public void showAsHeldCurse(int removalCost) {
         face.getChildren().add(new CurseSeal(removalCost));
+
+        // Dark fumes rising from it: drawn at the card's scale, but outside its rounded clip so the smoke escapes above it.
+        CurseFumes fumes = new CurseFumes();
+        fumes.getTransforms().setAll(face.getTransforms());
+        getChildren().add(fumes);
     }
 
     public Card getCard() { return card; }
