@@ -1,31 +1,34 @@
 package fr.onishintan.ui.decks;
 
 import fr.onishintan.model.Card;
-import fr.onishintan.ui.cards.SleevedCard;
 import fr.onishintan.ui.cards.CardPreview;
+import fr.onishintan.ui.cards.CardShelves;
+import fr.onishintan.ui.cards.StandingCard;
+import fr.onishintan.ui.app.ScreenGrid;
 
 import java.util.List;
 import java.util.function.Consumer;
 
 import javafx.geometry.Insets;
+import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.input.MouseButton;
-import javafx.scene.layout.FlowPane;
-import javafx.scene.control.Label;
-import fr.onishintan.model.HeroClass;
 
 /**
- * Left side of the deck editor: the cards you may add, as a scrolling grid.
- * A title row starts each class's cards (the deck's class first, then Neutral). Left click adds a copy, right click removes one;
- * hovering a card grows it and opens a big copy beside it (CardPreview).
+ * Left side of the deck editor: the cards you may add, standing in their stands on wooden shelves that scroll.
+ * Each class's cards start on a new shelf with the class's name (the deck's class first, then Neutral).
+ * The panel fills the whole page: its shelves are the page's background, under the top bar and the deck list.
+ * Left click adds a copy, right click removes one; hovering a card grows it, lifts it and opens a big copy beside it (CardPreview).
  */
 class CollectionPanel extends ScrollPane {
-    private static final double CARD_W = 160, GAP = 16;
-    private static final int PER_ROW = 6;
-    /** Width of one full row of cards: a title this wide gets a row of its own. */
-    private static final double ROW_W = PER_ROW * CARD_W + (PER_ROW - 1) * GAP;
+    private static final int PER_SHELF = 5;
+    /** Where the cards stand on each shelf: left of the deck list. */
+    private static final double AREA_LEFT = 40, AREA_W = 1100;
+    /** The first shelf starts this far down, under the top bar and the filter bar. */
+    private static final double TOP_INSET = 80;
+    /** How far a hovered card rises. */
+    private static final double LIFT = 14;
 
-    private final FlowPane cardGrid = new FlowPane(GAP, GAP);
     private final Consumer<Card> onAdd;
     private final Consumer<Card> onRemove;
     /** The hover effect: the card grows and a big copy opens beside it. */
@@ -35,47 +38,44 @@ class CollectionPanel extends ScrollPane {
         this.onAdd = onAdd;
         this.onRemove = onRemove;
         this.preview = preview;
-        cardGrid.setPrefWrapLength(ROW_W);
-        cardGrid.setPadding(new Insets(10));
-
-        setContent(cardGrid);
-        setPrefSize(1100, 690);
+        setPrefSize(ScreenGrid.W, ScreenGrid.H);
         setHbarPolicy(ScrollBarPolicy.NEVER);
         setStyle("-fx-background-color: transparent; -fx-background: transparent;");
     }
 
     /**
-     * Shows these cards in the order given, with a title row each time the class changes.
+     * Shows these cards in the order given, a new shelf group each time the class changes.
      * Scrolls back to the top, since the list has changed.
      */
     void show(List<Card> cards) {
-        cardGrid.getChildren().clear();
+        CardShelves shelves = new CardShelves(ScreenGrid.W, PER_SHELF, AREA_LEFT, AREA_W, TOP_INSET);
+        shelves.setMinHeight(ScreenGrid.H);   // the shelves fill the page even with few cards
         if (cards.isEmpty()) {
-            cardGrid.getChildren().add(DecksView.text("No card matches these filters.", 22, DecksView.INK));
+            Label empty = DecksView.text("No card matches these filters.", 22, DecksView.INK);
+            empty.setPadding(new Insets(120, 0, 0, AREA_LEFT));
+            shelves.getChildren().add(empty);
         }
-        HeroClass lastClass = null;
-        for (Card card : cards) {
-            if (card.getHeroClass() != lastClass) {
-                cardGrid.getChildren().add(classTitle(card.getHeroClass()));
-                lastClass = card.getHeroClass();
+
+        // Cut the list into runs of the same class; each run is one group on the shelves.
+        int start = 0;
+        for (int i = 1; i <= cards.size(); i++) {
+            boolean lastCard = i == cards.size();
+            if (lastCard || cards.get(i).getHeroClass() != cards.get(start).getHeroClass()) {
+                List<Card> group = cards.subList(start, i);
+                String title = group.get(0).getHeroClass().getDisplayName();
+                for (StandingCard view : shelves.addGroup(title, group)) {
+                    makeClickable(view);
+                }
+                start = i;
             }
-            cardGrid.getChildren().add(cardView(card));
         }
+        setContent(shelves);
         setVvalue(0);
     }
 
-    /** A full-width title row with the class's name, underlined. */
-    private Label classTitle(HeroClass heroClass) {
-        String name = heroClass.name().charAt(0) + heroClass.name().substring(1).toLowerCase();
-        Label title = DecksView.text(name, 26, DecksView.INK);
-        title.setPrefWidth(ROW_W);
-        title.setStyle(title.getStyle() + " -fx-border-color: #d9cfbd; -fx-border-width: 0 0 2 0;");
-        return title;
-    }
-
-    /** One card of the grid, in its sleeve: left click adds a copy to the deck, right click takes one out. */
-    private SleevedCard cardView(Card card) {
-        SleevedCard view = new SleevedCard(card, CARD_W);
+    /** Left click adds a copy of the card to the deck, right click takes one out; hovering it shows the big copy. */
+    private void makeClickable(StandingCard view) {
+        Card card = view.getCard();
         view.setOnMousePressed(event -> {
             if (event.getButton() == MouseButton.PRIMARY) {
                 onAdd.accept(card);
@@ -83,7 +83,6 @@ class CollectionPanel extends ScrollPane {
                 onRemove.accept(card);
             }
         });
-        preview.attach(view, card);
-        return view;
+        preview.attach(view.getSleeve(), card, LIFT);   // only the card in its sleeve grows and rises, not the stand
     }
 }

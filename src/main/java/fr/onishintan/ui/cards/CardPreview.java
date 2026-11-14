@@ -40,8 +40,13 @@ public class CardPreview {
 
     /** Gives `node` (a card or a chip showing `card`) the hover effect: it grows, the big copy opens after WAIT, all goes back on exit. */
     public void attach(Node node, Card card) {
+        attach(node, card, 0);
+    }
+
+    /** The same hover effect, and the node also rises `lift` pixels while hovered (cards in their stands). */
+    public void attach(Node node, Card card, double lift) {
         node.addEventHandler(MouseEvent.MOUSE_ENTERED, event -> {
-            grow(node);
+            grow(node, lift);
             wait.setOnFinished(done -> showBig(node, card));
             wait.playFromStart();
         });
@@ -51,18 +56,19 @@ public class CardPreview {
         });
     }
 
-    /** The hovered node: a little bigger, with a shadow, drawn above its neighbours. */
-    private void grow(Node node) {
+    /** The hovered node: a little bigger, `lift` pixels higher, with a shadow, drawn above its neighbours. */
+    private void grow(Node node, double lift) {
         node.setViewOrder(-1);
         node.setEffect(HOVER_SHADOW);
-        Anim.to(node, Anim.ease(node.scaleXProperty(), HOVER_SCALE), Anim.ease(node.scaleYProperty(), HOVER_SCALE));
+        Anim.to(node, Anim.ease(node.scaleXProperty(), HOVER_SCALE), Anim.ease(node.scaleYProperty(), HOVER_SCALE),
+                Anim.ease(node.translateYProperty(), -lift));
     }
 
     /** Back to its normal size, without the shadow. */
     private void shrink(Node node) {
         node.setViewOrder(0);
         node.setEffect(null);
-        Anim.to(node, Anim.ease(node.scaleXProperty(), 1.0), Anim.ease(node.scaleYProperty(), 1.0));
+        Anim.to(node, Anim.ease(node.scaleXProperty(), 1.0), Anim.ease(node.scaleYProperty(), 1.0), Anim.ease(node.translateYProperty(), 0.0));
     }
 
     /** Opens the big copy right of the node, or left of it when there is no room on the right; always inside the screen. */
