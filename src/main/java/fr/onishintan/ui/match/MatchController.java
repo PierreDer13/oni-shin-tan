@@ -9,6 +9,7 @@ import fr.onishintan.model.Combatant;
 import fr.onishintan.model.Hero;
 import fr.onishintan.model.HeroClass;
 import fr.onishintan.model.KatanaTier;
+import fr.onishintan.model.Oath;
 import fr.onishintan.model.OathType;
 import fr.onishintan.model.Player;
 import fr.onishintan.model.RiteCard;
@@ -87,6 +88,10 @@ public class MatchController {
         // Curses, Rites and Shrines get a banner across the table.
         announceFamilyEvents();
 
+        // Oath rewards, breaks and the end of Oathbreaker get a banner; "Swear again" re-swears the Oath.
+        announceOathEvents();
+        board.setOnReswear(this::reswear);
+
         // 4. Each player swears an Oath behind a pass veil, then the first player's hand is dealt.
         chooseOaths(yours, theirs);
     }
@@ -133,6 +138,45 @@ public class MatchController {
             Shrine shrine = (Shrine) event.target();
             board.announce("社", shrine.getSource().getNameRomaji(), "a shrine stands", SHRINE_LAVENDER);
         });
+    }
+
+    /** Gold for Oath rewards, deep red for a broken Oath. */
+    private static final Color OATH_GOLD = Color.web("#ffd84a");
+    private static final Color OATH_BROKEN_RED = Color.web("#8f1d1d");
+
+    /** Oath rewards (3, 6, 9 stacks), breaks and the end of Oathbreaker are announced; a reward also stamps the Oath's scroll. */
+    private void announceOathEvents() {
+        engine.getBus().subscribe(GameEvent.Type.OATH_REWARD, event -> {
+            Player player = (Player) event.source();
+            Oath oath = (Oath) event.target();
+            String name = oath.getType().getDisplayName();
+            String reward = OathView.reward(player.getHero().getHeroClass(), name, event.amount());
+            board.announce("誓", "Oath of " + name + " · " + event.amount(), reward, OATH_GOLD);
+            board.stampOath(player);
+        });
+        engine.getBus().subscribe(GameEvent.Type.OATH_BROKEN, event -> {
+            Player player = (Player) event.source();
+            Oath oath = (Oath) event.target();
+            HeroClass heroClass = player.getHero().getHeroClass();
+            String name = oath.getType().getDisplayName();
+            String penalty = OathView.penaltyName(heroClass, name);
+            String effect = OathView.penaltyEffect(heroClass, name);
+            String subtitle = "Oathbreaker · " + event.amount() + " damage";
+            if (!effect.isEmpty()) {
+                subtitle = "Oathbreaker · " + effect + " · " + event.amount() + " damage";
+            }
+            board.announce("破", penalty, subtitle, OATH_BROKEN_RED);
+        });
+        engine.getBus().subscribe(GameEvent.Type.OATH_RESTORED, event -> {
+            Oath oath = (Oath) event.target();
+            board.announce("誓", "Oathbreaker is over", "the Oath of " + oath.getType().getDisplayName() + " can be sworn again", OATH_GOLD);
+        });
+    }
+
+    /** "Swear again" clicked: the engine re-swears the same Oath from 0 stacks, then the scroll is redrawn. */
+    private void reswear() {
+        engine.reswearOath(engine.active());
+        board.render();
     }
 
     /** Oath choice (GDD): the first player picks, the veil passes to the second, who picks; then the first player's hand is dealt. */
@@ -194,6 +238,7 @@ public class MatchController {
      */
     private void endTurn() {
         cardsDrawnThisTurn = 0;
+        board.holdEffects();   // banners and stamps from the end of the turn wait for the pass veil
         engine.endTurn();
         afterTurnEnded();
     }
