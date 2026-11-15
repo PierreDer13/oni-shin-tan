@@ -86,6 +86,22 @@ public class CardShelves extends VBox {
         return standing;
     }
 
+    /** Puts the cards on the shelves one class at a time, in the order given: each class starts a new shelf with its name. */
+    public List<StandingCard> addByClass(List<Card> cards) {
+        List<StandingCard> standing = new ArrayList<>();
+        int start = 0;
+        for (int i = 1; i <= cards.size(); i++) {
+            boolean lastCard = i == cards.size();
+            if (lastCard || cards.get(i).getHeroClass() != cards.get(start).getHeroClass()) {
+                List<Card> group = cards.subList(start, i);
+                String title = group.get(0).getHeroClass().getDisplayName();
+                standing.addAll(addGroup(title, group));
+                start = i;
+            }
+        }
+        return standing;
+    }
+
     /** One shelf: its cards side by side from areaLeft, standing on the plank. Each standing card is also added to `standing`. */
     private HBox shelf(List<Card> cards, List<StandingCard> standing) {
         double shelfHeight = PICTURE_H * scale;

@@ -14,20 +14,20 @@ import javafx.scene.layout.HBox;
  * The row above the deck editor's collection: a search box, Ki buttons (All, 1 to 6, 7+) and type buttons (All, Minions, Spells).
  * It writes each choice into the CardFilter, then calls onChange.
  */
-class FilterBar extends HBox {
+public class FilterBar extends HBox {
     private static final String BUTTON = "-fx-font-family: 'Yu Mincho'; -fx-font-weight: bold; -fx-font-size: 16;"
             + " -fx-padding: 4 10; -fx-background-radius: 8;";
     /** A button that is not picked: ink on light paper. */
-    private static final String OFF = BUTTON + " -fx-text-fill: " + DecksView.INK + "; -fx-background-color: #e6dccb;";
+    static final String OFF = BUTTON + " -fx-text-fill: " + DecksView.INK + "; -fx-background-color: #e6dccb;";
     /** The picked button: paper on dark ink, like the other Deck Builder buttons. */
-    private static final String ON = BUTTON + " -fx-text-fill: " + DecksView.PAPER + "; -fx-background-color: rgba(20,12,8,0.85);";
+    static final String ON = BUTTON + " -fx-text-fill: " + DecksView.PAPER + "; -fx-background-color: rgba(20,12,8,0.85);";
 
     private final CardFilter filter;
     private final Runnable onChange;
     private final List<Label> kiButtons = new ArrayList<>();
     private final List<Label> typeButtons = new ArrayList<>();
 
-    FilterBar(CardFilter filter, Runnable onChange) {
+    public FilterBar(CardFilter filter, Runnable onChange) {
         super(8);
         this.filter = filter;
         this.onChange = onChange;
@@ -98,7 +98,7 @@ class FilterBar extends HBox {
     }
 
     /** Shows `picked` as chosen and the other buttons of its row as not chosen. */
-    private void pick(List<Label> row, Label picked) {
+    static void pick(List<Label> row, Label picked) {
         for (Label button : row) {
             if (button == picked) {
                 button.setStyle(ON);

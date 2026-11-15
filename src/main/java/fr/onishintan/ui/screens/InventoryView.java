@@ -6,6 +6,11 @@ import fr.onishintan.ui.app.SceneRouter;
 import fr.onishintan.ui.app.Screen;
 import fr.onishintan.ui.app.ScreenGrid;
 import fr.onishintan.ui.cards.CardShelves;
+import fr.onishintan.ui.cards.CardPreview;
+import fr.onishintan.ui.cards.StandingCard;
+import fr.onishintan.ui.decks.CardFilter;
+import fr.onishintan.ui.decks.ClassFilterBar;
+import fr.onishintan.ui.decks.FilterBar;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -15,43 +20,70 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.Pane;
+import javafx.scene.paint.Color;
+import javafx.scene.shape.Rectangle;
+import javafx.util.Duration;
 
 /**
- * Inventory: every card in the game standing on wooden shelves you scroll with the mouse wheel.
- * Sorted by class, then Ki, then name. Home goes back to the home screen.
+ * Inventory: every card in the game standing on wooden shelves you scroll with the mouse wheel, each class on its own shelves.
+ * Sorted by class, then Ki, then name. The top bar filters them (search, Ki, type like the deck editor, plus class).
+ * Home goes back to the home screen.
  */
 public class InventoryView extends Pane {
     private static final String PAPER = "#f3ede1";
-    private static final String INK = "#1f1b17";
     private static final String FONT = "-fx-font-family: 'Yu Mincho'; -fx-font-weight: bold;";
-
+    /** Height of the top bar: the first shelf starts under it. */
+    private static final double TOP_BAR_H = 120;
+    /** 5 cards per shelf, across the whole width between the side boards. */
+    private static final int PER_SHELF = 5;
+    private static final double AREA_LEFT = 60, AREA_W = 1480;
     /** Pixels moved per mouse-wheel notch (JavaFX's default of about 40 is too slow for big cards). */
     private static final double SCROLL_SPEED = 3;
+    /** How long the mouse stays on a card before its big copy opens, and how far the hovered card rises. */
+    private static final Duration PREVIEW_WAIT = Duration.millis(750);
+    private static final double LIFT = 14;
 
     private final Pane grid = new Pane();
+    private final List<Card> allCards = sortedCards();
+    /** What the filter bars have picked: the shelves show only the cards that pass it. */
+    private final CardFilter filter = new CardFilter();
+    private final ScrollPane scroll = new ScrollPane();
+    private final Label count = button("");
+    /** The hover effect: the card grows and rises, and after PREVIEW_WAIT a big copy opens beside it (drawn on the whole grid). */
+    private final CardPreview preview = new CardPreview(grid, PREVIEW_WAIT);
 
     public InventoryView(SceneRouter router) {
         ScreenGrid.fitToWindow(this, grid);
-        List<Card> cards = allCards();
 
         // The cards stand on shelves that fill the whole page and scroll with them.
-        ScrollPane scroll = cardArea(cards);
+        scroll.setPrefSize(ScreenGrid.W, ScreenGrid.H);
+        scroll.setFitToWidth(true);
+        scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        scroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        scroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
+        scroll.addEventFilter(ScrollEvent.SCROLL, this::scrollFaster);
         grid.getChildren().add(scroll);
 
-        // Top bar, fixed over the scrolling cards: Home on the left, the card count next to it.
+        // Top bar on a light paper band: Home and the card count on the left, the two filter rows beside them.
+        Rectangle band = new Rectangle(ScreenGrid.W, TOP_BAR_H, Color.web(PAPER, 0.85));
         Label home = button("Home");
         HomeView.clickable(home, false, () -> router.goTo(Screen.HOME));
-        home.relocate(30, 36);
-        Label count = button(cards.size() + " cards");   // same dark pill as Home, readable over the cards
-        count.relocate(150, 36);
-        grid.getChildren().addAll(home, count);
+        home.relocate(30, 20);
+        count.relocate(30, 66);
+        FilterBar filters = new FilterBar(filter, this::showCards);
+        filters.relocate(200, 20);
+        ClassFilterBar classes = new ClassFilterBar(filter, this::showCards);
+        classes.relocate(216, 68);
+        grid.getChildren().addAll(band, home, count, filters, classes);
+
+        showCards();
     }
 
     /**
-     * Every card to show, sorted by class, then Ki, then name.
+     * Every card, sorted by class, then Ki, then name.
      * Placeholder: the test cards from MockCards, until the player's own collection is saved.
      */
-    private List<Card> allCards() {
+    private static List<Card> sortedCards() {
         List<Card> cards = new ArrayList<>(MockCards.ALL);
         Comparator<Card> byClass = Comparator.comparing(Card::getHeroClass);
         Comparator<Card> byKi = Comparator.comparingInt(Card::getKiCost);
@@ -60,23 +92,28 @@ public class InventoryView extends Pane {
         return cards;
     }
 
-    /** The cards standing on wooden shelves that repeat downwards, in a vertical-only ScrollPane the size of the page. */
-    private ScrollPane cardArea(List<Card> cards) {
-        CardShelves shelves = new CardShelves(cards);   // the shelves scroll with the cards
-
-        ScrollPane scroll = new ScrollPane(shelves);
-        scroll.setPrefSize(ScreenGrid.W, ScreenGrid.H);
-        scroll.setFitToWidth(true);
-        scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
-        scroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
-        scroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
-        scroll.addEventFilter(ScrollEvent.SCROLL, event -> scrollFaster(scroll, shelves, event));
-        return scroll;
+    /** Puts the cards that pass the filters on fresh shelves, one class at a time, scrolls to the top and updates the count. */
+    private void showCards() {
+        List<Card> shown = new ArrayList<>();
+        for (Card card : allCards) {
+            if (filter.matches(card)) {
+                shown.add(card);
+            }
+        }
+        CardShelves shelves = new CardShelves(ScreenGrid.W, PER_SHELF, AREA_LEFT, AREA_W, TOP_BAR_H);
+        for (StandingCard view : shelves.addByClass(shown)) {
+            preview.attach(view.getSleeve(), view.getCard(), LIFT);   // only the card in its sleeve grows and rises
+        }
+        shelves.setMinHeight(ScreenGrid.H);   // the shelves fill the page even with few cards
+        scroll.setContent(shelves);
+        scroll.setVvalue(0);
+        count.setText(shown.size() + " cards");
     }
 
-    /** Moves the grid by SCROLL_SPEED times the wheel's distance, instead of JavaFX's slow default. */
-    private void scrollFaster(ScrollPane scroll, CardShelves shelves, ScrollEvent event) {
-        double hiddenHeight = shelves.getHeight() - scroll.getViewportBounds().getHeight();
+    /** Moves the shelves by SCROLL_SPEED times the wheel's distance, instead of JavaFX's slow default. */
+    private void scrollFaster(ScrollEvent event) {
+        double contentHeight = scroll.getContent().getBoundsInLocal().getHeight();
+        double hiddenHeight = contentHeight - scroll.getViewportBounds().getHeight();
         if (hiddenHeight <= 0) {
             return;   // everything fits: nothing to scroll
         }
