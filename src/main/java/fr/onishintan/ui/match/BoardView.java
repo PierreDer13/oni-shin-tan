@@ -59,8 +59,10 @@ import javafx.scene.effect.DropShadow;
 import javafx.scene.effect.GaussianBlur;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.scene.shape.Rectangle;
@@ -130,6 +132,9 @@ public class BoardView extends Pane {
     private boolean aiming;
     private Runnable onGameOver = () -> {};
     public void setOnGameOver(Runnable r) { onGameOver = r; }
+    private Runnable onSurrender = () -> {};
+    /** What happens when the player at the bottom confirms they surrender. */
+    public void setOnSurrender(Runnable r) { onSurrender = r; }
     private Node preview;
     /** Where traps sit: left of each hero (grid coordinates). */
     private static final double TRAPS_X = 320, YOUR_TRAPS_Y = 660, ENEMY_TRAPS_Y = 120;
@@ -168,6 +173,10 @@ public class BoardView extends Pane {
             wait.play();
         });
         table.getChildren().addAll(bg, live, endTurn, yourClock, enemyClock);
+        // Surrender, top left: it asks first, then the player whose turn it is loses.
+        Label surrender = darkButton("降参  SURRENDER", this::askSurrender);
+        surrender.relocate(20, 20);
+        table.getChildren().add(surrender);
         getChildren().add(table);
         setStyle("-fx-background-color: black;");
         render();
@@ -340,6 +349,35 @@ public class BoardView extends Pane {
         StackPane end = new StackPane(new Rectangle(W, H, Color.rgb(0, 0, 0, 0.6)), text);
         end.setOnMousePressed(e -> onGameOver.run());
         table.getChildren().add(end);
+    }
+
+
+    /** Asks "Surrender?" over the table: Yes makes the player at the bottom (whose turn it is) lose, No closes the question. */
+    private void askSurrender() {
+        Label question = new Label("降参しますか？\nSurrender this match?");
+        question.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 48; -fx-font-weight: bold; -fx-text-alignment: center; -fx-text-fill: #f3ede1;");
+        StackPane veil = new StackPane();
+
+        Label yes = darkButton("はい  YES", () -> {
+            table.getChildren().remove(veil);
+            onSurrender.run();   // the engine records the other player as the winner
+            gameOver(false);     // the player at the bottom has lost
+        });
+        Label no = darkButton("いいえ  NO", () -> table.getChildren().remove(veil));
+        HBox answers = new HBox(40, yes, no);
+        answers.setAlignment(Pos.CENTER);
+        VBox box = new VBox(30, question, answers);
+        box.setAlignment(Pos.CENTER);
+
+        veil.getChildren().addAll(new Rectangle(W, H, Color.rgb(0, 0, 0, 0.8)), box);
+        table.getChildren().add(veil);
+    }
+
+    /** A dark rounded button, the same look as RETURN, with these words. */
+    private static Label darkButton(String words, Runnable action) {
+        Label button = HomeView.back(action);
+        button.setText(words);
+        return button;
     }
 
     /** No clock in this match (Adventure), or not yet (Oaths not sworn): both clocks hidden. */
