@@ -80,7 +80,8 @@ public class MatchController {
         board.setOnKatana(this::useKatana);
         board.setOnTrade(this::trade);
         board.setOnEndTurn(this::endTurn);
-        board.setOnGameOver(() -> onEnd.accept(!first.getHero().isDead()));
+        board.setOnGameOver(() -> onEnd.accept(firstWon()));
+        board.setOnSurrender(this::surrender);
 
         // A trap that goes off is shown to both players (the engine has already applied its effect).
         engine.getBus().subscribe(GameEvent.Type.TRAP_TRIGGERED, event -> board.revealTrap((TrapCard) event.target()));
@@ -184,6 +185,21 @@ public class MatchController {
     private void reswear() {
         engine.reswearOath(engine.active());
         board.render();
+    }
+
+
+    /** The player whose turn it is gives up: the other player wins at once and the clocks stop. */
+    private void surrender() {
+        Player loser = engine.active();
+        Player winner = engine.getState().opponentOf(loser);
+        engine.getState().declareWinner(winner);
+        clockTicker.stop();
+    }
+
+    /** True if the first player won (by a dead hero, a timeout or a surrender); false for a loss or a draw. */
+    private boolean firstWon() {
+        Player winner = engine.getState().getWinner().orElse(null);
+        return winner == first;
     }
 
     /** Oath choice (GDD): the first player picks, the veil passes to the second, who picks; then the first player's hand is dealt. */
