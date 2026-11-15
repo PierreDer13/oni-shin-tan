@@ -10,6 +10,7 @@ import fr.onishintan.ui.app.Images;
 import fr.onishintan.ui.app.SceneRouter;
 import fr.onishintan.ui.app.Screen;
 import fr.onishintan.ui.app.ScreenGrid;
+import fr.onishintan.ui.screens.BoardPicker;
 import fr.onishintan.ui.screens.HomeView;
 
 import java.util.ArrayList;
@@ -19,6 +20,7 @@ import javafx.geometry.Pos;
 import javafx.scene.control.Label;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.FlowPane;
+import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.VBox;
@@ -28,13 +30,11 @@ import javafx.scene.shape.Rectangle;
 /**
  * PvP, before the match: Player 1, then Player 2, chooses the deck they play with.
  * Every legal saved deck is offered, plus a starter deck of each class (MockCards), so a match can start before any deck is built.
- * Once both have chosen, the match starts with those decks.
+ * Once both have chosen, they pick the battlefield (BoardPicker) and the match starts there.
  */
 public class DeckPickView extends Pane {
     private static final double W = ScreenGrid.W, H = ScreenGrid.H;
     private static final double HOLDER_W = 170;
-    /** The board PvP matches are played on, until the board picker exists. */
-    private static final String BOARD = "izakaya";
     private static final HeroClass[] CLASSES = { HeroClass.SAMURAI, HeroClass.NINJA, HeroClass.KANNUSHI, HeroClass.ONI };
 
     private final SceneRouter router;
@@ -42,6 +42,8 @@ public class DeckPickView extends Pane {
     private final Pane grid = new Pane();
     /** Player 1's deck, or null while Player 1 is still choosing. */
     private SavedDeck firstPick;
+    /** Player 2's deck, or null while Player 2 is still choosing. */
+    private SavedDeck secondPick;
 
     public DeckPickView(SceneRouter router) {
         this.router = router;
@@ -49,18 +51,9 @@ public class DeckPickView extends Pane {
         showChoice("Player 1");
     }
 
-    /** Draws the screen for this player: the shelves under a dark veil, the title, and one deck holder per deck to choose from. */
+    /** Draws the screen for this player: the page with its title, then one deck holder per deck to choose from. */
     private void showChoice(String playerName) {
-        grid.getChildren().clear();
-
-        ImageView shelves = new ImageView(Images.get("/images/deck-builder/shelves.png", W, H));
-        Rectangle veil = new Rectangle(W, H, Color.rgb(0, 0, 0, 0.55));
-
-        Label title = DecksView.text(playerName + ", choose your deck", 40, DecksView.PAPER);
-        HBox titleRow = new HBox(title);
-        titleRow.setAlignment(Pos.CENTER);
-        titleRow.setPrefWidth(W);
-        titleRow.relocate(0, 60);
+        page(playerName + ", choose your deck");
 
         FlowPane choices = new FlowPane(40, 40);
         choices.setAlignment(Pos.TOP_CENTER);
@@ -70,9 +63,34 @@ public class DeckPickView extends Pane {
         for (SavedDeck deck : decksToOffer()) {
             choices.getChildren().add(choice(deck));
         }
+        grid.getChildren().add(choices);
+    }
+
+    /** After both decks: the page asks for the battlefield, with one picture per board (BoardPicker). */
+    private void showBoards() {
+        page("Choose the battlefield");
+
+        GridPane boards = BoardPicker.grid(this::startMatch);
+        boards.setPrefWidth(W);
+        boards.relocate(0, 150);
+        grid.getChildren().add(boards);
+    }
+
+    /** Clears the screen and draws its frame: the shelves under a dark veil, the title at the top, and RETURN. */
+    private void page(String title) {
+        grid.getChildren().clear();
+
+        ImageView shelves = new ImageView(Images.get("/images/deck-builder/shelves.png", W, H));
+        Rectangle veil = new Rectangle(W, H, Color.rgb(0, 0, 0, 0.55));
+
+        Label titleLabel = DecksView.text(title, 40, DecksView.PAPER);
+        HBox titleRow = new HBox(titleLabel);
+        titleRow.setAlignment(Pos.CENTER);
+        titleRow.setPrefWidth(W);
+        titleRow.relocate(0, 60);
 
         Label back = HomeView.back(() -> router.goTo(Screen.HOME));
-        grid.getChildren().addAll(shelves, veil, titleRow, choices, back);
+        grid.getChildren().addAll(shelves, veil, titleRow, back);
     }
 
     /** The legal saved decks, then one starter deck per class. */
@@ -105,15 +123,22 @@ public class DeckPickView extends Pane {
         return choice;
     }
 
-    /** Player 1's choice is kept and Player 2 chooses; Player 2's choice starts the match. */
+    /** Player 1's choice is kept and Player 2 chooses; after Player 2's choice comes the battlefield. */
     private void choose(SavedDeck deck) {
         if (firstPick == null) {
             firstPick = deck;
             showChoice("Player 2");
             return;
         }
+        secondPick = deck;
+        showBoards();
+    }
+
+    /** Starts the match on this board with both chosen decks; at the end, back to Home. */
+    private void startMatch(String board) {
         SavedDeck firstDeck = firstPick;
-        router.register(Screen.MATCH, () -> OniShinTanApp.match(BOARD, player("Player 1", firstDeck), player("Player 2", deck),
+        SavedDeck secondDeck = secondPick;
+        router.register(Screen.MATCH, () -> OniShinTanApp.match(board, player("Player 1", firstDeck), player("Player 2", secondDeck),
                 won -> router.goTo(Screen.HOME)));
         router.goTo(Screen.MATCH);
     }
