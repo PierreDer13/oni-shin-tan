@@ -54,7 +54,7 @@ public class ClassSelectView extends Pane {
         about.setEffect(new DropShadow(10, Color.WHITE));
         about.setPrefWidth(W);
         about.relocate(0, 82);
-        Label back = HomeView.back(() -> router.goTo(Screen.HOME));
+        ImageView back = HomeView.back(() -> router.goTo(Screen.HOME));
         grid.getChildren().addAll(bg, title, about, back);
         for (int i = 0; i < CLASSES.length; i++) {
             HeroClass c = CLASSES[i];

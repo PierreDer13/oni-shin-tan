@@ -77,6 +77,7 @@ public class DeckEditorView extends Pane {
         collection = new CollectionPanel(this::addCard, this::removeCard, preview);
         collection.relocate(0, 0);
         grid.getChildren().add(0, collection);   // behind everything: its shelves are the page's background
+        grid.getChildren().add(1, FilterBanner.plank(ScreenGrid.W, 185));   // the plank across the top, behind the name, buttons and filters
         deckPanel = new DeckPanel(preview, this::removeCard);
         deckPanel.relocate(1160, 130);
         grid.getChildren().addAll(filterBar, deckPanel);

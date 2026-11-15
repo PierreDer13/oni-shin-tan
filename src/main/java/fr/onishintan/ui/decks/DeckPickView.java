@@ -89,7 +89,7 @@ public class DeckPickView extends Pane {
         titleRow.setPrefWidth(W);
         titleRow.relocate(0, 60);
 
-        Label back = HomeView.back(() -> router.goTo(Screen.HOME));
+        ImageView back = HomeView.back(() -> router.goTo(Screen.HOME));
         grid.getChildren().addAll(shelves, veil, titleRow, back);
     }
 

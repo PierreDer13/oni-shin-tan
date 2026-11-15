@@ -373,10 +373,12 @@ public class BoardView extends Pane {
         table.getChildren().add(veil);
     }
 
-    /** A dark rounded button, the same look as RETURN, with these words. */
+    /** A dark rounded button with light text, for the surrender question. */
     private static Label darkButton(String words, Runnable action) {
-        Label button = HomeView.back(action);
-        button.setText(words);
+        Label button = new Label(words);
+        button.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 22; -fx-font-weight: bold; -fx-text-fill: #f3ede1;"
+                + " -fx-background-color: rgba(20,12,8,0.75); -fx-background-radius: 10; -fx-padding: 8 16;");
+        HomeView.clickable(button, false, action);
         return button;
     }
 
