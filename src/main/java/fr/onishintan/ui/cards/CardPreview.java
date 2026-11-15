@@ -38,6 +38,12 @@ public class CardPreview {
         this.layer = layer;
     }
 
+    /** The same hover effect, but the big copy opens after `delay` instead of WAIT (the Inventory waits longer). */
+    public CardPreview(Pane layer, Duration delay) {
+        this(layer);
+        wait.setDuration(delay);
+    }
+
     /** Gives `node` (a card or a chip showing `card`) the hover effect: it grows, the big copy opens after WAIT, all goes back on exit. */
     public void attach(Node node, Card card) {
         attach(node, card, 0);

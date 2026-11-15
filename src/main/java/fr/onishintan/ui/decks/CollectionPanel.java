@@ -56,18 +56,9 @@ class CollectionPanel extends ScrollPane {
             shelves.getChildren().add(empty);
         }
 
-        // Cut the list into runs of the same class; each run is one group on the shelves.
-        int start = 0;
-        for (int i = 1; i <= cards.size(); i++) {
-            boolean lastCard = i == cards.size();
-            if (lastCard || cards.get(i).getHeroClass() != cards.get(start).getHeroClass()) {
-                List<Card> group = cards.subList(start, i);
-                String title = group.get(0).getHeroClass().getDisplayName();
-                for (StandingCard view : shelves.addGroup(title, group)) {
-                    makeClickable(view);
-                }
-                start = i;
-            }
+        // Each class starts a new shelf with its name (the deck's class first, then Neutral).
+        for (StandingCard view : shelves.addByClass(cards)) {
+            makeClickable(view);
         }
         setContent(shelves);
         setVvalue(0);
