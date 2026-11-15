@@ -68,7 +68,7 @@ public class FilterBar extends HBox {
 
     /** A small label in front of a row of buttons ("Ki", "Type"). */
     private Label caption(String words) {
-        Label caption = DecksView.text(words, 18, DecksView.INK);
+        Label caption = DecksView.text(words, 18, DecksView.PAPER);
         caption.setStyle(caption.getStyle() + " -fx-padding: 0 0 0 16;");
         return caption;
     }

@@ -7,6 +7,7 @@ import fr.onishintan.ui.app.SceneRouter;
 import fr.onishintan.ui.decks.DecksView;
 import fr.onishintan.ui.app.Screen;
 import fr.onishintan.ui.app.Sound;
+import fr.onishintan.ui.app.Images;
 import javafx.animation.Animation;
 import javafx.animation.Interpolator;
 import javafx.animation.TranslateTransition;
@@ -36,6 +37,9 @@ public class HomeView extends Pane {
     public static final int MAX_REI = 6000;
     private static final String PLAYER_NAME = "Kayne";   // placeholders until the player profile is saved
     private static final int PLAYER_REI = 2450;
+    /** The BACK sign every screen uses to go back, and its height on screen. */
+    private static final String BACK_SIGN = "/images/frames/back-button.png";
+    private static final double BACK_H = 64;
 
     private final Pane grid = new Pane();
     private final SceneRouter router;
@@ -126,14 +130,14 @@ public class HomeView extends Pane {
         v.setOnMousePressed(e -> { Sound.play(CLICK); action.run(); });
     }
 
-    /** The "← 戻る RETURN" box in a screen's top-left corner. */
-    public static Label back(Runnable action) {
-        Label b = new Label("← 戻る  RETURN");
-        b.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 22; -fx-font-weight: bold; -fx-text-fill: #f3ede1;"
-                + " -fx-background-color: rgba(20,12,8,0.75); -fx-background-radius: 10; -fx-padding: 8 16;");
-        b.relocate(30, 30);
-        clickable(b, false, action);
-        return b;
+    /** The 戻る BACK sign (images/frames/back-button.png) in a screen's top-left corner. */
+    public static ImageView back(Runnable action) {
+        ImageView sign = new ImageView(Images.get(BACK_SIGN));
+        sign.setFitHeight(BACK_H);
+        sign.setPreserveRatio(true);
+        sign.relocate(24, 20);
+        clickable(sign, false, action);
+        return sign;
     }
 
     /** Floats a node on the spot: drifts up to dx / dy each way and back, forever, one way every `seconds`.

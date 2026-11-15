@@ -11,6 +11,7 @@ import fr.onishintan.ui.cards.StandingCard;
 import fr.onishintan.ui.decks.CardFilter;
 import fr.onishintan.ui.decks.ClassFilterBar;
 import fr.onishintan.ui.decks.FilterBar;
+import fr.onishintan.ui.decks.FilterBanner;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -20,20 +21,19 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.Pane;
-import javafx.scene.paint.Color;
-import javafx.scene.shape.Rectangle;
+import javafx.scene.image.ImageView;
 import javafx.util.Duration;
 
 /**
  * Inventory: every card in the game standing on wooden shelves you scroll with the mouse wheel, each class on its own shelves.
  * Sorted by class, then Ki, then name. The top bar filters them (search, Ki, type like the deck editor, plus class).
- * Home goes back to the home screen.
+ * The BACK sign goes back to the home screen.
  */
 public class InventoryView extends Pane {
     private static final String PAPER = "#f3ede1";
     private static final String FONT = "-fx-font-family: 'Yu Mincho'; -fx-font-weight: bold;";
     /** Height of the top bar: the first shelf starts under it. */
-    private static final double TOP_BAR_H = 120;
+    private static final double TOP_BAR_H = 150;
     /** 5 cards per shelf, across the whole width between the side boards. */
     private static final int PER_SHELF = 5;
     private static final double AREA_LEFT = 60, AREA_W = 1480;
@@ -64,17 +64,14 @@ public class InventoryView extends Pane {
         scroll.addEventFilter(ScrollEvent.SCROLL, this::scrollFaster);
         grid.getChildren().add(scroll);
 
-        // Top bar on a light paper band: Home and the card count on the left, the two filter rows beside them.
-        Rectangle band = new Rectangle(ScreenGrid.W, TOP_BAR_H, Color.web(PAPER, 0.85));
-        Label home = button("Home");
-        HomeView.clickable(home, false, () -> router.goTo(Screen.HOME));
-        home.relocate(30, 20);
-        count.relocate(30, 66);
+        // Top bar: the BACK sign and the card count on the left, the two filter planks beside them.
+        ImageView back = HomeView.back(() -> router.goTo(Screen.HOME));
+        count.relocate(40, 96);
         FilterBar filters = new FilterBar(filter, this::showCards);
-        filters.relocate(200, 20);
+        filters.relocate(240, 26);
         ClassFilterBar classes = new ClassFilterBar(filter, this::showCards);
-        classes.relocate(216, 68);
-        grid.getChildren().addAll(band, home, count, filters, classes);
+        classes.relocate(240, 86);
+        grid.getChildren().addAll(FilterBanner.plank(ScreenGrid.W, TOP_BAR_H), back, count, filters, classes);
 
         showCards();
     }
