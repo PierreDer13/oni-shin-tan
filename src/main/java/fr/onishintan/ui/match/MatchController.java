@@ -190,9 +190,9 @@ public class MatchController {
 
     /** The player whose turn it is gives up: the other player wins at once and the clocks stop. */
     private void surrender() {
-        Player loser = engine.active();
-        Player winner = engine.getState().opponentOf(loser);
-        engine.getState().declareWinner(winner);
+        engine.concede(engine.active());
+
+        
         clockTicker.stop();
     }
 
