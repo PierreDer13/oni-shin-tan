@@ -38,6 +38,8 @@ public class CardView extends Group {
     private static final String SERIF = "Yu Mincho";
     private static final Color INK = Color.web("#1f1b17");
     private static final Color DAMAGED = Color.web("#c41e1e");
+    /** A Ki cost lowered by Yōi or an Oath. */
+    private static final Color CHEAPER = Color.web("#1f7a3a");
     /** The edge tags (SPELL on the left, the family on the right), in card coordinates (530 x 742):
      *  width, top, height per letter and the extra height around the letters (SPELL: 30 + 5 x 24 = 150). */
     private static final double SIDE_TAG_W = 40, SIDE_TAG_Y = 345, SIDE_TAG_LETTER_H = 24, SIDE_TAG_PADDING = 30;
@@ -46,6 +48,8 @@ public class CardView extends Group {
 
     private final Card card;
     private final Pane face = new Pane();
+    /** The number in the Ki circle (showCost changes it). */
+    private Label kiLabel;
 
     public CardView(Card card, double width) {
         this.card = card;
@@ -61,7 +65,7 @@ public class CardView extends Group {
         /** Rebuilds the card face from the card's data. */
     public void render() {
         face.getChildren().setAll(artView());
-        text(String.valueOf(card.getKiCost()), 50, 25, 24, 100, 82);                     // Ki circle
+        kiLabel = text(String.valueOf(card.getKiCost()), 50, 25, 24, 100, 82);          // Ki circle
         text("気 Ki", 14, 25, 88, 100, 20);
         String kanji = card.getNameKanji();
         vertical(kanji, Math.min(56, 200 / kanji.length()), 370, 30, 135, 210);           // Japanese name, top right
@@ -97,6 +101,14 @@ public class CardView extends Group {
         }
         // small radius keeps the pink close to the edge, high spread turns it into a solid band
         setEffect(new DropShadow(BlurType.GAUSSIAN, Color.HOTPINK, 12, 0.85, 0, 0));
+    }
+
+    /** Writes `ki` in the Ki circle instead of the printed cost (used by the hand); a lower price is written in green. */
+    public void showCost(int ki) {
+        kiLabel.setText(String.valueOf(ki));
+        if (ki < card.getKiCost()) {
+            kiLabel.setTextFill(CHEAPER);
+        }
     }
 
 

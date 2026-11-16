@@ -262,6 +262,18 @@ public class MatchController implements CardPlayer {
         return played;
     }
 
+    /** What a hand card costs now: the engine's price for the active player (Yōi, Oath discounts). */
+    @Override
+    public int cost(Card card) {
+        return engine.costOf(engine.active(), card);
+    }
+
+    /** True if the engine would accept this card now. */
+    @Override
+    public boolean canPlay(Card card) {
+        return engine.canPlay(card);
+    }
+
     /** An attacker and its target: the engine deals the damage both ways and removes the dead. BoardView animates, then redraws. */
     private void attack(Combatant attacker, Combatant target) {
         engine.attack(attacker, target);

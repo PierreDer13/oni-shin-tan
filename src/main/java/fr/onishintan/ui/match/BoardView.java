@@ -212,7 +212,7 @@ public class BoardView extends Pane {
         traps(enemy, TRAPS_X, ENEMY_TRAPS_Y);
         traps(you, TRAPS_X, YOUR_TRAPS_Y);
         deck(enemy, 182, 239);
-        live.getChildren().add(hand = new HandView(you, this::drop, this::trade, this::previewCost));
+        live.getChildren().add(hand = new HandView(you, this::drop, this::trade, this::previewCost, this::costOf, this::canPlay));
         hand.setVisible(dealt);
         enemyHand(enemy);
         healEffects();
@@ -853,9 +853,26 @@ public void passTo(String name, Runnable onReady) {
     private void finishPlay(Card card, int slot, Combatant first, Combatant second) {
         held = null;
         firstPick = null;
+        int cost = costOf(card);   // read before the card leaves the hand
         if (player.play(card, slot, first, second)) {
-            impact(card.getKiCost(), false);
+            impact(cost, false);
         }
+    }
+
+    /** What a hand card costs now (Yōi, Oath discounts); its printed Ki until the match is plugged in. */
+    private int costOf(Card card) {
+        if (player == null) {
+            return card.getKiCost();
+        }
+        return player.cost(card);
+    }
+
+    /** True if the engine would accept this hand card now; false until the match is plugged in. */
+    private boolean canPlay(Card card) {
+        if (player == null) {
+            return false;
+        }
+        return player.canPlay(card);
     }
 
     /** Attack selection on one character. Yours that can attack: yellow border (thicker on hover, gold glow when picked),
