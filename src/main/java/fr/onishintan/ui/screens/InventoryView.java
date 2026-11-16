@@ -12,6 +12,7 @@ import fr.onishintan.ui.decks.CardFilter;
 import fr.onishintan.ui.decks.ClassFilterBar;
 import fr.onishintan.ui.decks.FilterBar;
 import fr.onishintan.ui.decks.FilterBanner;
+import fr.onishintan.ui.decks.SorobanFilter;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -71,7 +72,9 @@ public class InventoryView extends Pane {
         filters.relocate(240, 26);
         ClassFilterBar classes = new ClassFilterBar(filter, this::showCards);
         classes.relocate(240, 86);
-        grid.getChildren().addAll(FilterBanner.plank(ScreenGrid.W, TOP_BAR_H), back, count, filters, classes);
+        SorobanFilter soroban = new SorobanFilter(filter, this::showCards, 420);
+        soroban.relocate(1150, 5);
+        grid.getChildren().addAll(FilterBanner.plank(ScreenGrid.W, TOP_BAR_H), back, count, filters, classes, soroban);
 
         showCards();
     }

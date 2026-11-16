@@ -11,7 +11,7 @@ import javafx.scene.control.TextField;
 import javafx.scene.layout.HBox;
 
 /**
- * The row above the deck editor's collection: a search box, Ki buttons (All, 1 to 6, 7+) and type buttons (All, Minions, Spells).
+ * The row above the cards: a search box and type buttons (All, Minions, Spells). The Ki filter is the soroban (SorobanFilter).
  * It writes each choice into the CardFilter, then calls onChange.
  */
 public class FilterBar extends HBox {
@@ -24,7 +24,6 @@ public class FilterBar extends HBox {
 
     private final CardFilter filter;
     private final Runnable onChange;
-    private final List<Label> kiButtons = new ArrayList<>();
     private final List<Label> typeButtons = new ArrayList<>();
 
     public FilterBar(CardFilter filter, Runnable onChange) {
@@ -35,20 +34,12 @@ public class FilterBar extends HBox {
 
         getChildren().add(searchBox());
 
-        getChildren().add(caption("Ki"));
-        addKiButton("All", CardFilter.ANY_KI);
-        for (int ki = 1; ki < CardFilter.KI_OR_MORE; ki++) {
-            addKiButton(String.valueOf(ki), ki);
-        }
-        addKiButton(CardFilter.KI_OR_MORE + "+", CardFilter.KI_OR_MORE);
-
         getChildren().add(caption("Type"));
         addTypeButton("All", CardFilter.Type.ALL);
         addTypeButton("Minions", CardFilter.Type.MINIONS);
         addTypeButton("Spells", CardFilter.Type.SPELLS);
 
         // At the start nothing is filtered: "All" is picked in both rows.
-        pick(kiButtons, kiButtons.get(0));
         pick(typeButtons, typeButtons.get(0));
     }
 
@@ -71,18 +62,6 @@ public class FilterBar extends HBox {
         Label caption = DecksView.text(words, 18, DecksView.PAPER);
         caption.setStyle(caption.getStyle() + " -fx-padding: 0 0 0 16;");
         return caption;
-    }
-
-    /** One Ki button: shows only the cards of that cost (that cost and more for the last one). */
-    private void addKiButton(String words, int ki) {
-        Label button = new Label(words);
-        HomeView.clickable(button, false, () -> {
-            filter.setKi(ki);
-            pick(kiButtons, button);
-            onChange.run();
-        });
-        kiButtons.add(button);
-        getChildren().add(button);
     }
 
     /** One type button: All, Minions or Spells. */

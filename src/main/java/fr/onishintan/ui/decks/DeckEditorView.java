@@ -80,7 +80,9 @@ public class DeckEditorView extends Pane {
         grid.getChildren().add(1, FilterBanner.plank(ScreenGrid.W, 185));   // the plank across the top, behind the name, buttons and filters
         deckPanel = new DeckPanel(preview, this::removeCard);
         deckPanel.relocate(1160, 130);
-        grid.getChildren().addAll(filterBar, deckPanel);
+        SorobanFilter soroban = new SorobanFilter(filter, this::showCollection, 420);
+        soroban.relocate(690, 14);
+        grid.getChildren().addAll(filterBar, soroban, deckPanel);
         showCollection();
 
         refresh();
