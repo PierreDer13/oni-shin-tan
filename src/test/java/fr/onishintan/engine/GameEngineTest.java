@@ -120,4 +120,49 @@ class GameEngineTest {
         assertEquals(Type.GAME_OVER, last.type());
         assertSame(first, last.target());
     }
+    @Test
+    void concedeGivesTheOpponentTheWin() {
+        engine.startMatch();
+        engine.beginFirstTurn();
+        events.clear();
+
+        assertTrue(engine.concede(first));
+        assertEquals(List.of(Type.GAME_OVER), types());
+        assertSame(first, events.get(0).source());            // who gave up
+        assertSame(second, events.get(0).target());           // who won
+        assertSame(second, engine.getState().getWinner().orElseThrow());
+    }
+
+    @Test
+    void concedeTwiceIsRefused() {
+        engine.startMatch();
+        engine.beginFirstTurn();
+        engine.concede(first);
+        events.clear();
+
+        assertFalse(engine.concede(second));
+        assertTrue(events.isEmpty());
+        assertSame(second, engine.getState().getWinner().orElseThrow());
+    }
+
+    @Test
+    void concedeStopsBothClocks() {
+        long[] now = {0};
+        engine.setTimeSource(() -> now[0]);
+        engine.startMatch();
+        engine.swearOath(first, OathType.HONOR);
+        engine.swearOath(second, OathType.SILENCE);
+        engine.beginFirstTurn();
+        now[0] = 10_000;
+        assertTrue(first.getClock().isRunning());
+
+        engine.concede(first);
+        assertFalse(first.getClock().isRunning());
+        assertFalse(second.getClock().isRunning());
+
+        engine.resumeClock();                                 // the veil closes after the match
+        assertFalse(first.getClock().isRunning());
+        assertEquals(ChessClock.BANK_MS - 10_000, engine.remainingMs(first));
+    }
+
 }
