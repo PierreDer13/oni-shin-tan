@@ -38,7 +38,7 @@ public class CardView extends Group {
     private static final String SERIF = "Yu Mincho";
     private static final Color INK = Color.web("#1f1b17");
     private static final Color DAMAGED = Color.web("#c41e1e");
-    /** The edge tags (SPELL on the right, the family on the left), in card coordinates (530 x 742):
+    /** The edge tags (SPELL on the left, the family on the right), in card coordinates (530 x 742):
      *  width, top, height per letter and the extra height around the letters (SPELL: 30 + 5 x 24 = 150). */
     private static final double SIDE_TAG_W = 40, SIDE_TAG_Y = 345, SIDE_TAG_LETTER_H = 24, SIDE_TAG_PADDING = 30;
     /** Engine tokens drawn with another card's art: token id -> card id (the Kannushi hero power summons "power-miko"). */
@@ -86,7 +86,6 @@ public class CardView extends Group {
             rarityTag("神話 MYTHIC", 150, "#9fb8d9, #e9f7ff 30%, #ffffff 50%, #c8e6ff 65%, #b6a8ff 85%, #9fb8d9", "#2b3e63", Color.web("#bfe9ff"));
         if (card instanceof SpellCard) {
             spellTag();
-            familyTag();
         }
     }
 
@@ -204,25 +203,19 @@ public class CardView extends Group {
         t.setEffect(new DropShadow(18, glow));
     }
 
-    /** Purple "SPELL" tag on the right edge: spells (Traps included) have no ATK or HP, so this tells them apart from minions. */
+    /** Every spell: a purple SPELL tag on the left edge; a family spell also gets its family tag (TRAP, SHRINE, RITUAL or CURSE) on the right. */
     private void spellTag() {
-        sideTag("SPELL", "#5b2380, #8e44ad 50%, #5b2380", Color.web("#8e44ad"), true);
-    }
-
-    /** The family tag on the left edge (TRAP, SHRINE, RITUAL or CURSE), for spells of a class family. */
-    private void familyTag() {
+        sideTag("SPELL", "#5b2380, #8e44ad 50%, #5b2380", Color.web("#8e44ad"), false);
         CardFamily family = CardFamily.of(card);
-        if (family == null) {
-            return;   // a plain spell: no family tag
+        if (family != null) {
+            sideTag(family.getWord(), family.getGradient(), family.getGlow(), true);
         }
-        sideTag(family.getWord(), family.getGradient(), family.getGlow(), false);
     }
 
     /**
-     * A tag on the card's edge, one letter under the other.
+     * A tag on one of the card's edges, one letter under the other.
      * @param word     the word to write
      * @param gradient the background colours, top to bottom (CSS list)
-     * @param glow     the colour of the soft glow around it
      * @param onRight  true for the right edge, false for the left
      */
     private void sideTag(String word, String gradient, Color glow, boolean onRight) {
@@ -231,13 +224,12 @@ public class CardView extends Group {
         double height = SIDE_TAG_PADDING + SIDE_TAG_LETTER_H * word.length();
         tag.setPrefSize(SIDE_TAG_W, height);
 
-        String corners;
+        String corners = "0 8 8 0";   // rounded on the inner side only
         if (onRight) {
             tag.relocate(W - SIDE_TAG_W, SIDE_TAG_Y);
-            corners = "8 0 0 8";   // rounded on the inner side only
+            corners = "8 0 0 8";
         } else {
             tag.relocate(0, SIDE_TAG_Y);
-            corners = "0 8 8 0";
         }
         tag.setStyle("-fx-background-color: linear-gradient(to bottom, " + gradient + "); -fx-background-radius: " + corners + ";");
         tag.setEffect(new DropShadow(10, glow));
