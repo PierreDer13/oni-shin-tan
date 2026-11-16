@@ -27,26 +27,26 @@ import javafx.util.Duration;
  * The static helpers give the holder's three pictures (side, front, open) for DeckOpening.
  */
 class DeckHolderView extends Pane {
-    /** Every holder picture (side, front, open) is a 1024 x 1536 image with the box in the same place. */
-    static final double IMAGE_W = 1024, IMAGE_H = 1536;
+    /** Every holder picture (side, front, open) is a 512 x 768 image with the box in the same place. */
+    static final double IMAGE_W = 512, IMAGE_H = 768;
     /**
      * Where the spine is inside each class's side image (x, y, width, height in image pixels), measured on the images.
      * The four spines are not drawn exactly the same size, so each is cut out on its own, then all are shown
      * with the same shape (SPINE_RATIO): the decks on a shelf all look the same size.
      */
     private static final Map<HeroClass, Rectangle2D> SPINE_AREA = Map.of(
-            HeroClass.SAMURAI, new Rectangle2D(382, 10, 264, 1436),
-            HeroClass.NINJA, new Rectangle2D(386, 22, 252, 1412),
-            HeroClass.KANNUSHI, new Rectangle2D(366, 6, 296, 1468),
-            HeroClass.ONI, new Rectangle2D(374, 74, 272, 1356));
+            HeroClass.SAMURAI, new Rectangle2D(191, 5, 132, 718),
+            HeroClass.NINJA, new Rectangle2D(193, 11, 126, 706),
+            HeroClass.KANNUSHI, new Rectangle2D(183, 3, 148, 734),
+            HeroClass.ONI, new Rectangle2D(187, 37, 136, 678));
     /** A spine's width / height: the same shape for every class. */
     static final double SPINE_RATIO = 38.0 / 184;
-    /** The card stands are 1024 x 1536 pictures too. Only columns STAND_X to STAND_X + STAND_W, rows 0 to STAND_H, are drawn. */
-    private static final double STAND_X = 130, STAND_W = 760, STAND_H = 1520;
+    /** The card stands are 512 x 768 pictures too. Only columns STAND_X to STAND_X + STAND_W, rows 0 to STAND_H, are drawn. */
+    private static final double STAND_X = 65, STAND_W = 380, STAND_H = 760;
     /** Measured on the stands: the middle of the opening, the cushion the spine stands on, and the top of the front rail. */
-    private static final double STAND_MIDDLE = 512, FLOOR_Y = 1235, RAIL_Y = 1240;
-    /** The spine in the stand: SPINE_IN_STAND wide (the opening is about 440), as tall as SPINE_RATIO makes it. */
-    private static final double SPINE_IN_STAND = 400, SPINE_IN_STAND_H = SPINE_IN_STAND / SPINE_RATIO;
+    private static final double STAND_MIDDLE = 256, FLOOR_Y = 617.5, RAIL_Y = 620;
+    /** The spine in the stand: SPINE_IN_STAND wide (the opening is about 220), as tall as SPINE_RATIO makes it. */
+    private static final double SPINE_IN_STAND = 200, SPINE_IN_STAND_H = SPINE_IN_STAND / SPINE_RATIO;
     /** How far the spine sticks out above the stand, and the height of the whole (spine top to stand feet), in stand pixels. */
     private static final double ABOVE = SPINE_IN_STAND_H - FLOOR_Y, TOTAL_H = ABOVE + STAND_H;
     /** On hover a spine slides out of its row towards you: straight down, off the front of the shelf. */

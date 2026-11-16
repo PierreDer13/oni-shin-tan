@@ -38,7 +38,7 @@ final class DeckOpening {
     /** From image pixels to grid pixels, at that size. */
     private static final double K = BOX_W / DeckHolderView.IMAGE_W;
     /** The row of the open holder's front edge in its image: the stack comes out from behind it. */
-    private static final double RIM_ROW = 500;
+    private static final double RIM_ROW = 250;
     private static final double RIM_Y = BOX_Y + RIM_ROW * K;
     /** deck-stack.png is 1052 x 1494; the stack is drawn STACK_W wide inside the box. */
     private static final double STACK_W = 190, STACK_H = STACK_W * 1494 / 1052;
