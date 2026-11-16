@@ -83,8 +83,9 @@ public class GameEngine {
 
     /** Starts p's clock, unless the clocks are off (no Oaths) or paused. */
     private void startClock(Player p) {
-        if (turnsBegun && clocksEnabled() && !clockPaused) p.getClock().start(now.getAsLong());
+        if (turnsBegun && clocksEnabled() && !clockPaused && !state.isOver()) p.getClock().start(now.getAsLong());
     }
+
 
 
     public GameEngine(Player first, Player second, Random rng) {
@@ -181,6 +182,22 @@ public class GameEngine {
         publish(GameEvent.of(GameEvent.Type.TURN_STARTED, p, null));
         turnsBegun = true;
         startClock(p);
+    }
+
+    /**
+     * p gives up (Surrender button): the opponent wins at once, both clocks stop and GAME_OVER is published.
+     * @param p the player who concedes (source of GAME_OVER)
+     * @return false if the match was already over
+     */
+    public boolean concede(Player p) {
+        if (state.isOver()) return false;
+        Player winner = state.opponentOf(p);   // throws if p is not in this match
+        long t = now.getAsLong();
+        p.getClock().pause(t);
+        winner.getClock().pause(t);
+        state.declareWinner(winner);
+        publish(GameEvent.of(GameEvent.Type.GAME_OVER, p, winner));
+        return true;
     }
 
     /** Ends the active turn (end-of-turn effects, then the Oath) and starts the opponent's. */
