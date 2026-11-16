@@ -54,6 +54,9 @@ public class GameEngine {
     private final OathRules oathRules;
     private final OathPenalties penalties = new OathPenalties(this);    
     private final OathRewards rewards = new OathRewards(this);
+    private final MinionEffects minionEffects = new MinionEffects(this);
+    /** Every card the match may create by id (tokens, Curses): set by the UI, later by cards.json. */
+    private final Map<String, Card> catalog = new HashMap<>();
     /** The holder of the hand Curse acting right now (fireCurse), null otherwise. */
     private Player cursed;
     /** Kuchiyose: the cards of each player's dead minions, in death order. */
@@ -110,7 +113,7 @@ public class GameEngine {
         turns.setDrawRule(p -> !penalties.has(p, OathPenalties.Lasting.NO_DRAW));
         oathRules.setCost(this::costOf);
         SpellEffects.register(cardEffects);
-        combat.setPiercing(rewards::pierces);
+        combat.setPiercing(c -> rewards.pierces(c) || minionEffects.pierces(c));
         combat.setDamageRule((source, target, amount) -> rewards.combatDamage(ownerOf(source), target, amount));
 
 
@@ -156,6 +159,7 @@ public class GameEngine {
         });
         // Oath rewards (3 and 6 stacks): last, so they see what the rule handlers recorded
         for (GameEvent.Type t : GameEvent.Type.values()) bus.subscribe(t, rewards::onEvent);
+        for (GameEvent.Type t : GameEvent.Type.values()) bus.subscribe(t, minionEffects::onEvent);
     }
 
     // ---------- listeners ----------
@@ -390,6 +394,9 @@ public class GameEngine {
         return false;
         }
 
+        // A Banzai with legal targets needs one of them (checked before anything is spent)
+        if (card instanceof MinionCard && !banzaiAimedRight(card, target)) return false;
+
         // A Rite needs at least one free slot for its first Ancestor
         if (card instanceof RiteCard && p.getSide().isFull()) return false;
 
@@ -528,7 +535,7 @@ public class GameEngine {
 
     /** Runs the effect a minion has for this trigger, if any. */
     void runTrigger(Trigger trigger, Player owner, Minion source, Combatant target) {
-        if (source == null) return;
+        if (source == null || minionEffects.isSilenced(source)) return;   // Shike
         cardEffects.get(source.getSource().getId(), trigger)
                 .ifPresent(effect -> effect.apply(new EffectContext(this, owner, source, target)));
     }
@@ -683,7 +690,7 @@ public class GameEngine {
     public int costOf(Player p, Card card) {
         Map<Card, Integer> off = handDiscounts.get(p);
         int yoi = off == null ? 0 : off.getOrDefault(card, 0);
-        return Math.max(0, rewards.cost(p, card) - yoi);
+        return Math.max(0, rewards.cost(p, card) - yoi - minionEffects.costCut(p, card));   // Yōi, Tennō
     }
 
     /** The player whose hero or minion this is, or null if it is not on the board. */
@@ -718,11 +725,23 @@ public class GameEngine {
 
     /** The characters the active player may aim this plain spell at (empty when it needs no target). */
     public List<Combatant> spellTargets(Card card) {
+        return targets(spellTarget(card));
+    }
+
+    /** The characters of that kind the active player may aim at. */
+    private List<Combatant> targets(SpellTarget kind) {
         List<Combatant> out = new ArrayList<>();
         Player p = state.active();
-        switch (spellTarget(card)) {
+        switch (kind) {
             case NONE -> { }
             case FRIENDLY_MINION -> out.addAll(p.getSide().getMinions());
+            case FRIENDLY_CHARACTER -> {
+                out.add(p.getHero());
+                out.addAll(p.getSide().getMinions());
+            }
+            case ENEMY_MINION -> {
+                for (Minion m : state.opponent().getSide().getMinions()) if (isPowerTarget(m)) out.add(m);
+            }
             case MINION, TWO_MINIONS -> {
                 for (Player q : List.of(p, state.opponent())) {
                     for (Minion m : q.getSide().getMinions()) if (isPowerTarget(m)) out.add(m);
@@ -752,6 +771,86 @@ public class GameEngine {
         };
         return aimed && r.castable().test(new EffectContext(this, state.active(), null, target, second));
     }
+
+    // ---------- minion effects (engine-minion-effects) ----------
+
+    /** What this minion's Banzai is aimed at (NONE when it needs no target). */
+    public SpellTarget banzaiTarget(Card card) {
+        MinionEffects.Aim a = MinionEffects.aim(card);
+        return a == null ? SpellTarget.NONE : a.target();
+    }
+
+    /** The legal targets of this minion's Banzai now. Empty: play it without a target. */
+    public List<Combatant> banzaiTargets(Card card) {
+        MinionEffects.Aim a = MinionEffects.aim(card);
+        if (a == null) return List.of();
+        List<Combatant> out = targets(a.target());
+        out.removeIf(c -> !a.filter().test(c));
+        return out;
+    }
+
+    /** A Banzai with legal targets needs one of them; with none, it is played without a target. */
+    private boolean banzaiAimedRight(Card card, Combatant target) {
+        List<Combatant> legal = banzaiTargets(card);
+        return legal.isEmpty() || (target != null && legal.contains(target));
+    }
+
+    /** The cards the engine may create by id: tokens (Sakana uri, Koi, Kitsune no tsukai) and Curses (Oiwa). */
+    public void setCatalog(java.util.Collection<? extends Card> cards) {
+        catalog.clear();
+        for (Card c : cards) catalog.put(c.getId(), c);
+    }
+
+    Card catalogCard(String id) { return catalog.get(id); }
+
+    List<CurseCard> deckCurses() {
+        return catalog.values().stream().filter(c -> c instanceof CurseCard cc && cc.getZone() == CurseZone.DECK)
+                .map(c -> (CurseCard) c).sorted(java.util.Comparator.comparing(Card::getId)).toList();
+    }
+
+    /** Oiwa: one copy of a deck Curse shuffled into to's deck. */
+    void giveDeckCurse(Player from, Player to, CurseCard curse) {
+        to.getDeck().insertRandom(curse, rng);
+        publish(new GameEvent(GameEvent.Type.CURSE_GIVEN, from, curse, 1));
+    }
+
+    /** Daimyō, Jujutsu shihan, Takemikazuchi: the hero equips this weapon (replaces the current one). */
+    void equip(Player p, WeaponCard card) {
+        p.getHero().equip(new Weapon(card));
+        publish(GameEvent.of(GameEvent.Type.WEAPON_EQUIPPED, p, p.getHero()));
+    }
+
+    /** Kitsune no bakashiya: m becomes a fresh copy of that card in the same slot (no Banzai). */
+    void transform(Minion m, MinionCard into) {
+        Player owner = ownerOf(m);
+        if (owner == null) return;
+        int slot = owner.getSide().slotOf(m);
+        owner.getSide().remove(m);
+        publish(GameEvent.of(GameEvent.Type.MINION_REMOVED, owner, m));
+        Minion copy = new Minion(into);
+        owner.getSide().place(copy, slot);
+        publish(GameEvent.of(GameEvent.Type.MINION_SUMMONED, owner, copy));
+    }
+
+    /** Fūjin: back to its owner's hand (lost if the hand is full), without dying. */
+    void bounce(Minion m) {
+        Player owner = ownerOf(m);
+        if (owner == null) return;
+        owner.getSide().remove(m);
+        owner.addToHand(m.getSource());
+        publish(GameEvent.of(GameEvent.Type.MINION_REMOVED, owner, m));
+    }
+
+    /** Yogake: two minions hit each other with their ATK, like an attack but with no attacker's turn. */
+    void fight(Minion a, Minion b) {
+        int x = a.getAttack(), y = b.getAttack();
+        publish(GameEvent.of(GameEvent.Type.ATTACK, a, b));
+        publish(new GameEvent(GameEvent.Type.DAMAGE, a, b, b.takeDamage(x)));
+        publish(new GameEvent(GameEvent.Type.DAMAGE, b, a, a.takeDamage(y)));
+        combat.removeDead();
+    }
+
+    MinionEffects getMinionEffects() { return minionEffects; }
 
     /** Ryū on p's side: +4 to his damage, healing and armour effects. */
     int ryu(Player p) {
