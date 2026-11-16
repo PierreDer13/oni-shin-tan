@@ -61,7 +61,7 @@ public class AdventureSelectView extends Pane {
     /** Each class's reward for finishing its Adventure (GDD, Yokai and kami). */
     private static final Map<HeroClass, Card> KAMI = Map.of(
             HeroClass.NINJA, new MinionCard("tsukuyomi", "Tsukuyomi", "月読", "つくよみ", 8, Rarity.LEGENDARY, HeroClass.NINJA,
-                    "Shinobi. Banzai: your other minions gain Shinobi", "", 12, 10, Set.of(Keyword.SHINOBI, Keyword.BANZAI)),
+                    "Banzai: your other minions have Shinobi. Shinobi", "", 12, 10, Set.of(Keyword.SHINOBI, Keyword.BANZAI)),
             HeroClass.SAMURAI, new MinionCard("takemikazuchi", "Takemikazuchi", "建御雷", "たけみかづち", 8, Rarity.LEGENDARY, HeroClass.SAMURAI,
                     "Tatakae. Banzai: equip your hero with Futsu-no-mitama (10/2)", "", 10, 9, Set.of(Keyword.TATAKAE, Keyword.BANZAI)),
             HeroClass.KANNUSHI, new MinionCard("okuninushi", "Ōkuninushi", "大国主", "おおくにぬし", 8, Rarity.LEGENDARY, HeroClass.KANNUSHI,
