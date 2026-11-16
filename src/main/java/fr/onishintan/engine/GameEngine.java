@@ -55,6 +55,11 @@ public class GameEngine {
     private final OathPenalties penalties = new OathPenalties(this);    
     private final OathRewards rewards = new OathRewards(this);
     private final MinionEffects minionEffects = new MinionEffects(this);
+    private final FamilyEffects familyEffects = new FamilyEffects(this, minionEffects);
+    /** Kawarimi: the minion an attack is turned onto by a trap, null otherwise. */
+    private Minion redirected;
+    /** Otoshiana: a trap cancelled the attack being resolved. */
+    private boolean attackCancelled;
     /** Every card the match may create by id (tokens, Curses): set by the UI, later by cards.json. */
     private final Map<String, Card> catalog = new HashMap<>();
     /** The holder of the hand Curse acting right now (fireCurse), null otherwise. */
@@ -114,7 +119,8 @@ public class GameEngine {
         oathRules.setCost(this::costOf);
         SpellEffects.register(cardEffects);
         combat.setPiercing(c -> rewards.pierces(c) || minionEffects.pierces(c));
-        combat.setDamageRule((source, target, amount) -> rewards.combatDamage(ownerOf(source), target, amount));
+        combat.setDamageRule((source, target, amount) ->
+                familyEffects.capDamage(target, rewards.combatDamage(ownerOf(source), target, amount)));   // Fushimi Inari
 
 
         // Rule handlers: they run before the UI hears the event
@@ -135,6 +141,7 @@ public class GameEngine {
              .computeIfAbsent((Player) e.source(), k -> new ArrayList<>()).add(((Minion) e.target()).getSource()));
         bus.subscribe(GameEvent.Type.CARD_PLAYED, e -> useDiscount((Player) e.source(), (Card) e.target()));
         bus.subscribe(GameEvent.Type.TRAP_SET, e -> useDiscount((Player) e.source(), (Card) e.target()));
+        bus.subscribe(GameEvent.Type.TURN_ENDED, familyEffects::onTurnEnded);   // Heiwa no Torii, Itsukushima: before the tick
         bus.subscribe(GameEvent.Type.TURN_ENDED,
              e -> tickShrines((Player) e.source()));
         bus.subscribe(GameEvent.Type.TURN_ENDED,
@@ -160,6 +167,7 @@ public class GameEngine {
         // Oath rewards (3 and 6 stacks): last, so they see what the rule handlers recorded
         for (GameEvent.Type t : GameEvent.Type.values()) bus.subscribe(t, rewards::onEvent);
         for (GameEvent.Type t : GameEvent.Type.values()) bus.subscribe(t, minionEffects::onEvent);
+        for (GameEvent.Type t : GameEvent.Type.values()) bus.subscribe(t, familyEffects::onEvent);
     }
 
     // ---------- listeners ----------
@@ -346,9 +354,18 @@ public class GameEngine {
     public boolean attack(Combatant attacker, Combatant target) {
         TrapTrigger when = target instanceof Hero
                 ? TrapTrigger.ON_ENEMY_ATTACK_HERO : TrapTrigger.ON_ENEMY_ATTACK_MINION;
+        if (state.isOver() || attacker == null || !combat.canAttack(attacker, target)) return false;   // an illegal attack springs no trap
+        redirected = null;
+        attackCancelled = false;
         triggerTraps(state.opponent(), when, attacker);
-        if (state.isOver()) return false;
+        if (state.isOver() || attacker.isDead()) return false;      // Shikomi andon may kill the attacker first
+        if (attackCancelled) {                                      // Otoshiana: the attack is spent, nothing hits
+            attacker.markAttacked();
+            return true;
+        }
+        if (redirected != null && !redirected.isDead()) target = redirected;   // Kawarimi: the log takes the hit
         boolean ok = combat.resolve(attacker, target);
+        if (ok) familyEffects.afterAttack(attacker);                // Meiji Ōtorii
         if (ok) checkGameOver();
         return ok;
     }
@@ -652,6 +669,7 @@ public class GameEngine {
             Player dealer = cursed != null ? state.opponentOf(cursed) : state.active();
             amount = rewards.effectDamage(dealer, cursed != null, target, amount + ryu(dealer));
         }
+        amount = familyEffects.capDamage(target, amount);               // Fushimi Inari
         int taken = target.takeDamage(amount);
         publish(new GameEvent(GameEvent.Type.DAMAGE, source, target, taken));
         combat.removeDead();
@@ -690,8 +708,18 @@ public class GameEngine {
     public int costOf(Player p, Card card) {
         Map<Card, Integer> off = handDiscounts.get(p);
         int yoi = off == null ? 0 : off.getOrDefault(card, 0);
-        return Math.max(0, rewards.cost(p, card) - yoi - minionEffects.costCut(p, card));   // Yōi, Tennō
+        return Math.max(0, rewards.cost(p, card) + familyEffects.costUp(p, card)
+                - yoi - minionEffects.costCut(p, card));   // Bakeneko, Yōi, Tennō
     }
+
+    /** Kawarimi: the attack being resolved hits this minion instead. */
+    void redirectAttack(Minion m) { redirected = m; }
+
+    /** Otoshiana: the attack being resolved is cancelled. */
+    void cancelAttack() { attackCancelled = true; }
+
+    /** Divinity 9 doubles the Shrine auras. */
+    int shrineFactor(Player p) { return rewards.shrineFactor(p); }
 
     /** The player whose hero or minion this is, or null if it is not on the board. */
     Player ownerOf(Combatant c) {

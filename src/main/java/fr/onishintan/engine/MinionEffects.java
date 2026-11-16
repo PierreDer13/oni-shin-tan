@@ -104,7 +104,7 @@ final class MinionEffects {
         banzai(fx, "maiko", aimed((ctx, t) -> ((Minion) t).buff(-3, 0)));
         banzai(fx, "onnagata", aimed((ctx, t) -> ctx.source().buff(t.getAttack() - ctx.source().getAttack(), 0)));
         banzai(fx, "yumihiki", aimed((ctx, t) -> engine.dealDamage(ctx.source(), t, 4)));
-        banzai(fx, "jorogumo", aimed((ctx, t) -> { t.addStatus(Status.SLEEP); asleep.add((Minion) t); }));
+        banzai(fx, "jorogumo", aimed((ctx, t) -> sleep((Minion) t)));
         banzai(fx, "shinigami", aimed((ctx, t) -> engine.destroy((Minion) t)));
         banzai(fx, "kitsune-no-bakashiya", aimed((ctx, t) -> engine.transform(ctx.source(), ((Minion) t).getSource())));
         banzai(fx, "fujin", aimed((ctx, t) -> engine.bounce((Minion) t)));
@@ -239,6 +239,13 @@ final class MinionEffects {
             if (others.isEmpty()) break;
             engine.fight(a, others.get(engine.rng().nextInt(others.size())));
         }
+    }
+
+    /** Jorōgumo, Oyasumi, Otoshiana: the minion falls asleep until the end of its owner's turn. */
+    void sleep(Minion m) {
+        if (m == null || m.isDead()) return;
+        m.addStatus(Status.SLEEP);
+        asleep.add(m);
     }
 
     /** Jorōgumo: the sleeper wakes at the end of its owner's turn. */
