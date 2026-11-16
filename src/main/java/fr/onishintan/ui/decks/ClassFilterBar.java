@@ -23,7 +23,6 @@ public class ClassFilterBar extends HBox {
     public ClassFilterBar(CardFilter filter, Runnable onChange) {
         super(8);
         setAlignment(Pos.CENTER_LEFT);
-        getChildren().add(DecksView.text("Class", 18, DecksView.PAPER));
         addButton(null, filter, onChange);
         for (HeroClass heroClass : CLASSES) {
             addButton(heroClass, filter, onChange);

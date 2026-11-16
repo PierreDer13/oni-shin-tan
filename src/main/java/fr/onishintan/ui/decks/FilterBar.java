@@ -7,7 +7,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import javafx.geometry.Pos;
-import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
@@ -23,7 +22,7 @@ public class FilterBar extends HBox {
     private static final String SEARCH_PANEL = "/images/deck-builder/search-panel.png";
     private static final double SEARCH_H = 60;
     /** How tall the All / Minions / Spells panels are drawn (the pictures are 396 x 132). */
-    private static final double PANEL_H = 44;
+    static final double PANEL_H = 44;
     /** How see-through a panel that is not picked is. */
     private static final double DIMMED = 0.55;
 
@@ -39,7 +38,6 @@ public class FilterBar extends HBox {
 
         getChildren().add(searchBox());
 
-        getChildren().add(caption("Type"));
         addTypeButton("all", CardFilter.Type.ALL);
         addTypeButton("minions", CardFilter.Type.MINIONS);
         addTypeButton("spells", CardFilter.Type.SPELLS);
@@ -62,7 +60,7 @@ public class FilterBar extends HBox {
         TextField search = new TextField();
         search.setPromptText("Search");
         search.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 14; -fx-background-color: transparent;"
-                + " -fx-text-fill: " + DecksView.INK + ";");
+                + " -fx-alignment: center; -fx-text-fill: white; -fx-prompt-text-fill: white;");
         // Only on the paper: 12 % to 78 % of the width, 27 % to 61 % of the height.
         search.relocate(width * 0.12, SEARCH_H * 0.27);
         search.setPrefSize(width * 0.66, SEARCH_H * 0.34);
@@ -71,13 +69,6 @@ public class FilterBar extends HBox {
             onChange.run();
         });
         return new Pane(panel, search);
-    }
-
-    /** A small label in front of a row of buttons ("Ki", "Type"). */
-    private Label caption(String words) {
-        Label caption = DecksView.text(words, 18, DecksView.PAPER);
-        caption.setStyle(caption.getStyle() + " -fx-padding: 0 0 0 16;");
-        return caption;
     }
 
     /** One type panel (images/deck-builder/<name>-panel.png): All, Minions or Spells. */
