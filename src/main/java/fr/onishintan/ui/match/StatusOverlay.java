@@ -14,18 +14,24 @@ import java.util.Set;
 
 import javafx.animation.Animation;
 import javafx.animation.AnimationTimer;
+import javafx.animation.FadeTransition;
 import javafx.animation.Interpolator;
+import javafx.animation.ParallelTransition;
+import javafx.animation.ScaleTransition;
 import javafx.animation.TranslateTransition;
 import javafx.scene.Node;
+import javafx.scene.effect.DropShadow;
 import javafx.geometry.Rectangle2D;
 import javafx.scene.Group;
 import javafx.scene.image.Image;
+import javafx.scene.control.Label;
+import javafx.scene.paint.Color;
 import javafx.scene.transform.Scale;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.Pane;
 import javafx.util.Duration;
 
-/** Keyword effects drawn over board cards: Shinobi ink clouds, and the Torii gate (drops in once, is cut when it breaks). */
+/** Keyword and status effects drawn over board cards: Shinobi clouds, Torii and Shirodu gates, Passive flag, Seppuku, Tatakae seal, Banzai shout, Sleep zzz. */
 final class StatusOverlay {
     private final Pane live;
     private final Runnable shake;
@@ -76,6 +82,80 @@ final class StatusOverlay {
         s.setPreserveRatio(true);
         s.setOpacity(0.8);
         add(s, x + BoardView.MINION_W / 2 - 13, y + 128);
+    }
+
+
+    /** Tatakae: the turn it is played, a red 戦 seal glows on the card's top-right corner (it can attack at once). */
+    void tatakae(Minion m, double x, double y) {
+        Label seal = new Label("戦");
+        seal.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 24; -fx-font-weight: bold; -fx-text-fill: #f3ede1;"
+                + " -fx-background-color: #b3372a; -fx-background-radius: 6; -fx-padding: 0 4;");
+        seal.setEffect(new DropShadow(12, Color.web("#ff3b1f")));
+        add(seal, x + BoardView.MINION_W - 22, y - 12);
+        drop(List.of("tatakae", m), seal);
+        pulse(seal);
+    }
+
+    /** Banzai: the first time the minion is drawn (just played), a gold 万歳! bursts out of it, grows and rises away, with sparks. */
+    void banzai(Minion m, double x, double y) {
+        List<Object> key = List.of("banzai", m);
+        if (!shown.add(key)) {
+            return;   // already shouted when it was played
+        }
+        Label shout = new Label("万歳!");
+        shout.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 34; -fx-font-weight: bold; -fx-text-fill: #ffd84a;");
+        shout.setEffect(new DropShadow(14, Color.web("#ff8a1f")));
+        add(shout, x + 4, y + 55);
+        Fx.sparks(live, shout);
+
+        // Grows from small to big while it rises, then fades away.
+        ScaleTransition grow = new ScaleTransition(Duration.millis(1200), shout);
+        grow.setFromX(0.4);
+        grow.setFromY(0.4);
+        grow.setToX(1.3);
+        grow.setToY(1.3);
+        TranslateTransition rise = new TranslateTransition(Duration.millis(1200), shout);
+        rise.setByY(-70);
+        FadeTransition fade = new FadeTransition(Duration.millis(500), shout);
+        fade.setDelay(Duration.millis(700));
+        fade.setToValue(0);
+        new ParallelTransition(grow, rise, fade).play();
+    }
+
+    /** Asleep (Status.SLEEP): z, z, Z float up from the top-right corner of the card or hero at (x, y) and fade, over and over. */
+    void sleep(double x, double y) {
+        String[] letters = { "z", "z", "Z" };
+        int[] sizes = { 16, 20, 26 };
+        for (int i = 0; i < letters.length; i++) {
+            Label z = new Label(letters[i]);
+            z.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: " + sizes[i] + "; -fx-font-weight: bold; -fx-text-fill: #f3ede1;");
+            z.setEffect(new DropShadow(6, Color.web("#1c2b4f")));
+            add(z, x + BoardView.MINION_W - 34 + i * 9, y + 6);
+
+            // Each letter rises and fades, then starts again; the three start one after the other.
+            TranslateTransition up = new TranslateTransition(Duration.seconds(1.8), z);
+            up.setFromY(0);
+            up.setToY(-40);
+            FadeTransition fade = new FadeTransition(Duration.seconds(1.8), z);
+            fade.setFromValue(1);
+            fade.setToValue(0);
+            ParallelTransition loop = new ParallelTransition(up, fade);
+            loop.setCycleCount(Animation.INDEFINITE);
+            loop.setDelay(Duration.seconds(i * 0.6));
+            loop.play();
+            z.sceneProperty().addListener((o, was, now) -> { if (now == null) loop.stop(); });
+        }
+    }
+
+    /** Fades a node between full and 60 % forever (the Tatakae seal's glow); stops once it leaves the screen. */
+    private static void pulse(Node n) {
+        FadeTransition t = new FadeTransition(Duration.seconds(0.8), n);
+        t.setFromValue(1);
+        t.setToValue(0.6);
+        t.setAutoReverse(true);
+        t.setCycleCount(Animation.INDEFINITE);
+        t.play();
+        n.sceneProperty().addListener((o, was, now) -> { if (now == null) t.stop(); });
     }
 
     /** Drifts a node `dist` px left and right forever, 3 to 5 s each way, from a random point; stops once it leaves the screen. */
@@ -171,6 +251,12 @@ final class StatusOverlay {
         }
         if (image.equals("shirodu")) {
             return m.hasKeyword(Keyword.SHIRODU);
+        }
+        if (image.equals("tatakae")) {
+            return m.hasKeyword(Keyword.TATAKAE) && m.isSummonedThisTurn();
+        }
+        if (image.equals("banzai")) {
+            return true;   // remembered while the minion lives, so its shout plays only once
         }
         return m.hasKeyword(Keyword.PASSIVE);
     }

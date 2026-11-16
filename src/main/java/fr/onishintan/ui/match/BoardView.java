@@ -655,6 +655,15 @@ public void passTo(String name, Runnable onReady) {
             if (minion.hasKeyword(Keyword.SEPPUKU)) {
                 status.seppuku(x, y);
             }
+            if (minion.hasKeyword(Keyword.TATAKAE) && minion.isSummonedThisTurn()) {
+                status.tatakae(minion, x, y);
+            }
+            if (minion.hasKeyword(Keyword.BANZAI)) {
+                status.banzai(minion, x, y);
+            }
+            if (minion.hasStatus(Status.SLEEP)) {
+                status.sleep(x, y);
+            }
         }
     }
 
@@ -743,6 +752,10 @@ public void passTo(String name, Runnable onReady) {
         }
         clickable(box, h, mine);
         place(box, W / 2 - wid / 2, zoneY + (119 - hgt) / 2);
+        if (h.hasStatus(Status.SLEEP)) {
+            status.follow(box);
+            status.sleep(W / 2 + wid / 2 - BoardView.MINION_W - 10, zoneY);   // zzz from the hero's top-right corner
+        }
         if (h.getHeroClass() == HeroClass.SAMURAI) weaponSlot(h, box, zoneY);
     }
 
