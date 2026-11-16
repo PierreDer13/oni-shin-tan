@@ -35,6 +35,9 @@ public abstract class Combatant {
         return restored;
     }
 
+    /** Destroyed outright, whatever its HP, Torii or armour (Banishment, Abyss). */
+    public void destroy() { health = 0; }
+    
     public boolean isDead() { return health <= 0; }
 
     /** Whether this combatant may attack right now (rules differ for minions and heroes). */

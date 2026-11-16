@@ -20,6 +20,9 @@ public record GameEvent(Type type, Object source, Object target, int amount) {
         OATH_REWARD,                // amount = 3, 6 or 9
         OATH_BROKEN,                // amount = damage taken by the owner's hero
         OATH_RESTORED,              // Oathbreaker over: the player may re-swear
+        HAND_REVEALED,              // source = Player whose hand is shown (Revelation), target = List<Card> copy, amount = hand size
+        CARD_DISCARDED,             // source = Player, target = the Card thrown away
+        TRAPS_STOLEN,               // source = the Player robbed, target = the thief, amount = Traps taken
         TRAP_SET,                   // source = Player, target = the TrapCard (UI: face down unless source is the local player), amount = traps set now        
         TRAP_TRIGGERED,             // source = trap owner, target = the TrapCard, now revealed       
         CURSE_GIVEN,                // source = cursing Player, target = the CurseCard, amount = copies

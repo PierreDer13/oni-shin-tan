@@ -150,6 +150,13 @@ public class Player {
         return Optional.empty();
     }
 
+    /** Empties the set traps and returns them (Exposed: the opponent steals them). */
+    public List<TrapCard> takeAllTraps() {
+        List<TrapCard> all = new ArrayList<>(traps);
+        traps.clear();
+        return all;
+    }
+
     /** What the enemy may see: how many, not which. */
     public int trapCount() { return traps.size(); }
 
