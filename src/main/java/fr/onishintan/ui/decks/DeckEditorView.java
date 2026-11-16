@@ -7,6 +7,7 @@ import fr.onishintan.ui.MockCards;
 import fr.onishintan.ui.app.SceneRouter;
 import fr.onishintan.ui.app.Screen;
 import fr.onishintan.ui.app.ScreenGrid;
+import fr.onishintan.ui.app.Images;
 import fr.onishintan.ui.cards.CardPreview;
 
 import java.util.ArrayList;
@@ -15,14 +16,18 @@ import java.util.List;
 
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.Pane;
 
 /**
  * Deck Builder, screen 2: edit one deck.
- * Left: the cards you may put in it (CollectionPanel). Right: the deck itself (DeckPanel).
+ * Left: the cards you may put in it (CollectionPanel). Right: the deck itself, in the decorated frame (DeckPanel).
  * Left click a card to add it, right click to take it out. Save keeps the changes, Cancel forgets them.
  */
 public class DeckEditorView extends Pane {
+    /** The decorated deck frame down the right side: its picture, its width and where it starts. */
+    private static final String FRAME = "/images/deck-builder/deck-frame.png";
+    private static final double FRAME_W = 482, FRAME_X = ScreenGrid.W - FRAME_W;
     private final SceneRouter router;
     private final SavedDeck deck;
     /** The deck list's class filter, so Save and Cancel go back to the same list. */
@@ -32,7 +37,7 @@ public class DeckEditorView extends Pane {
 
     private final Pane grid = new Pane();
     private final TextField nameField;
-    private final Label countLabel = DecksView.text("", 26, DecksView.INK);
+    private final Label countLabel = DecksView.text("", 26, DecksView.PAPER);
     private final Label messageLabel = DecksView.text("", 18, "#c41e1e");
     private final DeckPanel deckPanel;
     /** What the collection shows: search, Ki and card type. The FilterBar changes it. */
@@ -54,19 +59,19 @@ public class DeckEditorView extends Pane {
         this.cards = deck.getCards();   // getCards() gives a copy, so the real deck changes only on Save
         ScreenGrid.fitToWindow(this, grid);
 
-        // Top bar: the deck name you can type in, the card count, a message line, Cancel and Save.
+        // Top bar: the deck name you can type in and a message line; the count, Cancel and Save sit in the deck frame on the right.
         nameField = new TextField(deck.getName());
         nameField.setPrefWidth(420);
         nameField.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 26; -fx-font-weight: bold;"
                 + " -fx-background-color: #fbf8f1; -fx-border-color: #d9cfbd; -fx-border-radius: 6; -fx-background-radius: 6;");
         nameField.relocate(30, 30);
-        countLabel.relocate(480, 30);
+        countLabel.relocate(1185, 112);   // at the top of the frame, under its ornament
         messageLabel.relocate(480, 72);
 
         Label cancel = DecksView.button("Cancel", this::cancel);
-        cancel.relocate(1330, 36);
+        cancel.relocate(1180, 712);
         Label save = DecksView.button("Save", this::save);
-        save.relocate(1460, 36);
+        save.relocate(1460, 712);
         grid.getChildren().addAll(nameField, countLabel, messageLabel, cancel, save);
 
                // Left: the filter bar, then every card this deck may hold. Right: the deck.
@@ -77,9 +82,13 @@ public class DeckEditorView extends Pane {
         collection = new CollectionPanel(this::addCard, this::removeCard, preview);
         collection.relocate(0, 0);
         grid.getChildren().add(0, collection);   // behind everything: its shelves are the page's background
-        grid.getChildren().add(1, FilterBanner.plank(ScreenGrid.W, 185));   // the plank across the top, behind the name, buttons and filters
+        grid.getChildren().add(1, FilterBanner.plank(FRAME_X, 185));   // the plank across the top, up to the frame
+        // The decorated frame down the whole right side (from the Adventure page); the deck list, count and buttons sit inside it.
+        ImageView frame = new ImageView(Images.get(FRAME, FRAME_W, ScreenGrid.H));
+        frame.relocate(FRAME_X, 0);
+        grid.getChildren().add(2, frame);
         deckPanel = new DeckPanel(preview, this::removeCard);
-        deckPanel.relocate(1160, 130);
+        deckPanel.relocate(1157, 155);
         SorobanFilter soroban = new SorobanFilter(filter, this::showCollection, 420);
         soroban.relocate(690, 14);
         grid.getChildren().addAll(filterBar, soroban, deckPanel);

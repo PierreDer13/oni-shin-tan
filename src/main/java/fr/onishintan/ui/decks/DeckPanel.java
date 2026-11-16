@@ -12,7 +12,7 @@ import javafx.scene.control.ScrollPane;
 import javafx.scene.layout.VBox;
 
 /**
- * Right side of the deck editor: the deck in Ki sections, cheapest first (DeckListView).
+ * Right side of the deck editor, inside the decorated frame: the deck in Ki sections, cheapest first (DeckListView).
  * Hovering a card shows it big; a right click takes one copy out.
  */
 class DeckPanel extends ScrollPane {
@@ -23,18 +23,18 @@ class DeckPanel extends ScrollPane {
     private final DeckListView list;
 
     DeckPanel(CardPreview preview, Consumer<Card> onRemove) {
-        list = new DeckListView(LIST_W, DecksView.INK, preview, onRemove);
+        list = new DeckListView(LIST_W, DecksView.PAPER, preview, onRemove);
         content.setPadding(new Insets(10));
         setContent(content);
-        setPrefSize(WIDTH, 750);
+        setPrefSize(WIDTH, 545);
         setHbarPolicy(ScrollBarPolicy.NEVER);
-        setStyle("-fx-background-color: #fbf8f1; -fx-background: #fbf8f1; -fx-border-color: #d9cfbd; -fx-border-radius: 8;");
+        setStyle("-fx-background-color: transparent; -fx-background: transparent;");   // the frame's dark inside shows through
     }
 
     /** Redraws the deck: each different card once, with how many copies there are, in Ki sections. */
     void show(List<Card> cards) {
         if (cards.isEmpty()) {
-            content.getChildren().setAll(DecksView.text("Left click a card to add it.", 18, DecksView.INK));
+            content.getChildren().setAll(DecksView.text("Left click a card to add it.", 18, DecksView.PAPER));
             return;
         }
         list.show(cards);
