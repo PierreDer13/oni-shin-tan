@@ -6,6 +6,7 @@ import fr.onishintan.model.Hero;
 import fr.onishintan.model.Minion;
 import fr.onishintan.model.Player;
 import fr.onishintan.model.Status;
+import java.util.function.Predicate;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -24,6 +25,25 @@ public class CombatResolver {
     private final GameState state;
     private final Consumer<GameEvent> publish;
 
+
+    /** What a hit deals once the Oath rewards are counted (Justice 6). */
+    public interface DamageRule {
+        int apply(Combatant source, Combatant target, int amount);
+    }
+
+    private DamageRule damageRule = (source, target, amount) -> amount;
+    private Predicate<Combatant> piercing = c -> false;
+
+    /** Set by GameEngine. */
+    void setDamageRule(DamageRule rule) {
+        damageRule = Objects.requireNonNull(rule);
+    }
+
+    /** Attackers that ignore Shirodu and Torii (Descension 6). Set by GameEngine. */
+    void setPiercing(Predicate<Combatant> rule) {
+        piercing = Objects.requireNonNull(rule);
+    }
+
     public CombatResolver(GameState state, Consumer<GameEvent> publish) {
         this.state = Objects.requireNonNull(state);
         this.publish = Objects.requireNonNull(publish);
@@ -35,8 +55,11 @@ public class CombatResolver {
         if (attacker == null || !belongsToActive(attacker)) return targets;
 
         Player enemy = state.opponent();
-        for (Minion m : enemy.getSide().shirodus()) {
-            if (!m.isHidden()) targets.add(m);          // a hidden Shirodu does not guard
+        if (!piercing.test(attacker)) {
+            for (Minion m : enemy.getSide().shirodus()) {
+                if (!m.isHidden()) targets.add(m);      // a hidden Shirodu does not guard
+            }
+            if (!targets.isEmpty()) return targets;
         }
         if (!targets.isEmpty()) return targets;
 
@@ -59,12 +82,13 @@ public class CombatResolver {
         if (!canAttack(attacker, target)) return false;
 
         boolean hadWeapon = attacker instanceof Hero h && h.getWeapon() != null;
-        int dealt = attacker.getAttack();
-        int back = (target instanceof Minion) ? target.getAttack() : 0;
+        int dealt = damageRule.apply(attacker, target, attacker.getAttack());
+        int back = (target instanceof Minion) ? damageRule.apply(target, attacker, target.getAttack()) : 0;
 
         publish.accept(GameEvent.of(Type.ATTACK, attacker, target));
 
-        target.takeDamage(dealt);
+        if (target instanceof Minion m && piercing.test(attacker)) m.takeDamageIgnoringTorii(dealt);
+        else target.takeDamage(dealt);
         publish.accept(new GameEvent(Type.DAMAGE, attacker, target, dealt));
         if (back > 0) {
             attacker.takeDamage(back);

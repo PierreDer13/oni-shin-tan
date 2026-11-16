@@ -48,6 +48,9 @@ public class GameEngine {
     private final TurnTracker turnTracker = new TurnTracker();
     private final OathRules oathRules;
     private final OathPenalties penalties = new OathPenalties(this);    
+    private final OathRewards rewards = new OathRewards(this);
+    /** The holder of the hand Curse acting right now (fireCurse), null otherwise. */
+    private Player cursed;    
     private final Random rng;
 
     private LongSupplier now = System::currentTimeMillis;   // replaced in tests
@@ -96,7 +99,11 @@ public class GameEngine {
         this.combat = new CombatResolver(state, this::publish);
         this.oathRules = new OathRules(combat);
         turns.setDrawRule(p -> !penalties.has(p, OathPenalties.Lasting.NO_DRAW));
-        
+        oathRules.setCost(this::costOf);
+        combat.setPiercing(rewards::pierces);
+        combat.setDamageRule((source, target, amount) -> rewards.combatDamage(ownerOf(source), target, amount));
+
+
         // Rule handlers: they run before the UI hears the event
         bus.subscribe(GameEvent.Type.MINION_DIED,
                 e -> runTrigger(Trigger.SEPPUKU, (Player) e.source(), (Minion) e.target(), null));
@@ -107,7 +114,9 @@ public class GameEngine {
         bus.subscribe(GameEvent.Type.TURN_STARTED,
              e -> turnTracker.reset());
         bus.subscribe(GameEvent.Type.CARD_PLAYED,
-             e -> turnTracker.cardPlayed((Card) e.target()));
+             e -> turnTracker.cardPlayed((Card) e.target(), e.amount()));
+        bus.subscribe(GameEvent.Type.HERO_POWER_USED,
+             e -> turnTracker.addKiSpent(e.amount()));
         bus.subscribe(GameEvent.Type.TURN_ENDED,
              e -> tickShrines((Player) e.source()));
         bus.subscribe(GameEvent.Type.TURN_ENDED,
@@ -129,8 +138,10 @@ public class GameEngine {
                 int bonus = p.getMikoCalls() / MIKO_BONUS_EVERY;
                 if (bonus > 0) m.buff(bonus, bonus);
             }
-        });    
-}
+        });
+        // Oath rewards (3 and 6 stacks): last, so they see what the rule handlers recorded
+        for (GameEvent.Type t : GameEvent.Type.values()) bus.subscribe(t, rewards::onEvent);
+    }
 
     // ---------- listeners ----------
 
@@ -208,6 +219,8 @@ public class GameEngine {
         ending.getClock().pause(now.getAsLong());
         if (clocksEnabled()) ending.getClock().add(ChessClock.INCREMENT_MS);
         publish(GameEvent.of(GameEvent.Type.TURN_ENDED, ending, null));
+        rewards.endTurn(ending);              // end-of-turn Oath rewards (Allegiance 3, Peace 6...)
+        if (state.isOver()) return;
         penalties.tick(ending);               // his lasting Oath penalties lose one of his turns
         resolveOath(ending);
         if (state.isOver()) return;           // an Oath break can kill its own hero
@@ -326,7 +339,7 @@ public class GameEngine {
     /** True if the active player has the card in hand and enough Ki, and no Oath penalty forbids it. */
     public boolean canPlay(Card card) {
         Player p = state.active();
-        if (card == null || !p.getHand().contains(card) || !p.canAfford(card.getKiCost())) return false;
+        if (card == null || !p.getHand().contains(card) || !p.canAfford(costOf(p, card))) return false;
         if (card instanceof ShrineCard && penalties.has(p, OathPenalties.Lasting.NO_SHRINE)) return false;   // Profanity
         return !(card instanceof CurseCard && !p.isHeldCurse(card)
                 && penalties.has(p, OathPenalties.Lasting.NO_CURSE));                                        // Exorcism
@@ -354,17 +367,19 @@ public class GameEngine {
         // A trap is set face down: TRAP_SET instead of CARD_PLAYED. Only its owner's UI shows the card
         if (card instanceof TrapCard trap) {
             if (!p.canSetTrap(trap)) return false;
-            p.spendKi(trap.getKiCost());
+            int paid = costOf(p, trap);
+            p.spendKi(paid);
             p.removeFromHand(trap);
             p.setTrap(trap);
-            turnTracker.trapSet(trap);
+            turnTracker.trapSet(trap, paid);
             publish(new GameEvent(GameEvent.Type.TRAP_SET, p, trap, p.trapCount()));
             return true;
         }
 
-        p.spendKi(card.getKiCost());
+        int paid = costOf(p, card);
+        p.spendKi(paid);
         p.removeFromHand(card);
-        publish(GameEvent.of(GameEvent.Type.CARD_PLAYED, p, card));
+        publish(new GameEvent(GameEvent.Type.CARD_PLAYED, p, card, paid));   // amount = Ki paid
 
         if (card instanceof MinionCard mc) {
             Minion m = new Minion(mc);
@@ -414,7 +429,7 @@ public class GameEngine {
             case NINJA -> {
                 if (!isPowerTarget(target)) return false;
                 payPower(p, HERO_POWER_COST);
-                int dealt = target.takeDamage(SHURIKEN_DAMAGE);
+                int dealt = target.takeDamage(rewards.effectDamage(p, false, target, SHURIKEN_DAMAGE));
                 publish(new GameEvent(GameEvent.Type.DAMAGE, p.getHero(), target, dealt));
             }
             case KANNUSHI -> {
@@ -433,7 +448,7 @@ public class GameEngine {
             case ONI -> {
                 if (!isPowerTarget(target)) return false;
                 payPower(p, HERO_POWER_COST);
-                int dealt = target.takeDamage(JIKININKI_DRAIN);
+                int dealt = target.takeDamage(rewards.effectDamage(p, false, target, JIKININKI_DRAIN));
                 publish(new GameEvent(GameEvent.Type.DAMAGE, p.getHero(), target, dealt));
                 int healed = p.getHero().heal(dealt);
                 publish(new GameEvent(GameEvent.Type.HEAL, p.getHero(), p.getHero(), healed));
@@ -541,9 +556,11 @@ public class GameEngine {
 
     private void fireCurse(Player victim, CurseCard curse) {
         publish(GameEvent.of(GameEvent.Type.CURSE_TRIGGERED, victim, curse));
+        Player before = cursed;
+        cursed = victim;                      // its damage is the cursing player's (Corruption 3)
         cardEffects.get(curse.getId(), Trigger.CURSE)
                 .ifPresent(effect -> effect.apply(new EffectContext(this, victim, null, null)));
-        combat.removeDead();
+        cursed = before;        combat.removeDead();
         checkGameOver();
     }
 
@@ -588,9 +605,16 @@ public class GameEngine {
         checkGameOver();
     }
 
-    /** Effect damage: publishes DAMAGE, removes the dead, checks game over. */
+    /**
+     * Effect damage: publishes DAMAGE, removes the dead, checks game over.
+     * Oath rewards count, except on an Oath's own damage (break, Defilement) and the clock's.
+     */
     void dealDamage(Object source, Combatant target, int amount) {
         if (target == null || amount <= 0) return;
+        if (!(source instanceof Oath) && !(source instanceof ChessClock)) {
+            Player dealer = cursed != null ? state.opponentOf(cursed) : state.active();
+            amount = rewards.effectDamage(dealer, cursed != null, target, amount);
+        }
         int taken = target.takeDamage(amount);
         publish(new GameEvent(GameEvent.Type.DAMAGE, source, target, taken));
         combat.removeDead();
@@ -599,9 +623,10 @@ public class GameEngine {
 
     void heal(Combatant target, int amount) {
         if (healBlocked(target)) return;                                 // Defilement
-        int restored = target.heal(amount);
+        int restored = target.heal(rewards.heal(amount));                // Purity 3
         if (restored > 0) publish(new GameEvent(GameEvent.Type.HEAL, null, target, restored));
-    }
+        rewards.healed(target, restored);                                 // Purity 6
+    }                                // Purity 6    }
 
     void gainArmour(Player owner, int amount) {
         Hero hero = owner.getHero();
@@ -614,7 +639,35 @@ public class GameEngine {
         publishDraw(p, p.draw());
     }
 
-    // ---------- Oath penalties ----------
+    // ---------- Oath rewards and penalties ----------
+    
+    /** What this card costs p now, Oath rewards included (Silence 3, Deception 3, Descension 3). The UI shows this. */
+    public int costOf(Player p, Card card) {
+        return rewards.cost(p, card);
+    }
+
+    /** The player whose hero or minion this is, or null if it is not on the board. */
+    Player ownerOf(Combatant c) {
+        for (Player p : List.of(state.getFirst(), state.getSecond())) {
+            if (c == p.getHero() || (c instanceof Minion m && p.getSide().slotOf(m) >= 0)) return p;
+        }
+        return null;
+    }
+
+    /** A token summoned by a rule (Allegiance 6 Retainer) in p's leftmost free slot. False if his side is full. */
+    boolean summon(Player p, MinionCard card) {
+        int slot = p.getSide().firstFree();
+        if (slot < 0) return false;
+        Minion m = new Minion(card);
+        p.getSide().place(m, slot);
+        publish(GameEvent.of(GameEvent.Type.MINION_SUMMONED, p, m));
+        triggerTraps(state.opponentOf(p), TrapTrigger.ON_ENEMY_SUMMON, m);
+        return true;
+    }
+
+    Random rng() { return rng; }
+
+    OathRewards getRewards() { return rewards; }
 
     OathPenalties getPenalties() { return penalties; }
 

@@ -21,7 +21,7 @@ public class TurnTracker {
 
     private int cardsPlayed;
     private int minionsPlayed;
-    private int kiSpent;
+    private int kiSpent;                  // Ki actually paid: cards (Oath discounts included) and hero power
     private int trapsSet;
     private int bigMinionsPlayed;
     private int heroAttacks;              // friendly minions that hit the enemy hero (Honor)
@@ -47,9 +47,9 @@ public class TurnTracker {
         attacked.clear();
     }
 
-    void cardPlayed(Card card) {
+    void cardPlayed(Card card, int paid) {
         cardsPlayed++;
-        kiSpent += card.getKiCost();
+        kiSpent += paid;
         if (card instanceof MinionCard mc) {
             minionsPlayed++;
             if (mc.getBaseAttack() >= BIG_ATTACK) bigMinionsPlayed++;
@@ -57,10 +57,13 @@ public class TurnTracker {
     }
 
     /** A trap is a card played too, but announced as TRAP_SET to keep it hidden. */
-    void trapSet(Card card) {
-        cardPlayed(card);
+    void trapSet(Card card, int paid) {
+        cardPlayed(card, paid);
         trapsSet++;
     }
+
+    /** Ki paid outside a card (hero power, katana). */
+    void addKiSpent(int paid) { kiSpent += paid; }
 
     void attacked(Combatant target) { attacked.add(target); }
 

@@ -57,6 +57,18 @@ public class Minion extends Combatant implements BoardEntity {
         health += hp;
     }
 
+    /** Takes back a bonus given by buff (an aura that ends): max HP drops, HP only down to the new max. */
+    public void unbuff(int atk, int hp) {
+        attack = Math.max(0, attack - atk);
+        maxHealth -= hp;
+        health = Math.min(health, maxHealth);
+    }
+
+    /** A hit that goes through Torii (Descension 6 attackers): the Torii stacks stay. */
+    public int takeDamageIgnoringTorii(int amount) {
+        return super.takeDamage(amount);
+    }
+
     public void giveKeyword(Keyword k) {
         keywords.add(k);
         if (k == Keyword.TORII) toriiStacks++;

@@ -8,6 +8,7 @@ import java.util.EnumMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Predicate;
+import java.util.function.ToIntBiFunction;
 import java.util.stream.Stream;
 
 import fr.onishintan.model.Card;
@@ -28,6 +29,7 @@ import fr.onishintan.model.TrapCard;
 public class OathRules {
     private final CombatResolver combat;
     private final Map<OathType, OathRule> rules = new EnumMap<>(OathType.class);
+    private ToIntBiFunction<Player, Card> cost = (p, c) -> c.getKiCost();
 
     public OathRules(CombatResolver combat) {
         this.combat = Objects.requireNonNull(combat);
@@ -43,6 +45,11 @@ public class OathRules {
         rules.put(OathType.HAVOC, this::havoc);
         rules.put(OathType.DESCENSION, this::descension);
         rules.put(OathType.CORRUPTION, this::corruption);
+    }
+
+    /** What a card costs its player now (Oath rewards). Set by GameEngine. */
+    void setCost(ToIntBiFunction<Player, Card> cost) {
+        this.cost = Objects.requireNonNull(cost);
     }
 
     public OathRule get(OathType type) {
@@ -146,12 +153,12 @@ public class OathRules {
     }
 
     /** True if a card of that kind in hand could still be played now (Ki, slot, trap duplicate, not a held Curse). */
-    private static boolean couldPlay(Player p, Predicate<Card> kind) {
+    private boolean couldPlay(Player p, Predicate<Card> kind) {
         return p.getHand().stream().filter(kind).anyMatch(c -> playableNow(p, c));
     }
 
-    private static boolean playableNow(Player p, Card c) {
-        if (!p.canAfford(c.getKiCost()) || p.isHeldCurse(c)) return false;
+    private boolean playableNow(Player p, Card c) {
+        if (!p.canAfford(cost.applyAsInt(p, c)) || p.isHeldCurse(c)) return false;
         if (c instanceof TrapCard t) return p.canSetTrap(t);
         if (c instanceof MinionCard || c instanceof ShrineCard || c instanceof RiteCard) return !p.getSide().isFull();
         return true;
