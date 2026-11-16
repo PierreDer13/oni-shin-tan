@@ -6,14 +6,14 @@ import fr.onishintan.model.MinionCard;
 import fr.onishintan.model.SpellCard;
 
 import java.text.Normalizer;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
- * What the deck editor's collection shows: a search on name and effect, a Ki cost and a card type.
- * A part left empty ("", ANY_KI, Type.ALL) lets every card through.
+ * What the deck editor and the Inventory show: a search on name and effect, the Ki costs picked on the soroban, a card type and a class.
+ * A part left empty ("", no Ki picked, Type.ALL, no class) lets every card through.
  */
 public class CardFilter {
-    /** Ki value meaning "any cost". */
-    static final int ANY_KI = -1;
     /** The last Ki button: this cost or more ("7+"). */
     static final int KI_OR_MORE = 7;
 
@@ -21,7 +21,8 @@ public class CardFilter {
     enum Type { ALL, MINIONS, SPELLS }
 
     private String search = "";
-    private int ki = ANY_KI;
+    /** The Ki costs picked on the soroban; none picked = any cost. */
+    private final Set<Integer> kiValues = new HashSet<>();
     private Type type = Type.ALL;
     /** The class to show, or null for every class. */
     private HeroClass heroClass;
@@ -31,9 +32,13 @@ public class CardFilter {
         search = plain(text.trim());
     }
 
-    /** Sets the Ki cost: ANY_KI, one cost, or KI_OR_MORE for that cost and more. */
-    void setKi(int ki) {
-        this.ki = ki;
+    /** Picks this Ki cost, or unpicks it if it was picked (KI_OR_MORE = 7 and more). Returns true if it is picked now. */
+    boolean toggleKi(int ki) {
+        if (kiValues.remove(ki)) {
+            return false;
+        }
+        kiValues.add(ki);
+        return true;
     }
 
     /** Sets the card type to show. */
@@ -62,15 +67,16 @@ public class CardFilter {
         return inName || inKanji || inEffect;
     }
 
-    /** The card costs the Ki picked (or at least KI_OR_MORE for the last button). */
+    /** The card costs one of the Ki picked on the soroban (7+ covers 7 and more); with none picked, any cost passes. */
     private boolean matchesKi(Card card) {
-        if (ki == ANY_KI) {
+        if (kiValues.isEmpty()) {
             return true;
         }
-        if (ki == KI_OR_MORE) {
-            return card.getKiCost() >= KI_OR_MORE;
+        int cost = card.getKiCost();
+        if (cost >= KI_OR_MORE) {
+            return kiValues.contains(KI_OR_MORE);
         }
-        return card.getKiCost() == ki;
+        return kiValues.contains(cost);
     }
 
     /** The card is of the type picked. Traps are spells. */
