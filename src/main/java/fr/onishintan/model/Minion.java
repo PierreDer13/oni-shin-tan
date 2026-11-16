@@ -11,6 +11,7 @@ public class Minion extends Combatant implements BoardEntity {
     private boolean summonedThisTurn = true;
     private boolean hidden;     // Shinobi: untargetable until it attacks
     private int toriiStacks;    // each stack blocks one hit; Torii can be given several times
+    private int armour;         // Yoroi: taken off before HP, after Torii
 
     public Minion(MinionCard source) {
         super(source.getBaseAttack(), source.getBaseHealth());
@@ -29,7 +30,7 @@ public class Minion extends Combatant implements BoardEntity {
             toriiStacks--;
             return 0;
         }
-        return super.takeDamage(amount);
+        return takeDamageIgnoringTorii(amount);
     }
 
     @Override
@@ -64,9 +65,27 @@ public class Minion extends Combatant implements BoardEntity {
         health = Math.min(health, maxHealth);
     }
 
-    /** A hit that goes through Torii (Descension 6 attackers): the Torii stacks stay. */
     public int takeDamageIgnoringTorii(int amount) {
-        return super.takeDamage(amount);
+        if (amount <= 0) return 0;
+        int absorbed = Math.min(armour, amount);   // armour goes before HP
+        armour -= absorbed;
+        return super.takeDamage(amount - absorbed);
+    }
+
+    /** Yoroi: armour on a minion, lost before its HP. */
+    public void gainArmour(int n) { if (n > 0) armour += n; }
+
+    public int getArmour() { return armour; }
+
+    /** Kettō winner: left on half its HP, rounded up. */
+    public void halveHealth() { health = (health + 1) / 2; }
+
+    /** Sakasama: ATK and HP swapped; the new HP is also the max. 0 HP = dead. */
+    public void swapStats() {
+        int atk = attack;
+        attack = Math.max(0, health);
+        health = atk;
+        maxHealth = atk;
     }
 
     public void giveKeyword(Keyword k) {

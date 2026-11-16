@@ -10,6 +10,7 @@ public record GameEvent(Type type, Object source, Object target, int amount) {
         MATCH_STARTED, TURN_STARTED, TURN_ENDED,
         CARD_DRAWN, CARD_BURNED, CARD_PLAYED, CARD_TRADED, SPELL_CAST,
         MINION_SUMMONED, MINION_DIED,
+        MINION_REMOVED,             // source = owner, target = the Minion, gone without dying (Kamikakushi: back into the deck)
         ATTACK, DAMAGE, HEAL,
         ARMOUR_GAINED, ARMOUR_BROKEN,
         KEYWORD_LOST,               // Torii cut, Shirodu cut, Shinobi revealed
