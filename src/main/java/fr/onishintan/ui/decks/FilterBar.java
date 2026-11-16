@@ -10,19 +10,18 @@ import javafx.geometry.Pos;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Pane;
+import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 
 /**
- * The row above the cards: a search box and the type panels (All, Minions, Spells). The Ki filter is the soroban (SorobanFilter).
+ * The row above the cards: the search panel and the type panels (All, Minions, Spells). The Ki filter is the soroban (SorobanFilter).
  * It writes each choice into the CardFilter, then calls onChange.
  */
 public class FilterBar extends HBox {
-    private static final String BUTTON = "-fx-font-family: 'Yu Mincho'; -fx-font-weight: bold; -fx-font-size: 16;"
-            + " -fx-padding: 4 10; -fx-background-radius: 8;";
-    /** A button that is not picked: ink on light paper. */
-    static final String OFF = BUTTON + " -fx-text-fill: " + DecksView.INK + "; -fx-background-color: #e6dccb;";
-    /** The picked button: paper on dark ink, like the other Deck Builder buttons. */
-    static final String ON = BUTTON + " -fx-text-fill: " + DecksView.PAPER + "; -fx-background-color: rgba(20,12,8,0.85);";
+    /** The search panel (396 x 132) and how tall it is drawn; the text box sits on its paper. */
+    private static final String SEARCH_PANEL = "/images/deck-builder/search-panel.png";
+    private static final double SEARCH_H = 60;
     /** How tall the All / Minions / Spells panels are drawn (the pictures are 396 x 132). */
     private static final double PANEL_H = 44;
     /** How see-through a panel that is not picked is. */
@@ -49,18 +48,29 @@ public class FilterBar extends HBox {
         pickPanel(typeButtons, typeButtons.get(0));
     }
 
-    /** The search box: the collection is filtered again on every key typed. */
-    private TextField searchBox() {
+    /**
+     * The search panel (images/deck-builder/search-panel.png) with a see-through text box on its paper,
+     * right of the knot and left of the magnifying glass. The collection is filtered again on every key typed.
+     */
+    private Pane searchBox() {
+        Image picture = Images.get(SEARCH_PANEL);
+        double width = SEARCH_H * picture.getWidth() / picture.getHeight();
+        ImageView panel = new ImageView(picture);
+        panel.setFitWidth(width);
+        panel.setFitHeight(SEARCH_H);
+
         TextField search = new TextField();
-        search.setPromptText("Search a name or effect");
-        search.setPrefWidth(240);
-        search.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 16;"
-                + " -fx-background-color: #fbf8f1; -fx-border-color: #d9cfbd; -fx-border-radius: 6; -fx-background-radius: 6;");
+        search.setPromptText("Search");
+        search.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 14; -fx-background-color: transparent;"
+                + " -fx-text-fill: " + DecksView.INK + ";");
+        // Only on the paper: 12 % to 78 % of the width, 27 % to 61 % of the height.
+        search.relocate(width * 0.12, SEARCH_H * 0.27);
+        search.setPrefSize(width * 0.66, SEARCH_H * 0.34);
         search.textProperty().addListener((property, oldText, newText) -> {
             filter.setSearch(newText);
             onChange.run();
         });
-        return search;
+        return new Pane(panel, search);
     }
 
     /** A small label in front of a row of buttons ("Ki", "Type"). */
@@ -84,19 +94,8 @@ public class FilterBar extends HBox {
         getChildren().add(panel);
     }
 
-    /** Shows `picked` as chosen and the other buttons of its row as not chosen. */
-    static void pick(List<Label> row, Label picked) {
-        for (Label button : row) {
-            if (button == picked) {
-                button.setStyle(ON);
-            } else {
-                button.setStyle(OFF);
-            }
-        }
-    }
-
     /** Shows `picked` as chosen (full colour) and the other panels of its row dimmed. */
-    private static void pickPanel(List<ImageView> row, ImageView picked) {
+    static void pickPanel(List<ImageView> row, ImageView picked) {
         for (ImageView panel : row) {
             if (panel == picked) {
                 panel.setOpacity(1);
