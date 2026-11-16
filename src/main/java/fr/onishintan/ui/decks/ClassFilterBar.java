@@ -1,13 +1,14 @@
 package fr.onishintan.ui.decks;
 
 import fr.onishintan.model.HeroClass;
+import fr.onishintan.ui.app.Images;
 import fr.onishintan.ui.screens.HomeView;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import javafx.geometry.Pos;
-import javafx.scene.control.Label;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.HBox;
 
 /**
@@ -17,28 +18,34 @@ import javafx.scene.layout.HBox;
 public class ClassFilterBar extends HBox {
     private static final HeroClass[] CLASSES = { HeroClass.SAMURAI, HeroClass.NINJA, HeroClass.KANNUSHI, HeroClass.ONI, HeroClass.NEUTRAL };
 
-    private final List<Label> buttons = new ArrayList<>();
+    private final List<ImageView> buttons = new ArrayList<>();
 
     public ClassFilterBar(CardFilter filter, Runnable onChange) {
         super(8);
         setAlignment(Pos.CENTER_LEFT);
         getChildren().add(DecksView.text("Class", 18, DecksView.PAPER));
-        addButton("All", null, filter, onChange);
+        addButton(null, filter, onChange);
         for (HeroClass heroClass : CLASSES) {
-            addButton(heroClass.getDisplayName(), heroClass, filter, onChange);
+            addButton(heroClass, filter, onChange);
         }
-        FilterBar.pick(buttons, buttons.get(0));   // at the start every class is shown
+        FilterBar.pickPanel(buttons, buttons.get(0));   // at the start every class is shown
     }
 
-    /** One class button (null = every class): picks it, filters, then calls onChange. */
-    private void addButton(String words, HeroClass heroClass, CardFilter filter, Runnable onChange) {
-        Label button = new Label(words);
-        HomeView.clickable(button, false, () -> {
+        /** One class panel (images/deck-builder/<class>-panel.png; null = every class, the All panel): picks it, filters, then calls onChange. */
+    private void addButton(HeroClass heroClass, CardFilter filter, Runnable onChange) {
+        String name = "all";
+        if (heroClass != null) {
+            name = heroClass.name().toLowerCase();
+        }
+        ImageView panel = new ImageView(Images.get("/images/deck-builder/" + name + "-panel.png"));
+        panel.setFitHeight(FilterBar.PANEL_H);
+        panel.setPreserveRatio(true);
+        HomeView.clickable(panel, false, () -> {
             filter.setHeroClass(heroClass);
-            FilterBar.pick(buttons, button);
+            FilterBar.pickPanel(buttons, panel);
             onChange.run();
         });
-        buttons.add(button);
-        getChildren().add(button);
+        buttons.add(panel);
+        getChildren().add(panel);
     }
 }
