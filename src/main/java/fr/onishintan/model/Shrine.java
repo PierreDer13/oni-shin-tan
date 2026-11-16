@@ -14,7 +14,8 @@ public class Shrine implements BoardEntity {
 
     /** End of the owner's turn: one turn less. */
     public void tick() { if (turnsLeft > 0) turnsLeft--; }
-
+    /** Stays n more turns (Divinity 3). */
+    public void extend(int n) { if (n > 0) turnsLeft += n; }
     public boolean isExpired() { return turnsLeft <= 0; }
     public int getTurnsLeft() { return turnsLeft; }
     public ShrineCard getSource() { return source; }
