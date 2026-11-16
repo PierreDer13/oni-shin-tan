@@ -1,6 +1,7 @@
 package fr.onishintan.ui.decks;
 
 import fr.onishintan.ui.screens.HomeView;
+import fr.onishintan.ui.app.Images;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -9,9 +10,10 @@ import javafx.geometry.Pos;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.HBox;
+import javafx.scene.image.ImageView;
 
 /**
- * The row above the cards: a search box and type buttons (All, Minions, Spells). The Ki filter is the soroban (SorobanFilter).
+ * The row above the cards: a search box and the type panels (All, Minions, Spells). The Ki filter is the soroban (SorobanFilter).
  * It writes each choice into the CardFilter, then calls onChange.
  */
 public class FilterBar extends HBox {
@@ -21,10 +23,14 @@ public class FilterBar extends HBox {
     static final String OFF = BUTTON + " -fx-text-fill: " + DecksView.INK + "; -fx-background-color: #e6dccb;";
     /** The picked button: paper on dark ink, like the other Deck Builder buttons. */
     static final String ON = BUTTON + " -fx-text-fill: " + DecksView.PAPER + "; -fx-background-color: rgba(20,12,8,0.85);";
+    /** How tall the All / Minions / Spells panels are drawn (the pictures are 396 x 132). */
+    private static final double PANEL_H = 44;
+    /** How see-through a panel that is not picked is. */
+    private static final double DIMMED = 0.55;
 
     private final CardFilter filter;
     private final Runnable onChange;
-    private final List<Label> typeButtons = new ArrayList<>();
+    private final List<ImageView> typeButtons = new ArrayList<>();
 
     public FilterBar(CardFilter filter, Runnable onChange) {
         super(8);
@@ -35,12 +41,12 @@ public class FilterBar extends HBox {
         getChildren().add(searchBox());
 
         getChildren().add(caption("Type"));
-        addTypeButton("All", CardFilter.Type.ALL);
-        addTypeButton("Minions", CardFilter.Type.MINIONS);
-        addTypeButton("Spells", CardFilter.Type.SPELLS);
+        addTypeButton("all", CardFilter.Type.ALL);
+        addTypeButton("minions", CardFilter.Type.MINIONS);
+        addTypeButton("spells", CardFilter.Type.SPELLS);
 
-        // At the start nothing is filtered: "All" is picked in both rows.
-        pick(typeButtons, typeButtons.get(0));
+        // At the start nothing is filtered: "All" is picked.
+        pickPanel(typeButtons, typeButtons.get(0));
     }
 
     /** The search box: the collection is filtered again on every key typed. */
@@ -64,16 +70,18 @@ public class FilterBar extends HBox {
         return caption;
     }
 
-    /** One type button: All, Minions or Spells. */
-    private void addTypeButton(String words, CardFilter.Type type) {
-        Label button = new Label(words);
-        HomeView.clickable(button, false, () -> {
+    /** One type panel (images/deck-builder/<name>-panel.png): All, Minions or Spells. */
+    private void addTypeButton(String name, CardFilter.Type type) {
+        ImageView panel = new ImageView(Images.get("/images/deck-builder/" + name + "-panel.png"));
+        panel.setFitHeight(PANEL_H);
+        panel.setPreserveRatio(true);
+        HomeView.clickable(panel, false, () -> {
             filter.setType(type);
-            pick(typeButtons, button);
+            pickPanel(typeButtons, panel);
             onChange.run();
         });
-        typeButtons.add(button);
-        getChildren().add(button);
+        typeButtons.add(panel);
+        getChildren().add(panel);
     }
 
     /** Shows `picked` as chosen and the other buttons of its row as not chosen. */
@@ -83,6 +91,17 @@ public class FilterBar extends HBox {
                 button.setStyle(ON);
             } else {
                 button.setStyle(OFF);
+            }
+        }
+    }
+
+    /** Shows `picked` as chosen (full colour) and the other panels of its row dimmed. */
+    private static void pickPanel(List<ImageView> row, ImageView picked) {
+        for (ImageView panel : row) {
+            if (panel == picked) {
+                panel.setOpacity(1);
+            } else {
+                panel.setOpacity(DIMMED);
             }
         }
     }
