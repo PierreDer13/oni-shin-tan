@@ -16,6 +16,9 @@ public class Deck {
     /** The cards left, read-only (Deception 9 looks for a Trap in it). */
     public List<Card> getCards() { return Collections.unmodifiableList(cards); }
 
+    /** Replaces cards in place (Sakasama: the enemy's deck copies take the new stats). */
+    public void replaceAll(java.util.function.UnaryOperator<Card> f) { cards.replaceAll(f); }
+
     /** Takes this exact card out of the deck. */
     public boolean remove(Card card) {
         for (int i = 0; i < cards.size(); i++) {

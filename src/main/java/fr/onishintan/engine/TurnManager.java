@@ -129,6 +129,9 @@ public class TurnManager {
         return swapUsedThisTurn;
     }
 
+    /** Kuji-in: the hero power can be used once more this turn. */
+    void resetPower() { powerUsedThisTurn = false; }
+
     void markPowerUsed() { 
         powerUsedThisTurn = true; 
     }
