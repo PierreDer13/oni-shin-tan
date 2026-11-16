@@ -75,6 +75,13 @@ public class Minion extends Combatant implements BoardEntity {
         if (k == Keyword.SHINOBI) hidden = true;
     }
 
+    /** Takes a keyword away (an aura or an Oath reward that ends). */
+    public void removeKeyword(Keyword k) {
+        keywords.remove(k);
+        if (k == Keyword.TORII) toriiStacks = 0;
+        if (k == Keyword.SHINOBI) hidden = false;
+    }
+    
     public boolean hasKeyword(Keyword k) { return keywords.contains(k); }
     public Set<Keyword> getKeywords() { return Collections.unmodifiableSet(keywords); }
     public MinionCard getSource() { return source; }

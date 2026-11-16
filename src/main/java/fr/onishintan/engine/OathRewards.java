@@ -1,6 +1,8 @@
 package fr.onishintan.engine;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
@@ -12,6 +14,7 @@ import java.util.Set;
 import fr.onishintan.model.Card;
 import fr.onishintan.model.Combatant;
 import fr.onishintan.model.HeroClass;
+import fr.onishintan.model.Keyword;
 import fr.onishintan.model.Minion;
 import fr.onishintan.model.MinionCard;
 import fr.onishintan.model.Oath;
@@ -19,12 +22,13 @@ import fr.onishintan.model.OathType;
 import fr.onishintan.model.Player;
 import fr.onishintan.model.Rarity;
 import fr.onishintan.model.Shrine;
+import fr.onishintan.model.SpellCard;
 import fr.onishintan.model.TrapCard;
 
 /**
- * The passive rewards of the 3 and 6 stack tiers (GDD Oath table). Each one holds while its Oath
+ * The rewards of the 3, 6 and 9 stack tiers (GDD Oath table). Each one holds while its Oath
  * is sworn with at least that many stacks: a break (stacks back to 0, then Oathbreaker) takes them
- * all away at once. The tier 9 effects come with engine-oath-cards.
+ * all away at once, the Oath cards leave the hand and the Honor 9 bonus is taken back.
  */
 class OathRewards {
 
@@ -40,22 +44,49 @@ class OathRewards {
     static final int DIVINITY_HEAL = 3;          // Divinity 6: end of turn, heal 3 and a random minion +1/+1
     static final int DIVINITY_BUFF = 1;
     static final int HAVOC_DRAW_AT = 6;          // Havoc 6: dealt 6+ damage this turn, draw (once)
+    static final int HONOR_FIRST_ATK = 4;        // Honor 9: first minion played each turn +4 ATK and Tatakae
+    static final int ALLEGIANCE_ALL = 2;         // Allegiance 9: all friendly minions +2/+2 and Shirodu
+    static final int WREAK_HAVOC_DAMAGE = 8;     // Havoc 9 Oath card
+
+    /** Justice 9: Oath card added to the hand (0 Ki, decided 16 Nov), taken back on a break. */
+    static final SpellCard JUSTICE_CARD = new SpellCard("justice-oath", "Justice", "正義", "せいぎ", 0,
+            Rarity.LEGENDARY, HeroClass.SAMURAI, "Oath card: deal your strongest minion's ATK to all enemy minions.", "");
+    /** Havoc 9: Oath card added to the hand (0 Ki), taken back on a break. */
+    static final SpellCard WREAK_HAVOC = new SpellCard("wreak-havoc", "Wreak Havoc", "破壊", "はかい", 0,
+            Rarity.LEGENDARY, HeroClass.ONI, "Oath card: deal 8 damage to every enemy minion and the enemy hero.", "");
 
     /** Allegiance 6: summoned when your last minion dies, once per turn. */
     static final MinionCard RETAINER = new MinionCard("retainer", "Retainer", "家来", "けらい", 0,
             Rarity.COMMON, HeroClass.SAMURAI, "", "", 5, 5, null);
 
     /** Rewards that work once per turn (any player's turn). */
-    private enum Once { RETAINER, PURITY_DRAW, HAVOC_DRAW }
+    private enum Once { RETAINER, PURITY_DRAW, HAVOC_DRAW, HONOR_FIRST, DEFLECT }
 
     private final GameEngine engine;
     private final Map<Player, Integer> kiNextTurn = new HashMap<>();
     private final Map<Player, Set<Once>> usedThisTurn = new HashMap<>();
-    /** The aura bonus each minion carries now: {ATK, HP} (Honor 3, Peace 3). */
+    /** The aura bonus each minion carries now: {ATK, HP, Shirodu given 0/1} (Honor 3, Peace 3, Allegiance 9, Descension 9). */
     private final Map<Minion, int[]> auras = new IdentityHashMap<>();
+    /** Honor 9: the minions that got +4 ATK and Tatakae, and whether they had Tatakae before. */
+    private final Map<Minion, Boolean> honored = new IdentityHashMap<>();
+    /** Silence 9: minions played from the hand this turn. */
+    private final List<Minion> playedThisTurn = new ArrayList<>();
+    private boolean minionCardPlayed;    // a MinionCard was played, its MINION_SUMMONED comes next
+    private boolean settingExtraTrap;    // Deception 9: the free Trap does not chain
 
     OathRewards(GameEngine engine) {
         this.engine = engine;
+        engine.getCardEffects()
+                .register(JUSTICE_CARD.getId(), Trigger.BANZAI, ctx -> {
+                    int atk = OathPenalties.strongest(ctx.owner()).map(Minion::getAttack).orElse(0);
+                    for (Minion m : List.copyOf(ctx.enemy().getSide().getMinions())) ctx.engine().dealDamage(null, m, atk);
+                })
+                .register(WREAK_HAVOC.getId(), Trigger.BANZAI, ctx -> {
+                    for (Minion m : List.copyOf(ctx.enemy().getSide().getMinions())) {
+                        ctx.engine().dealDamage(null, m, WREAK_HAVOC_DAMAGE);
+                    }
+                    ctx.engine().dealDamage(null, ctx.enemy().getHero(), WREAK_HAVOC_DAMAGE);
+                });
     }
 
     /** True while p's Oath of this type is sworn with at least that many stacks. */
@@ -91,11 +122,25 @@ class OathRewards {
         return combatDamage(dealer, target, amount);
     }
 
-    /** Justice 6: double damage to the enemy minions that hit the dealer's hero during the last enemy turn. */
+    /** Justice 6: double damage to the enemy minions that hit the dealer's hero during the last enemy turn. Then Peace 9. */
     int combatDamage(Player dealer, Combatant target, int amount) {
         if (target instanceof Minion m && has(dealer, OathType.JUSTICE, 6)
-                && engine.getTurnTracker().getHeroAttackers(dealer).contains(m)) return amount * 2;
-        return amount;
+                && engine.getTurnTracker().getHeroAttackers(dealer).contains(m)) amount *= 2;
+        return deflect(target, amount);
+    }
+
+    /** Peace 9: the first damage a Peace hero would take each turn hits the enemy hero instead. */
+    private int deflect(Combatant target, int amount) {
+        if (amount <= 0) return amount;
+        Player q = engine.ownerOf(target);
+        if (q == null || target != q.getHero() || !has(q, OathType.PEACE, 9) || !once(q, Once.DEFLECT)) return amount;
+        engine.dealDamage(q.getOath(), engine.getState().opponentOf(q).getHero(), amount);
+        return 0;
+    }
+
+    /** Divinity 9: Shrine effects doubled. Read by the Shrine auras (engine-family-effects). */
+    int shrineFactor(Player p) {
+        return has(p, OathType.DIVINITY, 9) ? 2 : 1;
     }
 
     /** Purity 3: healing done during a Purity player's turn gets +2. */
@@ -124,6 +169,11 @@ class OathRewards {
     void onEvent(GameEvent e) {
         switch (e.type()) {
             case TURN_STARTED -> startTurn((Player) e.source());
+            case TURN_ENDED -> corruptionAtTurnEnd((Player) e.source());
+            case CARD_PLAYED -> cardPlayed((Player) e.source(), (Card) e.target());
+            case TRAP_SET -> trapSet((Player) e.source(), (TrapCard) e.target());
+            case MINION_SUMMONED -> minionSummoned((Player) e.source(), (Minion) e.target());
+            case OATH_REWARD -> { if (e.amount() == 9) oathCard((Player) e.source(), (Oath) e.target()); }
             case ATTACK -> honorHeal(e.source(), e.target());
             case MINION_DIED -> minionDied((Player) e.source());
             case TRAP_TRIGGERED -> trapTriggered((Player) e.source());
@@ -132,7 +182,7 @@ class OathRewards {
             case SHRINE_PLACED -> {                                        // Divinity 3
                 if (has((Player) e.source(), OathType.DIVINITY, 3)) ((Shrine) e.target()).extend(1);
             }
-            case OATH_BROKEN -> kiNextTurn.remove((Player) e.source());    // the Ki earned goes with the Oath
+            case OATH_BROKEN -> broken((Player) e.source());
             default -> { }
         }
         refreshAuras();
@@ -140,8 +190,81 @@ class OathRewards {
 
     private void startTurn(Player p) {
         usedThisTurn.clear();
+        playedThisTurn.clear();
         Integer ki = kiNextTurn.remove(p);
         if (ki != null) p.gainTemporaryKi(ki);
+        for (Player giver : players()) {                                     // Corruption 9: start of every turn
+            if (has(giver, OathType.CORRUPTION, 9) && !engine.getState().isOver()) {
+                engine.runHandCurses(engine.getState().opponentOf(giver));
+            }
+        }
+    }
+
+    /** Corruption 9: the Curses also act at the end of the giver's own turn (the holder's end already runs them). */
+    private void corruptionAtTurnEnd(Player ending) {
+        for (Player giver : players()) {
+            Player holder = engine.getState().opponentOf(giver);
+            if (holder != ending && has(giver, OathType.CORRUPTION, 9) && !engine.getState().isOver()) {
+                engine.runHandCurses(holder);
+            }
+        }
+    }
+
+    /** Discipline 9: every card played gives 1 Ki. */
+    private void cardPlayed(Player p, Card c) {
+        if (c instanceof MinionCard) minionCardPlayed = true;
+        if (has(p, OathType.DISCIPLINE, 9)) p.gainTemporaryKi(1);
+    }
+
+    /** A Trap set is a card played too (Discipline 9). Deception 9: set another, different Trap from the hand or deck, free. */
+    private void trapSet(Player p, TrapCard trap) {
+        if (settingExtraTrap) return;
+        if (has(p, OathType.DISCIPLINE, 9)) p.gainTemporaryKi(1);
+        if (!has(p, OathType.DECEPTION, 9)) return;
+        List<TrapCard> other = new ArrayList<>();
+        for (Card c : p.getHand()) if (c instanceof TrapCard t && !t.getId().equals(trap.getId()) && p.canSetTrap(t)) other.add(t);
+        for (Card c : p.getDeck().getCards()) if (c instanceof TrapCard t && !t.getId().equals(trap.getId()) && p.canSetTrap(t)) other.add(t);
+        if (other.isEmpty()) return;
+        settingExtraTrap = true;
+        try {
+            engine.setExtraTrap(p, other.get(engine.rng().nextInt(other.size())));
+        } finally {
+            settingExtraTrap = false;
+        }
+    }
+
+    /** Silence 9 records the minions played from the hand. Honor 9: the first one each turn gets +4 ATK and Tatakae. */
+    private void minionSummoned(Player p, Minion m) {
+        if (!minionCardPlayed) return;
+        minionCardPlayed = false;
+        playedThisTurn.add(m);
+        if (has(p, OathType.HONOR, 9) && once(p, Once.HONOR_FIRST)) {
+            honored.put(m, m.hasKeyword(Keyword.TATAKAE));
+            m.buff(HONOR_FIRST_ATK, 0);
+            m.giveKeyword(Keyword.TATAKAE);
+        }
+    }
+
+    /** Justice 9 and Havoc 9: the Oath card goes to the hand. */
+    private void oathCard(Player p, Oath oath) {
+        if (oath.getType() == OathType.JUSTICE) p.addToHand(JUSTICE_CARD);
+        if (oath.getType() == OathType.HAVOC) p.addToHand(WREAK_HAVOC);
+    }
+
+    /** A break: the Ki earned for next turn, the Oath cards in hand and the Honor 9 bonus go with the Oath. */
+    private void broken(Player p) {
+        kiNextTurn.remove(p);
+        while (p.removeFromHand(JUSTICE_CARD)) { }
+        while (p.removeFromHand(WREAK_HAVOC)) { }
+        for (Map.Entry<Minion, Boolean> e : List.copyOf(honored.entrySet())) {
+            Minion m = e.getKey();
+            Player owner = engine.ownerOf(m);
+            if (owner != null && owner != p) continue;
+            honored.remove(m);
+            if (owner == null) continue;                                     // already dead
+            m.unbuff(HONOR_FIRST_ATK, 0);
+            if (!e.getValue()) m.removeKeyword(Keyword.TATAKAE);
+        }
     }
 
     /** Honor 6: a friendly minion hits the enemy hero, heal your hero 3. */
@@ -184,7 +307,7 @@ class OathRewards {
         }
     }
 
-    /** End of p's turn, before his Oath is checked: Allegiance 3, Silence 6, Discipline 3 and 6, Peace 6, Divinity 6. */
+    /** End of p's turn, before his Oath is checked: Allegiance 3, Silence 6 and 9, Discipline 3 and 6, Peace 6, Divinity 6, Purity 9. */
     void endTurn(Player p) {
         TurnTracker turn = engine.getTurnTracker();
         if (has(p, OathType.ALLEGIANCE, 3)) randomMinion(p).ifPresent(m -> m.buff(ALLEGIANCE_BUFF, ALLEGIANCE_BUFF));
@@ -198,33 +321,74 @@ class OathRewards {
             engine.heal(p.getHero(), DIVINITY_HEAL);
             randomMinion(p).ifPresent(m -> m.buff(DIVINITY_BUFF, DIVINITY_BUFF));
         }
+        if (has(p, OathType.SILENCE, 9)) {                                   // duplicate the biggest minion played
+            playedThisTurn.stream().filter(m -> p.getSide().slotOf(m) >= 0 && !m.isDead())
+                    .max(Comparator.comparingInt(Minion::getAttack).thenComparingInt(Minion::getHealth))
+                    .ifPresent(m -> engine.summon(p, m.getSource()));
+        }
+        if (has(p, OathType.PURITY, 9)) {                                    // fully heal all your minions
+            for (Minion m : List.copyOf(p.getSide().getMinions())) engine.heal(m, m.getMaxHealth());
+        }
     }
 
     // ---------- auras ----------
 
-    /** Honor 3 and Peace 3: every minion carries exactly the aura its owner's Oath gives now. */
+    /**
+     * Honor 3, Peace 3, Allegiance 9 (+2/+2 and Shirodu) and Descension 9 (biggest minion: double ATK and HP):
+     * every minion carries exactly the aura its owner's Oath gives now.
+     */
     void refreshAuras() {
-        GameState s = engine.getState();
         Set<Minion> onBoard = Collections.newSetFromMap(new IdentityHashMap<>());
-        for (Player p : List.of(s.getFirst(), s.getSecond())) {
-            int atk = has(p, OathType.HONOR, 3) ? HONOR_ATK : 0;
-            int hp = has(p, OathType.PEACE, 3) ? PEACE_HP : 0;
+        for (Player p : players()) {
+            boolean all = has(p, OathType.ALLEGIANCE, 9);
+            int atk = (has(p, OathType.HONOR, 3) ? HONOR_ATK : 0) + (all ? ALLEGIANCE_ALL : 0);
+            int hp = (has(p, OathType.PEACE, 3) ? PEACE_HP : 0) + (all ? ALLEGIANCE_ALL : 0);
+            Minion biggest = has(p, OathType.DESCENSION, 9) ? biggestWithoutAura(p) : null;
             for (Minion m : p.getSide().getMinions()) {
                 if (m.isDead()) continue;                  // about to leave the board
                 onBoard.add(m);
-                int[] now = auras.getOrDefault(m, new int[2]);
-                int dAtk = atk - now[0];
-                int dHp = hp - now[1];
-                if (dAtk == 0 && dHp == 0) continue;
+                int[] now = auras.getOrDefault(m, new int[3]);
+                int wantAtk = atk, wantHp = hp;
+                if (m == biggest) {                        // its own stats once more
+                    wantAtk += m.getAttack() - now[0];
+                    wantHp += m.getMaxHealth() - now[1];
+                }
+                int wantShirodu = all && (now[2] == 1 || !m.hasKeyword(Keyword.SHIRODU)) ? 1 : 0;
+                int dAtk = wantAtk - now[0];
+                int dHp = wantHp - now[1];
+                if (dAtk == 0 && dHp == 0 && wantShirodu == now[2]) continue;
                 if (dAtk > 0 || dHp > 0) m.buff(Math.max(dAtk, 0), Math.max(dHp, 0));
                 if (dAtk < 0 || dHp < 0) m.unbuff(Math.max(-dAtk, 0), Math.max(-dHp, 0));
-                auras.put(m, new int[] {atk, hp});
+                if (wantShirodu > now[2]) m.giveKeyword(Keyword.SHIRODU);
+                if (wantShirodu < now[2]) m.removeKeyword(Keyword.SHIRODU);
+                auras.put(m, new int[] {wantAtk, wantHp, wantShirodu});
             }
         }
         auras.keySet().retainAll(onBoard);
     }
 
+    /** Descension 9: highest ATK without the aura, then HP, then the leftmost. */
+    private Minion biggestWithoutAura(Player p) {
+        Minion best = null;
+        int bestAtk = -1, bestHp = -1;
+        for (Minion m : p.getSide().getMinions()) {        // left to right: a tie keeps the leftmost
+            if (m.isDead()) continue;
+            int[] a = auras.getOrDefault(m, new int[3]);
+            int atk = m.getAttack() - a[0], hp = m.getMaxHealth() - a[1];
+            if (atk > bestAtk || (atk == bestAtk && hp > bestHp)) {
+                best = m;
+                bestAtk = atk;
+                bestHp = hp;
+            }
+        }
+        return best;
+    }
+
     // ---------- helpers ----------
+
+    private List<Player> players() {
+        return List.of(engine.getState().getFirst(), engine.getState().getSecond());
+    }
 
     private void addKi(Player p, int n) {
         kiNextTurn.merge(p, n, Integer::sum);

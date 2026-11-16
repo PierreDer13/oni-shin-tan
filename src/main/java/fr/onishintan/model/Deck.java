@@ -10,7 +10,22 @@ import java.util.Random;
 
 /** A player's draw pile. The top of the deck is the end of the list. */
 public class Deck {
+
     public static final int SIZE = 50;
+
+    /** The cards left, read-only (Deception 9 looks for a Trap in it). */
+    public List<Card> getCards() { return Collections.unmodifiableList(cards); }
+
+    /** Takes this exact card out of the deck. */
+    public boolean remove(Card card) {
+        for (int i = 0; i < cards.size(); i++) {
+            if (cards.get(i) == card) {
+                cards.remove(i);
+                return true;
+            }
+        }
+        return false;
+    }
 
     private final List<Card> cards;
 
