@@ -138,6 +138,9 @@ public class BoardView extends Pane {
     private Node preview;
     /** Where traps sit: left of each hero (grid coordinates). */
     private static final double TRAPS_X = 320, YOUR_TRAPS_Y = 660, ENEMY_TRAPS_Y = 120;
+    /** The game-over seals (512 x 768) and how tall they are drawn. */
+    private static final String VICTORY = "/images/hud/victory.png", DEFEAT = "/images/hud/defeat.png";
+    private static final double END_H = 560;
     /** A trap still flying to its place (TrapView.set): traps() doesn't draw it until it lands. */
     private TrapCard arriving;
 
@@ -340,13 +343,15 @@ public class BoardView extends Pane {
         });
     }
 
-    /** Game over: a dark veil over the whole table blocks every click, with VICTORY or DEFEAT in the middle. */
+    /** Game over: a dark veil over the whole table blocks every click, with the 勝利 Victory or 敗北 Defeat seal in the middle. */
     private void gameOver(boolean won) {
-        Label text = new Label(won ? "勝利\nVICTORY" : "敗北\nDEFEAT");
-        text.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 96; -fx-font-weight: bold; -fx-text-alignment: center; -fx-text-fill: "
-                + (won ? "#ffd84a" : "#c41e1e") + ";");
-        text.setEffect(new DropShadow(30, Color.BLACK));
-        StackPane end = new StackPane(new Rectangle(W, H, Color.rgb(0, 0, 0, 0.6)), text);
+        ImageView seal = image(DEFEAT);
+        if (won) {
+            seal = image(VICTORY);
+        }
+        seal.setFitHeight(END_H);
+        seal.setPreserveRatio(true);
+        StackPane end = new StackPane(new Rectangle(W, H, Color.rgb(0, 0, 0, 0.6)), seal);
         end.setOnMousePressed(e -> onGameOver.run());
         table.getChildren().add(end);
     }
