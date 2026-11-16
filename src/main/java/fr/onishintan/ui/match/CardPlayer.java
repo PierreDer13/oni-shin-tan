@@ -15,4 +15,10 @@ public interface CardPlayer {
 
     /** Plays the card on that slot with those targets (null when not needed). True if the engine accepted it. */
     boolean play(Card card, int slot, Combatant first, Combatant second);
+
+    /** What this hand card costs now: its printed Ki minus Yōi and the Oath discounts. */
+    int cost(Card card);
+
+    /** True if the engine would accept this card now (Ki, a legal target, a weapon for Iaidō, room on the board…). */
+    boolean canPlay(Card card);
 }

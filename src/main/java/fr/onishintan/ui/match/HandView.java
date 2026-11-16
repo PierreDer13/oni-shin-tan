@@ -13,6 +13,8 @@ import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.IntConsumer;
+import java.util.function.Predicate;
+import java.util.function.ToIntFunction;
 import javafx.geometry.Point2D;
 import javafx.geometry.Rectangle2D;
 import javafx.scene.Group;
@@ -51,27 +53,31 @@ public class HandView extends Group {
     private final List<CardView> cards = new ArrayList<>();
     private final List<Node> glows = new ArrayList<>();
     private final IntConsumer onHover;
+    private final ToIntFunction<Card> costOf;
     private CardView hovered;
     private final PauseTransition delay = new PauseTransition(Duration.millis(500));
     private CardView big;
 
-    public HandView(Player player, BiConsumer<Card, Integer> onPlay, Consumer<Card> onTrade, IntConsumer onHover) {
+    public HandView(Player player, BiConsumer<Card, Integer> onPlay, Consumer<Card> onTrade, IntConsumer onHover,
+                    ToIntFunction<Card> costOf, Predicate<Card> canPlay) {
         this.player = player;
         this.onPlay = onPlay;
         this.onHover = onHover;
         this.onTrade = onTrade;
+        this.costOf = costOf;
         for (Card c : player.getHand()) {
             CardView v = new CardView(c, CARD_W);
             // Every card can be dragged: onto the deck to trade it (free, even when you can't afford it),
-            // or onto the board to play it (the engine refuses it if you can't pay). The pink glow shows what you can afford.
-            int cost = c.getKiCost();
+            // or onto the board to play it (the engine refuses it otherwise). The pink glow shows what the engine would accept now.
+            int cost = costOf.applyAsInt(c);
+            v.showCost(cost);   // today's price: Yōi and the Oath discounts
+            boolean playable = canPlay.test(c);
             // A Curse the enemy gave you can't be played, only removed: it goes dark and shows its removal cost.
             if (c instanceof CurseCard curse && player.isHeldCurse(curse)) {
                 v.showAsHeldCurse(curse.getRemovalCost());
-                cost = curse.getRemovalCost();
+                playable = player.canAfford(curse.getRemovalCost());
             }
-            boolean affordable = player.canAfford(cost);
-            v.setPlayable(affordable);
+            v.setPlayable(playable);
             drag(v);
             cards.add(v);
         }
@@ -212,7 +218,7 @@ public class HandView extends Group {
         delay.setOnFinished(f -> showBig(v));
         delay.playFromStart();
         fan(true, true);
-        onHover.accept(v.getCard().getKiCost());
+        onHover.accept(costOf.applyAsInt(v.getCard()));
     }
 
     /** The big readable copy of a hovered card, just above it; null hides it (and cancels the wait). */
@@ -222,6 +228,7 @@ public class HandView extends Group {
         if (v == null) { delay.stop(); return; }
         big = new CardView(v.getCard(), 280);
         big.setMouseTransparent(true);
+        big.showCost(costOf.applyAsInt(v.getCard()));
         big.relocate(v.getLayoutX() + CARD_W / 2 - 140, 200);
         getChildren().add(big);
     }
