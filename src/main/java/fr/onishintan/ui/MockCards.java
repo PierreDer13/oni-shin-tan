@@ -36,7 +36,7 @@ public final class MockCards {
             ikareru-hyakusho|Ikareru hyakushō|怒れる百姓|NEUTRAL|2|5|2|C|Banzai: deal 4 damage to a minion
             katana-kaji|Katana kaji|刀鍛冶|SAMURAI|3|5|6|C|Banzai: your weapon gets +3 ATK
             togeika|Tōgeika|陶芸家|NEUTRAL|2|2|7|C|Shirodu
-            sendaiku|Sendaiku|船大工|NEUTRAL|4|4|6|C|Seppuku: summon a 5/5 Fisherman
+            sendaiku|Sendaiku|船大工|NEUTRAL|4|4|6|C|Seppuku: summon a Sakana uri
             sakana-uri|Sakana uri|魚売り|NEUTRAL|3|5|5|C|Banzai: add a Koi to your hand
             monogoi|Monogoi|物乞い|NEUTRAL|1|2|3|C|Banzai: if your hand is empty, draw 2
             hakahori|Hakahori|墓掘り|ONI|3|4|6|C|Passive: when a friendly minion dies, +2 ATK
@@ -63,10 +63,10 @@ public final class MockCards {
             tenno|Tennō|天皇|NEUTRAL|10|15|16|L|Passive: your other minions cost 1 less Ki
             kappa|Kappa|河童|ONI|3|5|7|C|Banzai: deal 4 damage to the enemy hero
             tengu|Tengu|天狗|NINJA|4|8|6|C|Shinobi
-            noppera-bo|Noppera-bō|のっぺら坊|NINJA|2|2|2|C|Shinobi. Seppuku: return to your hand
-            rokurokubi|Rokurokubi|ろくろ首|ONI|3|6|5|C|Can attack a minion behind Shirodu
+            noppera-bo|Noppera-bō|のっぺら坊|NINJA|2|4|1|C|Shinobi. Seppuku: return to your hand
+            rokurokubi|Rokurokubi|ろくろ首|ONI|3|6|5|C|Can attack a minion behind Shirodu or Torii
             jorogumo|Jorōgumo|絡新婦|ONI|5|6|10|C|Banzai: put an enemy minion to sleep for 1 turn
-            oiwa|Oiwa|お岩|ONI|6|9|9|C|Seppuku: shuffle 2 Curses into the enemy deck
+            oiwa|Oiwa|お岩|ONI|6|9|9|C|Seppuku: shuffle 2 random Curses into the enemy deck
             nue|Nue|鵺|ONI|7|9|9|C|Banzai: deal 6 damage to all other minions
             shinigami|Shinigami|死神|ONI|8|10|11|C|Banzai: destroy a damaged enemy minion
             enma|Enma|閻魔|ONI|10|13|14|L|Banzai: destroy all other minions with 8 ATK or less
@@ -75,17 +75,17 @@ public final class MockCards {
             kodama|Kodama|木霊|KANNUSHI|1|1|5|C|Shirodu
             raijin|Raijin|雷神|NEUTRAL|7|8|8|C|Banzai: deal 12 damage split among enemies
             fujin|Fūjin|風神|NEUTRAL|7|10|10|C|Banzai: return an enemy minion to its owner's hand
-            ryu|Ryū|龍|NEUTRAL|9|13|13|L|Torii. Passive: all your effects that deal damage, heal or give armour get +4 (spells, Banzai, Seppuku, hero power)
+            ryu|Ryū|龍|NEUTRAL|9|13|13|L|Torii. Passive: +4 to all your damage, healing and armour effects
             inari-okami|Inari Ōkami|稲荷大神|KANNUSHI|8|10|11|L|Passive: end of turn, summon a Kitsune no tsukai
             amaterasu-omikami|Amaterasu Ōmikami|天照大神|NEUTRAL|10|17|17|M|Banzai: restore your hero to full HP
-            tsukuyomi|Tsukuyomi|月読|NINJA|8|12|10|L|Shinobi. Banzai: your other minions gain Shinobi
+            tsukuyomi|Tsukuyomi|月読|NINJA|8|12|10|L|Banzai: your other minions have Shinobi. Shinobi
             takemikazuchi|Takemikazuchi|建御雷|SAMURAI|8|10|9|L|Tatakae. Banzai: equip your hero with Futsu-no-mitama (10/2)
             okuninushi|Ōkuninushi|大国主|KANNUSHI|8|11|12|L|Banzai: heal all friendly characters for 10
             susanoo|Susanoo|須佐之男|KANNUSHI|7|11|9|L|Tatakae. Banzai: deal 6 damage to an enemy minion
             izanami|Izanami|伊邪那美|ONI|9|11|11|L|Banzai: return your 2 highest-cost dead minions to the board
             saru|Saru|猿|NEUTRAL|1|4|4|C|
             koi|Koi|鯉|NEUTRAL|1|2|2|C|Seppuku: draw a card
-            kiji|Kiji|雉|NEUTRAL|1|3|4|C|Banzai: look at the top card of your deck
+            kiji|Kiji|雉|NEUTRAL|1|3|3|C|Banzai: copy a card from your opponent's hand
             kame|Kame|亀|NEUTRAL|2|1|8|C|Shirodu
             tsuru|Tsuru|鶴|NEUTRAL|2|4|3|C|Torii
             tanuki|Tanuki|狸|NEUTRAL|2|5|3|C|Shinobi
@@ -117,9 +117,9 @@ public final class MockCards {
             kakuremino|Kakuremino|隠れ蓑|NINJA|5|Give all friendly minions Shinobi
             kemuri-dama|Kemuri-dama|煙玉|NINJA|2|Give any minion Shinobi (with Shirodu too, its Shirodu is ignored)
             kuji-in|Kuji-in|九字印|NINJA|3|Refresh your hero power
-            yoi|Yōi|用意|NINJA|4|Cards in your hand cost 1 less Ki (minimum 1)
+            yoi|Yōi|用意|NINJA|4|Cards in your hand cost 1 less Ki
             chiburi|Chiburi|血振り|SAMURAI|2|Give your weapon +1 durability
-            iaido|Iaidō|居合道|SAMURAI|4|Destroy your weapon; deal its ATK (at most 10) to all minions
+            iaido|Iaidō|居合道|SAMURAI|4|Destroy your weapon; deal its ATK to all minions
             ketto|Kettō|決闘|SAMURAI|4|Choose any 2 minions to duel: a random one wins and survives on half its HP, the other dies
             yoroi|Yoroi|鎧|SAMURAI|3|Give your hero and a friendly minion 6 armour
             harae|Harae|祓|KANNUSHI|4|Heal a character for 15 and draw a card
@@ -169,20 +169,20 @@ public final class MockCards {
         List<Card> family = new ArrayList<>();
 
         // Kannushi Shrines: id, name, kanji, Ki, turns on the board, text
-        family.add(shrine("heiwa-no-torii", "Heiwa no Torii", "平和の鳥居", 1, 3, "Shrine, 3 turns. Adjacent minions: +0/+2; heal 2 at the end of your turn"));
-        family.add(shrine("meiji-otorii", "Meiji Ōtorii", "明治大鳥居", 2, 3, "Shrine, 3 turns. Adjacent minions: +2 ATK; heal 3 after attacking"));
-        family.add(shrine("itsukushima", "Itsukushima", "厳島", 3, 3, "Shrine, 3 turns. Adjacent minions regain Torii at the start of your turn"));
-        family.add(shrine("kumano-hongu-taisha", "Kumano Hongū Taisha", "熊野本宮大社", 4, 4, "Shrine, 4 turns. Adjacent minions: +0/+4 and Shirodu"));
+        family.add(shrine("heiwa-no-torii", "Heiwa no Torii", "平和の鳥居", 1, 2, "Shrine, 2 turns. Adjacent minions: +0/+3; heal 3 at the end of your turn"));
+        family.add(shrine("meiji-otorii", "Meiji Ōtorii", "明治大鳥居", 2, 2, "Shrine, 2 turns. Adjacent minions: +3 ATK; heal 3 after attacking"));
+        family.add(shrine("itsukushima", "Itsukushima", "厳島", 3, 3, "Shrine, 3 turns. Adjacent minions gain Torii at the end of your turn"));
+        family.add(shrine("kumano-hongu-taisha", "Kumano Hongū Taisha", "熊野本宮大社", 4, 3, "Shrine, 3 turns. Adjacent minions: +2/+4 and Shirodu"));
         family.add(shrine("fushimi-inari", "Fushimi Inari", "伏見稲荷", 5, 3, "Shrine, 3 turns. On the opponent's turns, adjacent minions cannot die from a single hit"));
-        family.add(shrine("motonosumi-shrine", "Motonosumi Jinja", "元乃隅神社", 7, 3, "Shrine, 3 turns. Adjacent minions: +3/+3; a minion played next to it gets Tatakae"));
+        family.add(shrine("motonosumi-shrine", "Motonosumi Jinja", "元乃隅神社", 7, 2, "Shrine, 2 turns. Adjacent minions, and minions played next to it: +3/+3 and Tatakae"));
 
         // Oni Curses: id, name, kanji, Ki, where it goes, copies, removal Ki, text
         family.add(curse("bakeneko", "Bakeneko", "化け猫", 2, CurseZone.HAND, 1, 2, "Curse in the enemy hand (removal 2 Ki): while held, their minions cost 1 more Ki"));
         family.add(curse("gagoze", "Gagoze", "元興寺", 2, CurseZone.DECK, 3, 0, "Curse, 3 into the enemy deck: when drawn, 4 damage to a random minion of that player"));
-        family.add(curse("hinoeuma", "Hinoeuma", "丙午", 3, CurseZone.HAND, 1, 2, "Curse in the enemy hand (removal 2 Ki): end of their turn, 3 damage to their hero and 2 to a random minion of theirs"));
-        family.add(curse("tatari", "Tatari", "祟り", 3, CurseZone.DECK, 5, 0, "Curse, 5 into the enemy deck: when drawn, 4 damage to that hero"));
-        family.add(curse("gaki", "Gaki", "餓鬼", 4, CurseZone.HAND, 1, 5, "Curse in the enemy hand (removal 5 Ki): end of their turn, they have 1 less Ki next turn"));
-        family.add(curse("gokiburi", "Gokiburi", "ゴキブリ", 4, CurseZone.HAND, 1, 3, "Curse in the enemy hand (removal 3 Ki): end of their turn, destroys the card to its left"));
+        family.add(curse("hinoeuma", "Hinoeuma", "丙午", 3, CurseZone.HAND, 1, 3, "Curse in the enemy hand (removal 3 Ki): end of their turn, 8 damage to their hero"));
+        family.add(curse("tatari", "Tatari", "祟り", 3, CurseZone.DECK, 5, 0, "Curse, 5 into the enemy deck: when drawn, 5 damage to that hero"));
+        family.add(curse("gaki", "Gaki", "餓鬼", 4, CurseZone.HAND, 1, 5, "Curse in the enemy hand (removal 5 Ki): each turn, they lose 1 playable Ki"));
+        family.add(curse("gokiburi", "Gokiburi", "ゴキブリ", 4, CurseZone.HAND, 1, 3, "Curse in the enemy hand (removal 3 Ki): end of their turn, eats the card to its left"));
 
         // Samurai Rites: id, name, kanji, Ki, Ancestors now, their keywords, lasting +ATK / +HP, lasting keywords, text
         family.add(rite("rite-of-shokan", "Rite of Shōkan", "召喚の儀", 2, 1, Set.of(), 1, 1, Set.of(),
