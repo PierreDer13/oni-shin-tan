@@ -94,6 +94,13 @@ public class Minion extends Combatant implements BoardEntity {
         if (k == Keyword.SHINOBI) hidden = true;
     }
 
+    /** Shike: every keyword gone (Torii stacks and Shinobi included). */
+    public void clearKeywords() {
+        keywords.clear();
+        toriiStacks = 0;
+        hidden = false;
+    }
+
     /** Takes a keyword away (an aura or an Oath reward that ends). */
     public void removeKeyword(Keyword k) {
         keywords.remove(k);
