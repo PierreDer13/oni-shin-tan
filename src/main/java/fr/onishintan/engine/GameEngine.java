@@ -540,7 +540,8 @@ public class GameEngine {
     }
 
     /** End of the holder's turn: every hand Curse he holds acts, left to right. */
-    private void runHandCurses(Player holder) {
+    /** End of the holder's turn (and Corruption 9 at every turn start and end): every hand Curse he holds acts, left to right. */
+    void runHandCurses(Player holder) {
         for (Card c : List.copyOf(holder.getHand())) {
             if (c instanceof CurseCard curse && holder.isHeldCurse(curse)) fireCurse(holder, curse);
             if (state.isOver()) return;
@@ -640,7 +641,7 @@ public class GameEngine {
     }
 
     // ---------- Oath rewards and penalties ----------
-    
+
     /** What this card costs p now, Oath rewards included (Silence 3, Deception 3, Descension 3). The UI shows this. */
     public int costOf(Player p, Card card) {
         return rewards.cost(p, card);
@@ -663,6 +664,13 @@ public class GameEngine {
         publish(GameEvent.of(GameEvent.Type.MINION_SUMMONED, p, m));
         triggerTraps(state.opponentOf(p), TrapTrigger.ON_ENEMY_SUMMON, m);
         return true;
+    }
+
+    /** Deception 9: a second Trap set for free, from the hand or the deck (not a card played, no TurnTracker count). */
+    void setExtraTrap(Player p, TrapCard trap) {
+        if (!p.removeFromHand(trap)) p.getDeck().remove(trap);
+        if (!p.setTrap(trap)) return;
+        publish(new GameEvent(GameEvent.Type.TRAP_SET, p, trap, p.trapCount()));
     }
 
     Random rng() { return rng; }

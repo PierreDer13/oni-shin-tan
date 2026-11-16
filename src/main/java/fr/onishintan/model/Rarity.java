@@ -17,6 +17,6 @@ public enum Rarity {
     }
 
     public int getBudgetBonus() { return budgetBonus; }
-    /** Max copies of one card in a 50-card deck. */
+    /** Max copies of one card in a 40-card deck. */
     public int getMaxCopies() { return maxCopies; }
 }
