@@ -11,7 +11,7 @@ import java.util.Random;
 /** A player's draw pile. The top of the deck is the end of the list. */
 public class Deck {
 
-    public static final int SIZE = 50;
+    public static final int SIZE = 40;
 
     /** The cards left, read-only (Deception 9 looks for a Trap in it). */
     public List<Card> getCards() { return Collections.unmodifiableList(cards); }
