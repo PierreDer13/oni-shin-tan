@@ -47,6 +47,7 @@ public class GameEngine {
     private final List<GameListener> listeners = new ArrayList<>();
     private final TurnTracker turnTracker = new TurnTracker();
     private final OathRules oathRules;
+    private final OathPenalties penalties = new OathPenalties(this);    
     private final Random rng;
 
     private LongSupplier now = System::currentTimeMillis;   // replaced in tests
@@ -94,7 +95,8 @@ public class GameEngine {
         this.turns = new TurnManager(state, this.rng);
         this.combat = new CombatResolver(state, this::publish);
         this.oathRules = new OathRules(combat);
-
+        turns.setDrawRule(p -> !penalties.has(p, OathPenalties.Lasting.NO_DRAW));
+        
         // Rule handlers: they run before the UI hears the event
         bus.subscribe(GameEvent.Type.MINION_DIED,
                 e -> runTrigger(Trigger.SEPPUKU, (Player) e.source(), (Minion) e.target(), null));
@@ -206,6 +208,7 @@ public class GameEngine {
         ending.getClock().pause(now.getAsLong());
         if (clocksEnabled()) ending.getClock().add(ChessClock.INCREMENT_MS);
         publish(GameEvent.of(GameEvent.Type.TURN_ENDED, ending, null));
+        penalties.tick(ending);               // his lasting Oath penalties lose one of his turns
         resolveOath(ending);
         if (state.isOver()) return;           // an Oath break can kill its own hero
         List<Optional<Card>> drawn = turns.endTurn();
@@ -291,6 +294,7 @@ public class GameEngine {
                 int damage = oath.getType().getBreakBase() + oath.breakOath();
                 publish(new GameEvent(GameEvent.Type.OATH_BROKEN, p, oath, damage));
                 dealDamage(oath, p.getHero(), damage);
+                if (!state.isOver()) penalties.apply(p, oath);                
             }
             case UNABLE -> { }   // no stack, the Oath holds
         }
@@ -319,10 +323,13 @@ public class GameEngine {
 
     // ---------- playing cards ----------
 
-    /** True if the active player has the card in hand and enough Ki. */
+    /** True if the active player has the card in hand and enough Ki, and no Oath penalty forbids it. */
     public boolean canPlay(Card card) {
         Player p = state.active();
-        return card != null && p.getHand().contains(card) && p.canAfford(card.getKiCost());
+        if (card == null || !p.getHand().contains(card) || !p.canAfford(card.getKiCost())) return false;
+        if (card instanceof ShrineCard && penalties.has(p, OathPenalties.Lasting.NO_SHRINE)) return false;   // Profanity
+        return !(card instanceof CurseCard && !p.isHeldCurse(card)
+                && penalties.has(p, OathPenalties.Lasting.NO_CURSE));                                        // Exorcism
     }
 
     /**
@@ -591,9 +598,10 @@ public class GameEngine {
     }
 
     void heal(Combatant target, int amount) {
+        if (healBlocked(target)) return;                                 // Defilement
         int restored = target.heal(amount);
         if (restored > 0) publish(new GameEvent(GameEvent.Type.HEAL, null, target, restored));
-            }
+    }
 
     void gainArmour(Player owner, int amount) {
         Hero hero = owner.getHero();
@@ -602,7 +610,73 @@ public class GameEngine {
     }
 
     void draw(Player p) {
+        if (penalties.has(p, OathPenalties.Lasting.NO_DRAW)) return;     // Disappointment
         publishDraw(p, p.draw());
+    }
+
+    // ---------- Oath penalties ----------
+
+    OathPenalties getPenalties() { return penalties; }
+
+    /** Destroyed outright, whatever its HP or Torii (Banishment, Abyss). */
+    void destroy(Minion m) {
+        m.destroy();
+        combat.removeDead();
+    }
+
+    /** Revelation: the hand is shown to the opponent, then a random card of it is thrown away. */
+    void revealAndDiscard(Player p) {
+        publish(new GameEvent(GameEvent.Type.HAND_REVEALED, p, List.copyOf(p.getHand()), p.getHand().size()));
+        if (p.getHand().isEmpty()) return;
+        Card c = p.getHand().get(rng.nextInt(p.getHand().size()));
+        if (c instanceof CurseCard curse && p.isHeldCurse(curse)) p.removeCurse(curse);
+        else p.removeFromHand(c);
+        publish(GameEvent.of(GameEvent.Type.CARD_DISCARDED, p, c));
+    }
+
+    /** Exposed: every Trap of from, set or in hand, goes to thief (a copy he already has set, or a full hand, loses it). */
+    void stealTraps(Player from, Player thief) {
+        int stolen = 0;
+        for (TrapCard t : from.takeAllTraps()) {
+            if (thief.setTrap(t)) stolen++;
+        }
+        for (Card c : List.copyOf(from.getHand())) {
+            if (c instanceof TrapCard t) {
+                from.removeFromHand(t);
+                if (thief.getHand().size() < Player.MAX_HAND) {
+                    thief.addToHand(t);
+                    stolen++;
+                }
+            }
+        }
+        publish(new GameEvent(GameEvent.Type.TRAPS_STOLEN, from, thief, stolen));
+    }
+
+    /** Profanity: every Shrine of p leaves the board. */
+    void destroyShrines(Player p) {
+        for (Shrine s : List.copyOf(p.getSide().shrines())) {
+            p.getSide().remove(s);
+            publish(GameEvent.of(GameEvent.Type.SHRINE_EXPIRED, p, s));
+        }
+    }
+
+    /** Exorcism: every Curse the holder was given is thrown away for free. */
+    void purgeCurses(Player holder) {
+        for (Card c : List.copyOf(holder.getHand())) {
+            if (c instanceof CurseCard curse && holder.isHeldCurse(curse)) {
+                holder.removeCurse(curse);
+                publish(GameEvent.of(GameEvent.Type.CURSE_REMOVED, holder, curse));
+            }
+        }
+    }
+
+    /** Defilement: the minions of a player under NO_HEAL cannot be healed. */
+    private boolean healBlocked(Combatant target) {
+        if (!(target instanceof Minion m)) return false;
+        for (Player p : List.of(state.getFirst(), state.getSecond())) {
+            if (p.getSide().slotOf(m) >= 0) return penalties.has(p, OathPenalties.Lasting.NO_HEAL);
+        }
+        return false;
     }
 
     public CardEffects getCardEffects() { return cardEffects; }

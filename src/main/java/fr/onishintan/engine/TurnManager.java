@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
+import java.util.function.Predicate;
 
 /**
  * Runs the match order from the GDD:
@@ -30,6 +31,13 @@ public class TurnManager {
     private boolean started;
     private boolean swapUsedThisTurn;
     private boolean powerUsedThisTurn;
+
+    /** False for a player who may not draw this turn (Oath penalty Disappointment). Set by GameEngine. */
+    private Predicate<Player> mayDraw = p -> true;
+
+    void setDrawRule(Predicate<Player> rule) {
+        mayDraw = Objects.requireNonNull(rule);
+    }
 
     public TurnManager(GameState state, Random rng) {
         this.state = Objects.requireNonNull(state, "state");
@@ -84,7 +92,7 @@ public class TurnManager {
         // 4. Draw DRAW_PER_TURN cards. Empty deck: fatigue still to be defined in the GDD
         List<Optional<Card>> drawn = new ArrayList<>(DRAW_PER_TURN);
         for (int i = 0; i < DRAW_PER_TURN; i++)
-            drawn.add(p.draw());
+            if (mayDraw.test(p)) drawn.add(p.draw());
         return drawn;
     }
 
