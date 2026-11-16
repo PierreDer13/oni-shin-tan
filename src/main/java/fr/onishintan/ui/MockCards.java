@@ -75,7 +75,7 @@ public final class MockCards {
             kodama|Kodama|木霊|KANNUSHI|1|1|5|C|Shirodu
             raijin|Raijin|雷神|NEUTRAL|7|8|8|C|Banzai: deal 12 damage split among enemies
             fujin|Fūjin|風神|NEUTRAL|7|10|10|C|Banzai: return an enemy minion to its owner's hand
-            ryu|Ryū|龍|NEUTRAL|9|13|13|L|Torii. Passive: +4 to all your damage, healing and armour effects
+            ryu|Ryū|龍|NEUTRAL|9|12|12|L|Torii. Passive: +4 to all your damage, healing and armour effects
             inari-okami|Inari Ōkami|稲荷大神|KANNUSHI|8|10|11|L|Passive: end of turn, summon a Kitsune no tsukai
             amaterasu-omikami|Amaterasu Ōmikami|天照大神|NEUTRAL|10|17|17|M|Banzai: restore your hero to full HP
             tsukuyomi|Tsukuyomi|月読|NINJA|8|12|10|L|Banzai: your other minions have Shinobi. Shinobi
@@ -129,7 +129,7 @@ public final class MockCards {
             kagura|Kagura|神楽|KANNUSHI|8|Summon 3 Miko (3/3) with Tatakae
             kuchiyose|Kuchiyose|口寄せ|ONI|7|Return a random dead friendly minion to the board (its Banzai triggers)
             kamikakushi|Kamikakushi|神隠し|ONI|3|Shuffle a minion back into its owner's deck
-            sakasama|Sakasama|逆様|ONI|6|Swap the ATK and HP of all enemy minions; their copies in the deck take the new stats
+            sakasama|Sakasama|逆様|ONI|5|Swap the ATK and HP of all enemy minions; their copies in the deck take the new stats
             tamashii-gui|Tamashii-gui|魂喰い|ONI|5|Destroy a minion and a random card in the opponent's hand
             """;
 
