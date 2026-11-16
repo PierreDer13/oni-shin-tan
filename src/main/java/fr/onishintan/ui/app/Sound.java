@@ -20,8 +20,12 @@ public final class Sound {
         }
     }
 
-    /** Plays an effect, if it loaded. */
-    public static void play(AudioClip c) { if (c != null) c.play(); }
+    /** Plays an effect, if it loaded, at the effects volume from Settings. */
+    public static void play(AudioClip c) {
+        if (c != null) {
+            c.play(AudioSettings.EFFECTS.get());
+        }
+    }
 
     /** A background track from /sounds/<name>.mp3, looping at the given volume; null if audio is unavailable.
      *  Keep the returned player in a field, or it gets garbage-collected and the music stops. */
