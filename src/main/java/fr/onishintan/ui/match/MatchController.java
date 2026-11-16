@@ -2,12 +2,14 @@ package fr.onishintan.ui.match;
 
 import fr.onishintan.engine.GameEngine;
 import fr.onishintan.engine.GameEvent;
+import fr.onishintan.engine.SpellTarget;
 import fr.onishintan.model.Card;
 import fr.onishintan.model.CurseCard;
 import fr.onishintan.model.CurseZone;
 import fr.onishintan.model.Combatant;
 import fr.onishintan.model.Hero;
 import fr.onishintan.model.HeroClass;
+import fr.onishintan.model.MinionCard;
 import fr.onishintan.model.KatanaTier;
 import fr.onishintan.model.Oath;
 import fr.onishintan.model.OathType;
@@ -19,6 +21,7 @@ import fr.onishintan.ui.MockCards;
 import javafx.scene.paint.Color;
 
 import java.util.Map;
+import java.util.List;
 import java.util.Random;
 import java.util.function.Consumer;
 
@@ -26,7 +29,7 @@ import java.util.function.Consumer;
  * Runs one hotseat match. Pierre's GameEngine applies every rule; the BoardView only draws the table.
  * Each click on the board calls one engine method, then the board redraws from the players' new state.
  */
-public class MatchController {
+public class MatchController implements CardPlayer {
     /** Each class's hero portrait (images/heroes/<name>.png). */
     private static final Map<HeroClass, String> PORTRAIT = Map.of(
             HeroClass.SAMURAI, "yasuke",
@@ -75,7 +78,7 @@ public class MatchController {
         // 3. The table, with each action plugged into the engine.
         board = new BoardView(boardName, second, PORTRAIT.get(theirs), first, PORTRAIT.get(yours));
         showClocks();
-        board.setOnPlay(this::playCard);
+        board.setOnPlay(this);
         board.setOnAttack(this::attack);
         board.setOnPower(this::useHeroPower);
         board.setOnKatana(this::useKatana);
@@ -225,15 +228,38 @@ public class MatchController {
         board.swear(player, oathName);
     }
 
-    /** A card dropped on a slot: the engine checks the Ki and the slot, plays it and runs its Banzai. */
-    private void playCard(Card card, int slot) {
-        Player active = engine.active();
-        if (card instanceof CurseCard curse && active.isHeldCurse(curse)) {
-            engine.removeCurse(curse);   // a Curse the enemy gave you: dropping it on the board pays its removal Ki
+    /** The characters a card from the hand may be aimed at: its Banzai's for a minion, its own for a spell. Empty: no target needed. */
+    @Override
+    public List<Combatant> targets(Card card) {
+        if (card instanceof MinionCard) {
+            return engine.banzaiTargets(card);
+        }
+        return engine.spellTargets(card);
+    }
+
+    /** Kettō picks two minions; every other aimed card picks one. */
+    @Override
+    public int picks(Card card) {
+        if (engine.spellTarget(card) == SpellTarget.TWO_MINIONS) {
+            return 2;
+        }
+        return 1;
+    }
+
+    /**
+     * A card dropped on a slot, with its target(s) once picked: the engine checks the Ki, the slot and the targets,
+     * plays it and runs its Banzai. A Curse the enemy gave you is removed instead (it pays its removal Ki).
+     */
+    @Override
+    public boolean play(Card card, int slot, Combatant first, Combatant second) {
+        boolean played;
+        if (card instanceof CurseCard curse && engine.active().isHeldCurse(curse)) {
+            played = engine.removeCurse(curse);
         } else {
-            engine.playCard(card, slot, null);   // null = no target yet; choosing targets for spells and Banzai comes later
+            played = engine.playCard(card, slot, first, second);
         }
         board.render();
+        return played;
     }
 
     /** An attacker and its target: the engine deals the damage both ways and removes the dead. BoardView animates, then redraws. */

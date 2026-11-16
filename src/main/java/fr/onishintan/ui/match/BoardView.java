@@ -123,7 +123,12 @@ public class BoardView extends Pane {
     private final Label yourClock = hud(new Label(), 1381, 545, 190, 71, 30);
     private Predicate<Card> onTrade = card -> false;
     private final Label enemyClock = hud(new Label(), 1381, 255, 190, 71, 30);
-    private BiConsumer<Card, Integer> onPlay = (c, slot) -> {};
+    private CardPlayer player;
+    /** A card dropped on the board that waits for its target(s): its slot, its legal targets and, for Kettō, the first minion picked. */
+    private Card held;
+    private int heldSlot;
+    private List<Combatant> heldTargets = List.of();
+    private Combatant firstPick;
 
     private boolean powerUsed;
     private Predicate<Combatant> onPower = target -> false;
@@ -153,7 +158,7 @@ public class BoardView extends Pane {
         izakaya = board.equals("izakaya");
         bg.setFitWidth(W);
         bg.setFitHeight(H);
-        bg.setOnMouseClicked(e -> { selected = null; aiming = false; render(); });
+        bg.setOnMouseClicked(e -> { selected = null; aiming = false; held = null; render(); });
         Scale scale = new Scale();
         table.getTransforms().add(scale);
         InvalidationListener fit = o -> {
@@ -207,7 +212,7 @@ public class BoardView extends Pane {
         traps(enemy, TRAPS_X, ENEMY_TRAPS_Y);
         traps(you, TRAPS_X, YOUR_TRAPS_Y);
         deck(enemy, 182, 239);
-        live.getChildren().add(hand = new HandView(you, (card, slot) -> { onPlay.accept(card, slot); impact(card.getKiCost(), false); }, this::trade, this::previewCost));
+        live.getChildren().add(hand = new HandView(you, this::drop, this::trade, this::previewCost));
         hand.setVisible(dealt);
         enemyHand(enemy);
         healEffects();
@@ -453,8 +458,9 @@ public class BoardView extends Pane {
           TradeAnimation.play(live, card, deckX, deckY, MINION_W, () -> cardBack(MINION_W));
           hand.dealLastCardAfter(TradeAnimation.LENGTH);
       }
-    public void setOnPlay(BiConsumer<Card, Integer> onPlay) {
-        this.onPlay = onPlay;
+    /** What the match tells the board about playing a hand card: its targets, how many to pick, and the play itself. */
+    public void setOnPlay(CardPlayer player) {
+        this.player = player;
         render();
     }
 
@@ -549,6 +555,7 @@ public class BoardView extends Pane {
         selected = null;
         powerUsed = false;
         aiming = false;
+        held = null;
         render();
     }
 
@@ -791,10 +798,74 @@ public void passTo(String name, Runnable onReady) {
         return new ImageView(Images.get(path));
     }
 
+    /** A hand card dropped on the board: played at once, or held until its target(s) are clicked when it needs any. */
+    private void drop(Card card, int slot) {
+        List<Combatant> targets = player.targets(card);
+        if (targets.isEmpty()) {
+            finishPlay(card, slot, null, null);
+            return;
+        }
+        held = card;
+        heldSlot = slot;
+        heldTargets = targets;
+        firstPick = null;
+        selected = null;
+        aiming = false;
+        render();   // the legal targets glow green; the card waits in the hand until one is clicked
+    }
+
+    /** While a card waits for its target(s): each legal one glows green and is picked on click; anything else sends the card back. */
+    private void pickable(Node n, Combatant c) {
+        if (c == firstPick) {
+            n.setEffect(new DropShadow(BlurType.GAUSSIAN, Color.GOLD, 28, 0.45, 0, 0));   // Kettō: the first minion already picked
+            n.setOnMouseClicked(e -> cancelHeld());
+        } else if (heldTargets.contains(c)) {
+            n.setEffect(new DropShadow(30, Color.LIMEGREEN));
+            n.setOnMouseClicked(e -> pick(c));
+        } else {
+            n.setOnMouseClicked(e -> cancelHeld());
+        }
+    }
+
+    /** A legal target clicked: Kettō keeps the first one and waits for a second; otherwise the card is played on it. */
+    private void pick(Combatant c) {
+        if (player.picks(held) == 2 && firstPick == null) {
+            firstPick = c;
+            render();
+            return;
+        }
+        Combatant first = c;
+        Combatant second = null;
+        if (firstPick != null) {
+            first = firstPick;
+            second = c;
+        }
+        finishPlay(held, heldSlot, first, second);
+    }
+
+    /** The held card goes back to the hand: nothing is played, no Ki is spent. */
+    private void cancelHeld() {
+        held = null;
+        render();
+    }
+
+    /** Plays the card with its target(s); the Ki impact only shows if the engine accepted it (a refused card stays in the hand). */
+    private void finishPlay(Card card, int slot, Combatant first, Combatant second) {
+        held = null;
+        firstPick = null;
+        if (player.play(card, slot, first, second)) {
+            impact(card.getKiCost(), false);
+        }
+    }
+
     /** Attack selection on one character. Yours that can attack: yellow border (thicker on hover, gold glow when picked),
      *  click to pick or unpick. Once one is picked: legal enemies glow red and attack on click; anything else cancels. */
     private void clickable(Node n, Combatant c, boolean mine) {
         nodes.put(c, n);
+        if (held != null) {
+            pickable(n, c);   // a played card is waiting for its target(s): no attack selection now
+            return;
+        }
         if (aiming) {
             aimable(n, c);   // a hero power is waiting for its target: no attack selection now
             return;
