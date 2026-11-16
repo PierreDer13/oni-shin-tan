@@ -111,7 +111,7 @@ public final class MockCards {
             new TrapCard("dondengaeshi", "Dondengaeshi", "どんでん返し", "", 6, Rarity.COMMON, HeroClass.NINJA,
                     "The enemy plays a minion: summon a copy of it on your side", "", TrapTrigger.ON_ENEMY_SUMMON));
 
-    /** The 16 plain class spells (GDD, 12 Nov). The family cards are built in familyCards(); Ninja Traps are in TRAPS.
+    /** The 17 plain class spells (GDD, 12 Nov). The family cards are built in familyCards(); Ninja Traps are in TRAPS.
      *  id | name | kanji | class | Ki | text */
     private static final String SPELL_TABLE = """
             kakuremino|Kakuremino|隠れ蓑|NINJA|5|Give all friendly minions Shinobi
@@ -125,6 +125,7 @@ public final class MockCards {
             harae|Harae|祓|KANNUSHI|4|Heal a character for 15 and draw a card
             kiseki|Kiseki|奇跡|KANNUSHI|6|Heal all friendly minions; a minion already at full HP gets +3/+3 instead
             senbon-torii|Senbon Torii|千本鳥居|KANNUSHI|6|Give all friendly minions Torii
+            taisha-zukuri|Taisha-zukuri|大社造|KANNUSHI|2|Give a friendly minion Torii
             kagura|Kagura|神楽|KANNUSHI|8|Summon 3 Miko (3/3) with Tatakae
             kuchiyose|Kuchiyose|口寄せ|ONI|7|Return a random dead friendly minion to the board (its Banzai triggers)
             kamikakushi|Kamikakushi|神隠し|ONI|3|Shuffle a minion back into its owner's deck
@@ -147,7 +148,7 @@ public final class MockCards {
 
     /**
      * Builds the spells: the 18 family cards first (familyCards), then one plain spell per SPELL_TABLE line.
-     * @return the 18 family cards (Shrines, Curses, Rites) and the 16 plain class spells, all common
+     * @return the 18 family cards (Shrines, Curses, Rites) and the 17 plain class spells, all common
      */
     private static List<Card> spells() {
         List<Card> spells = new ArrayList<>(familyCards());
