@@ -20,7 +20,10 @@ public final class Music {
         }
         stop();
         track = name;
-        player = Sound.music(name, VOLUME);
+        player = Sound.music(name, AudioSettings.MUSIC.get());
+        if (player != null) {
+            player.volumeProperty().bind(AudioSettings.MUSIC);   // follows the Settings slider while it plays
+        }
     }
 
     /** Stops the current track. */

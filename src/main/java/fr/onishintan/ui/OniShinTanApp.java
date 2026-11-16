@@ -10,6 +10,7 @@ import fr.onishintan.ui.match.MatchController;
 import fr.onishintan.ui.screens.ClassSelectView;
 import fr.onishintan.ui.screens.HomeView;
 import fr.onishintan.ui.screens.InventoryView;
+import fr.onishintan.ui.screens.SettingsView;
 
 import java.util.function.Consumer;
 
@@ -28,6 +29,7 @@ public class OniShinTanApp extends Application {
         router.register(Screen.HOME, () -> new HomeView(router));
         router.register(Screen.CLASS_SELECT, () -> new ClassSelectView(router));
         router.register(Screen.INVENTORY, () -> new InventoryView(router));
+        router.register(Screen.SETTINGS, () -> new SettingsView(router));
         router.register(Screen.DECK_SELECT, () -> new DeckPickView(router));   // PvP: both players choose a deck, then the match starts
         router.goTo(Screen.HOME);
         stage.setTitle("Oni Shin Tan");
