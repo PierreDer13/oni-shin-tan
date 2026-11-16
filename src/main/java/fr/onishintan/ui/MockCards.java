@@ -75,7 +75,7 @@ public final class MockCards {
             kodama|Kodama|木霊|KANNUSHI|1|1|5|C|Shirodu
             raijin|Raijin|雷神|NEUTRAL|7|8|8|C|Banzai: deal 12 damage split among enemies
             fujin|Fūjin|風神|NEUTRAL|7|10|10|C|Banzai: return an enemy minion to its owner's hand
-            ryu|Ryū|龍|NEUTRAL|9|13|13|L|Torii. Passive: your spells deal +4 damage
+            ryu|Ryū|龍|NEUTRAL|9|13|13|L|Torii. Passive: all your effects that deal damage, heal or give armour get +4 (spells, Banzai, Seppuku, hero power)
             inari-okami|Inari Ōkami|稲荷大神|KANNUSHI|8|10|11|L|Passive: end of turn, summon a Kitsune no tsukai
             amaterasu-omikami|Amaterasu Ōmikami|天照大神|NEUTRAL|10|17|17|M|Banzai: restore your hero to full HP
             tsukuyomi|Tsukuyomi|月読|NINJA|8|12|10|L|Shinobi. Banzai: your other minions gain Shinobi
@@ -115,20 +115,20 @@ public final class MockCards {
      *  id | name | kanji | class | Ki | text */
     private static final String SPELL_TABLE = """
             kakuremino|Kakuremino|隠れ蓑|NINJA|5|Give all friendly minions Shinobi
-            kemuri-dama|Kemuri-dama|煙玉|NINJA|2|Give a friendly minion Shinobi and +1 ATK
+            kemuri-dama|Kemuri-dama|煙玉|NINJA|2|Give any minion Shinobi (with Shirodu too, its Shirodu is ignored)
             kuji-in|Kuji-in|九字印|NINJA|3|Refresh your hero power
             yoi|Yōi|用意|NINJA|4|Cards in your hand cost 1 less Ki (minimum 1)
             chiburi|Chiburi|血振り|SAMURAI|2|Give your weapon +1 durability
             iaido|Iaidō|居合道|SAMURAI|4|Destroy your weapon; deal its ATK (at most 10) to all minions
-            ketto|Kettō|決闘|SAMURAI|4|Choose 2 minions: they fight until one dies; if both would die, the one with more HP left survives on 1 HP
+            ketto|Kettō|決闘|SAMURAI|4|Choose any 2 minions to duel: a random one wins and survives on half its HP, the other dies
             yoroi|Yoroi|鎧|SAMURAI|3|Give your hero and a friendly minion 6 armour
             harae|Harae|祓|KANNUSHI|4|Heal a character for 15 and draw a card
             kiseki|Kiseki|奇跡|KANNUSHI|6|Heal all friendly minions; a minion already at full HP gets +3/+3 instead
             senbon-torii|Senbon Torii|千本鳥居|KANNUSHI|6|Give all friendly minions Torii
             kagura|Kagura|神楽|KANNUSHI|8|Summon 3 Miko (3/3) with Tatakae
-            kuchiyose|Kuchiyose|口寄せ|ONI|6|Return a dead friendly minion that costs 5 Ki or less to the board
+            kuchiyose|Kuchiyose|口寄せ|ONI|7|Return a random dead friendly minion to the board (its Banzai triggers)
             kamikakushi|Kamikakushi|神隠し|ONI|3|Shuffle a minion back into its owner's deck
-            sakasama|Sakasama|逆様|ONI|6|Swap the ATK and HP of all enemy minions; their copies in hand and deck take the new stats
+            sakasama|Sakasama|逆様|ONI|6|Swap the ATK and HP of all enemy minions; their copies in the deck take the new stats
             tamashii-gui|Tamashii-gui|魂喰い|ONI|5|Destroy a minion and a random card in the opponent's hand
             """;
 
