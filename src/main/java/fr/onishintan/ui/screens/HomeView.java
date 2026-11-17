@@ -84,13 +84,11 @@ public class HomeView extends Pane {
         profile(175, 20, PLAYER_NAME, PLAYER_REI);
         button("adventure", 480, 610, 300, Screen.CLASS_SELECT);
         button("pvp", 820, 610, 300, Screen.DECK_SELECT);
-        // Bottom bar: Deck Builder shows every deck; the other buttons simply go to their screen.
+        // Bottom bar: Deck Builder shows every deck, Inventory and Profile go to their screen, Settings opens over the home screen.
         clickable(add("button-deck-builder", 390, 790, 190), false, () -> DecksView.open(router, null));
-        String[] bar = { "inventory", "profile", "settings" };
-        Screen[] to = { Screen.INVENTORY, Screen.PROFILE, Screen.SETTINGS };
-        for (int i = 0; i < bar.length; i++) {
-            button(bar[i], 390 + (i + 1) * 210, 790, 190, to[i]);
-        }
+        button("inventory", 600, 790, 190, Screen.INVENTORY);
+        button("profile", 810, 790, 190, Screen.PROFILE);
+        clickable(add("button-settings", 1020, 790, 190), false, () -> grid.getChildren().add(new SettingsPanel(null)));   // laid over the home screen
     }
 
     /** Puts /images/home/<name>.png on the grid at (x, y), w wide (height follows the image), and returns it. */
