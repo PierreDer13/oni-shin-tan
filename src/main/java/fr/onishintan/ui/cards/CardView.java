@@ -11,12 +11,16 @@ import fr.onishintan.ui.fx.CurseFumes;
 
 import java.io.InputStream;
 import java.util.Map;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import javafx.geometry.HPos;
 import javafx.geometry.NodeOrientation;
 import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
 import javafx.scene.Group;
 import javafx.scene.control.Label;
+import javafx.scene.control.ContentDisplay;
 import javafx.scene.effect.BlurType;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.image.Image;
@@ -31,6 +35,7 @@ import javafx.scene.text.FontWeight;
 import javafx.scene.text.TextAlignment;
 import javafx.scene.transform.Scale;
 import javafx.scene.text.Text;
+import javafx.scene.text.TextFlow;
 
 /** One card in the karuta layout: drawn at the art's size (530 x 742), then scaled to the width asked. */
 public class CardView extends Group {
@@ -42,6 +47,9 @@ public class CardView extends Group {
     private static final Color GREEN = Color.web("#1f7a3a");
     /** From this width a card is a big copy (hover previews are 280 or 300): it shows its keyword notes beside it. */
     private static final double NOTES_FROM = 250;
+    /** The numbers the engine's bonus applies to: "N damage", and the first number after heal / restore. */
+    private static final Pattern DAMAGE = Pattern.compile("(\\d+) damage");
+    private static final Pattern HEAL = Pattern.compile("(?i)\\b(?:heal|restore)[^0-9;.]*?(\\d+)");
     /** The edge tags (SPELL on the left, the family on the right), in card coordinates (530 x 742):
      *  width, top, height per letter and the extra height around the letters (SPELL: 30 + 5 x 24 = 150). */
     private static final double SIDE_TAG_W = 40, SIDE_TAG_Y = 345, SIDE_TAG_LETTER_H = 24, SIDE_TAG_PADDING = 30;
@@ -52,6 +60,8 @@ public class CardView extends Group {
     private final Pane face = new Pane();
     /** The number in the Ki circle (showCost changes it). */
     private Label kiLabel;
+    /** The description (showBonus rewrites its damage or healing number). */
+    private Label descLabel;
 
     public CardView(Card card, double width) {
         this.card = card;
@@ -94,7 +104,8 @@ public class CardView extends Group {
             stat(s[0], "攻撃 ATK", 27, statColour(s[0], base[0], false));
             stat(s[1], card instanceof WeaponCard ? "耐久 DUR" : "体力 HP", 402, statColour(s[1], base[1], damaged()));
         }
-        text(desc, 22, 154 + 24 * kw, 32, 208 - 24 * kw, 210).setFont(Font.font(SERIF, 22)); // description, top middle
+        descLabel = text(desc, 22, 154 + 24 * kw, 32, 208 - 24 * kw, 210);   // description, top middle
+        descLabel.setFont(Font.font(SERIF, 22));
         if (card.getRarity() == Rarity.LEGENDARY)
             rarityTag("伝説 LEGENDARY", 190, "#8a6a1c, #f7e08a 30%, #fff6c8 50%, #d4ab4a 70%, #8a6a1c", "#3a2a05", Color.GOLD);
         if (card.getRarity() == Rarity.MYTHIC)
@@ -122,6 +133,38 @@ public class CardView extends Group {
         } else if (ki > card.getKiCost()) {
             kiLabel.setTextFill(DAMAGED);
         }
+    }
+
+    /**
+     * Adds `bonus` to the damage or healing number of the description (used by the hand) and writes that number in bold green.
+     * The same numbers as the engine's bonusOf: "N damage", or the first number after heal / restore.
+     */
+    public void showBonus(int bonus) {
+        if (bonus <= 0) {
+            return;
+        }
+        String desc = descLabel.getText();
+        Matcher number = DAMAGE.matcher(desc);
+        if (!number.find()) {
+            number = HEAL.matcher(desc);
+            if (!number.find()) {
+                return;
+            }
+        }
+        Text before = new Text(desc.substring(0, number.start(1)));
+        Text boosted = new Text(String.valueOf(Integer.parseInt(number.group(1)) + bonus));
+        Text after = new Text(desc.substring(number.end(1)));
+        for (Text part : List.of(before, after)) {
+            part.setFont(Font.font(SERIF, 22));
+            part.setFill(INK);
+        }
+        boosted.setFont(Font.font(SERIF, FontWeight.BOLD, 22));
+        boosted.setFill(GREEN);
+        TextFlow flow = new TextFlow(before, boosted, after);
+        flow.setTextAlignment(TextAlignment.CENTER);
+        flow.setMaxWidth(descLabel.getPrefWidth());
+        descLabel.setGraphic(flow);   // the same place and width as the plain text, which is hidden
+        descLabel.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
     }
 
 

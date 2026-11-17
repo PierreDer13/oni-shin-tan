@@ -21,4 +21,10 @@ public interface CardPlayer {
 
     /** True if the engine would accept this card now (Ki, a legal target, a weapon for Iaidō, room on the board…). */
     boolean canPlay(Card card);
+
+    /** What to add to this hand card's damage or healing number now (Ryū, Oaths, Chikara), shown in green. */
+    int bonus(Card card);
+
+    /** The characters this attacker may hit now (the engine's rule: Shirodu first, no hidden Shinobi, Stealth…). */
+    List<Combatant> attackTargets(Combatant attacker);
 }

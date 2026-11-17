@@ -229,17 +229,17 @@ public final class MockCards {
         return all;
     }
 
-    /** A test deck: the class's minions, Traps and spells plus the neutral minions. Also the PvP starter decks. */
+    /** A starter deck of exactly Deck.SIZE cards: every card of the class (minions, Traps or family cards, spells), then Neutral minions. Also the PvP starter decks. */
     public static List<Card> deckCards(HeroClass heroClass) {
-        List<Card> deck = new ArrayList<>(MINIONS.stream().filter(c -> c.getHeroClass() == heroClass || c.getHeroClass() == HeroClass.NEUTRAL).toList());
-        for (Card trap : TRAPS) {
-            if (trap.getHeroClass() == heroClass) {
-                deck.add(trap);
+        List<Card> deck = new ArrayList<>();
+        for (Card card : ALL) {
+            if (card.getHeroClass() == heroClass) {
+                deck.add(card);
             }
         }
-        for (Card spell : SPELLS) {
-            if (spell.getHeroClass() == heroClass) {
-                deck.add(spell);
+        for (Card card : MINIONS) {
+            if (deck.size() < Deck.SIZE && card.getHeroClass() == HeroClass.NEUTRAL) {
+                deck.add(card);
             }
         }
         return deck;

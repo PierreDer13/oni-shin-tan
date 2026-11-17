@@ -213,7 +213,7 @@ public class BoardView extends Pane {
         traps(enemy, TRAPS_X, ENEMY_TRAPS_Y);
         traps(you, TRAPS_X, YOUR_TRAPS_Y);
         deck(enemy, 182, 239);
-        live.getChildren().add(hand = new HandView(you, this::drop, this::trade, this::previewCost, this::costOf, this::canPlay));
+        live.getChildren().add(hand = new HandView(you, this::drop, this::trade, this::previewCost, this::costOf, this::bonusOf, this::canPlay));
         hand.setVisible(dealt);
         enemyHand(enemy);
         healEffects();
@@ -904,6 +904,14 @@ public void passTo(String name, Runnable onReady) {
         return player.canPlay(card);
     }
 
+    /** What to add to the damage or healing number of a hand card (Ryū, Oaths, Chikara); 0 until the match is plugged in. */
+    private int bonusOf(Card card) {
+        if (player == null) {
+            return 0;
+        }
+        return player.bonus(card);
+    }
+
     /** Attack selection on one character. Yours that can attack: yellow border (thicker on hover, gold glow when picked),
      *  click to pick or unpick. Once one is picked: legal enemies glow red and attack on click; anything else cancels. */
     private void clickable(Node n, Combatant c, boolean mine) {
@@ -939,11 +947,9 @@ public void passTo(String name, Runnable onReady) {
         return new DropShadow(BlurType.GAUSSIAN, Color.web("#ffd84a"), radius, 0.8, 0, 0);
     }
 
-    /** Stand-in for the engine's validTargets: visible Shirodu minions must be hit first, hidden Shinobi can't be targeted (a hidden Shirodu does not guard). */
+    /** Whether the selected attacker may hit t, by the engine's own rule (Shirodu first, no hidden Shinobi, Stealth…). */
     private boolean canTarget(Combatant t) {
-        List<Minion> walls = enemy.getSide().shirodus().stream().filter(m -> !m.isHidden()).toList();
-        if (t instanceof Minion m) return !m.isHidden() && (walls.isEmpty() || walls.contains(m));
-        return walls.isEmpty();
+        return player.attackTargets(selected).contains(t);
     }
 
     /** A soft dark patch under a card so it looks like it lies on the table. */
