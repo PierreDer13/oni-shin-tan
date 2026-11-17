@@ -4,7 +4,6 @@ import fr.onishintan.model.HeroClass;
 import fr.onishintan.model.Player;
 import fr.onishintan.ui.app.SceneRouter;
 import fr.onishintan.ui.app.Screen;
-import fr.onishintan.ui.decks.DeckPickView;
 import fr.onishintan.ui.match.BoardView;
 import fr.onishintan.ui.match.MatchController;
 import fr.onishintan.ui.screens.ClassSelectView;
@@ -28,7 +27,6 @@ public class OniShinTanApp extends Application {
         router.register(Screen.HOME, () -> new HomeView(router));
         router.register(Screen.CLASS_SELECT, () -> new ClassSelectView(router));
         router.register(Screen.INVENTORY, () -> new InventoryView(router));
-        router.register(Screen.DECK_SELECT, () -> new DeckPickView(router));   // PvP: both players choose a deck, then the match starts
         router.goTo(Screen.HOME);
         stage.setTitle("Oni Shin Tan");
         stage.show();
