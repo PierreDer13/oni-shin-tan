@@ -923,9 +923,9 @@ public void passTo(String name, Runnable onReady) {
         return new DropShadow(BlurType.GAUSSIAN, Color.web("#ffd84a"), radius, 0.8, 0, 0);
     }
 
-    /** Stand-in for the engine's validTargets: Shirodu minions must be hit first, hidden Shinobi can't be targeted. */
+    /** Stand-in for the engine's validTargets: visible Shirodu minions must be hit first, hidden Shinobi can't be targeted (a hidden Shirodu does not guard). */
     private boolean canTarget(Combatant t) {
-        List<Minion> walls = enemy.getSide().shirodus();
+        List<Minion> walls = enemy.getSide().shirodus().stream().filter(m -> !m.isHidden()).toList();
         if (t instanceof Minion m) return !m.isHidden() && (walls.isEmpty() || walls.contains(m));
         return walls.isEmpty();
     }
