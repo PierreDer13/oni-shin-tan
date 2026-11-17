@@ -7,6 +7,7 @@ import fr.onishintan.ui.MockCards;
 import fr.onishintan.ui.app.SceneRouter;
 import fr.onishintan.ui.app.Screen;
 import fr.onishintan.ui.app.ScreenGrid;
+import fr.onishintan.ui.app.Sound;
 import fr.onishintan.ui.app.Images;
 import fr.onishintan.ui.cards.CardPreview;
 
@@ -16,8 +17,11 @@ import java.util.List;
 
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
+import javafx.scene.effect.DropShadow;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.Pane;
+import javafx.scene.paint.Color;
+import javafx.scene.media.AudioClip;
 
 /**
  * Deck Builder, screen 2: edit one deck.
@@ -27,6 +31,11 @@ import javafx.scene.layout.Pane;
 public class DeckEditorView extends Pane {
     /** The decorated deck frame down the right side: its picture, its width and where it starts. */
     private static final String FRAME = "/images/deck-builder/deck-frame.png";
+    /** The deck-name scroll (396 x 132), how big it is drawn and where. */
+    private static final String NAME_SCROLL = "/images/deck-builder/deck-name.png";
+    private static final double NAME_W = 390, NAME_H = 130, NAME_X = 25, NAME_Y = -5;
+    /** Sounds when a card goes into the deck list and when it comes out. */
+    private static final AudioClip ADD = Sound.clip("door-tap"), REMOVE = Sound.clip("button-click");
     private static final double FRAME_W = 482, FRAME_X = ScreenGrid.W - FRAME_W;
     private final SceneRouter router;
     private final SavedDeck deck;
@@ -59,20 +68,26 @@ public class DeckEditorView extends Pane {
         this.cards = deck.getCards();   // getCards() gives a copy, so the real deck changes only on Save
         ScreenGrid.fitToWindow(this, grid);
 
-        // Top bar: the deck name you can type in and a message line; the count, Cancel and Save sit in the deck frame on the right.
+        // Top bar: the deck name, typed straight onto the deck-name scroll in white bold; the count, the messages, Cancel and Save sit in the deck frame.
+        ImageView plaque = new ImageView(Images.get(NAME_SCROLL, NAME_W, NAME_H));
+        plaque.relocate(NAME_X, NAME_Y);
         nameField = new TextField(deck.getName());
-        nameField.setPrefWidth(420);
-        nameField.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 26; -fx-font-weight: bold;"
-                + " -fx-background-color: #fbf8f1; -fx-border-color: #d9cfbd; -fx-border-radius: 6; -fx-background-radius: 6;");
-        nameField.relocate(30, 30);
+        nameField.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 24; -fx-font-weight: bold; -fx-text-fill: white;"
+                + " -fx-background-color: transparent; -fx-alignment: center;");
+        nameField.setEffect(new DropShadow(4, Color.BLACK));   // white stays readable on the light paper
+        // Only on the paper: 17 % to 83 % of the scroll's width, 28 % to 65 % of its height.
+        nameField.relocate(NAME_X + NAME_W * 0.17, NAME_Y + NAME_H * 0.28);
+        nameField.setPrefSize(NAME_W * 0.66, NAME_H * 0.37);
         countLabel.relocate(1185, 112);   // at the top of the frame, under its ornament
-        messageLabel.relocate(480, 72);
+        messageLabel.setMaxWidth(210);   // right of the count, at the top of the deck list: wraps onto two lines if needed
+        messageLabel.setWrapText(true);
+        messageLabel.relocate(1365, 104);
 
         Label cancel = DecksView.button("Cancel", this::cancel);
         cancel.relocate(1180, 712);
         Label save = DecksView.button("Save", this::save);
         save.relocate(1460, 712);
-        grid.getChildren().addAll(nameField, countLabel, messageLabel, cancel, save);
+        grid.getChildren().addAll(plaque, nameField, countLabel, messageLabel, cancel, save);
 
                // Left: the filter bar, then every card this deck may hold. Right: the deck.
         allowed = cardsAllowed();
@@ -145,6 +160,7 @@ public class DeckEditorView extends Pane {
             return;
         }
         cards.add(card);
+        Sound.play(ADD);
         messageLabel.setText("");
         refresh();
     }
@@ -153,6 +169,7 @@ public class DeckEditorView extends Pane {
     private void removeCard(Card card) {
         boolean removed = cards.remove(card);
         if (removed) {
+            Sound.play(REMOVE);
             messageLabel.setText("");
             refresh();
         }
