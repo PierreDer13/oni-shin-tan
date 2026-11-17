@@ -490,6 +490,11 @@ public class BoardView extends Pane {
     /** Start of a match: the class's Oath choice covers the table until one is sworn (GDD, Oaths). */
     public void chooseOath(HeroClass c, Consumer<String> onSworn) { table.getChildren().add(new OathView(c, onSworn)); }
 
+
+    /** Start of a match: p's opening hand covers the table; onDone gets the cards to send back (engine.mulligan). */
+    public void mulligan(Player p, Consumer<List<Card>> onDone) { table.getChildren().add(new MulliganView(p, onDone)); }
+    
+    
     private final Map<Player, String> oaths = new HashMap<>();
     /** Records the Oath a player swore; it then shows next to their hero. */
     public void swear(Player p, String oath) { oaths.put(p, oath); render(); }
