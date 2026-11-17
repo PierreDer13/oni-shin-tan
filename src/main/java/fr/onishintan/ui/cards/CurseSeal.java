@@ -11,7 +11,7 @@ import javafx.scene.text.Text;
 
 /**
  * Drawn over a Curse the enemy put in your hand, in card coordinates (530 x 742):
- * the card goes dark, and a red seal in the middle shows the Ki it costs to get rid of it.
+ * the card goes dark, and a red seal in the middle says CURSED and shows the Ki it costs to get rid of it.
  */
 public class CurseSeal extends Group {
     private static final String SERIF = "Yu Mincho";
@@ -25,15 +25,15 @@ public class CurseSeal extends Group {
         // A dark veil over the whole card: it can't be played, only removed.
         Rectangle veil = new Rectangle(CardView.W, CardView.H, Color.rgb(0, 0, 0, 0.6));
 
-        // The red seal, with 祓 (harai, "purify") and the removal cost under it.
+        // The red seal, with CURSED and the removal cost under it.
         Circle seal = new Circle(SEAL_X, SEAL_Y, SEAL_R, SEAL_RED);
         seal.setStroke(PAPER);
         seal.setStrokeWidth(6);
         seal.setEffect(new DropShadow(30, Color.BLACK));
-        Text kanji = centredText("祓", 110, SEAL_Y + 20);
+        Text word = centredText("CURSED", 50, SEAL_Y + 12);
         Text cost = centredText(removalCost + " Ki", 44, SEAL_Y + 85);
 
-        getChildren().addAll(veil, seal, kanji, cost);
+        getChildren().addAll(veil, seal, word, cost);
         setMouseTransparent(true);   // clicks and drags still reach the card
     }
 

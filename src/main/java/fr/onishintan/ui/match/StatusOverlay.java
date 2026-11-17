@@ -84,18 +84,6 @@ final class StatusOverlay {
         add(s, x + BoardView.MINION_W / 2 - 13, y + 128);
     }
 
-
-    /** Tatakae: the turn it is played, a red 戦 seal glows on the card's top-right corner (it can attack at once). */
-    void tatakae(Minion m, double x, double y) {
-        Label seal = new Label("戦");
-        seal.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 24; -fx-font-weight: bold; -fx-text-fill: #f3ede1;"
-                + " -fx-background-color: #b3372a; -fx-background-radius: 6; -fx-padding: 0 4;");
-        seal.setEffect(new DropShadow(12, Color.web("#ff3b1f")));
-        add(seal, x + BoardView.MINION_W - 22, y - 12);
-        drop(List.of("tatakae", m), seal);
-        pulse(seal);
-    }
-
     /** Banzai: the first time the minion is drawn (just played), a gold 万歳! bursts out of it, grows and rises away, with sparks. */
     void banzai(Minion m, double x, double y) {
         List<Object> key = List.of("banzai", m);
@@ -145,17 +133,6 @@ final class StatusOverlay {
             loop.play();
             z.sceneProperty().addListener((o, was, now) -> { if (now == null) loop.stop(); });
         }
-    }
-
-    /** Fades a node between full and 60 % forever (the Tatakae seal's glow); stops once it leaves the screen. */
-    private static void pulse(Node n) {
-        FadeTransition t = new FadeTransition(Duration.seconds(0.8), n);
-        t.setFromValue(1);
-        t.setToValue(0.6);
-        t.setAutoReverse(true);
-        t.setCycleCount(Animation.INDEFINITE);
-        t.play();
-        n.sceneProperty().addListener((o, was, now) -> { if (now == null) t.stop(); });
     }
 
     /** Drifts a node `dist` px left and right forever, 3 to 5 s each way, from a random point; stops once it leaves the screen. */
@@ -251,9 +228,6 @@ final class StatusOverlay {
         }
         if (image.equals("shirodu")) {
             return m.hasKeyword(Keyword.SHIRODU);
-        }
-        if (image.equals("tatakae")) {
-            return m.hasKeyword(Keyword.TATAKAE) && m.isSummonedThisTurn();
         }
         if (image.equals("banzai")) {
             return true;   // remembered while the minion lives, so its shout plays only once
