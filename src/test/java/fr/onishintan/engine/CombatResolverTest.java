@@ -112,6 +112,18 @@ class CombatResolverTest {
     }
 
     @Test
+    void hiddenShiroduDoesNotGuard() {
+        Minion kappa = ready(me, "kappa", 5, 5);
+        Minion wall = ready(enemy, "wall", 1, 6, Keyword.SHIRODU, Keyword.SHINOBI);
+        Minion saru = ready(enemy, "saru", 2, 2);
+
+        List<Combatant> legal = combat.legalTargets(kappa);
+        assertFalse(legal.contains(wall), "a hidden Shinobi cannot be targeted");
+        assertTrue(legal.contains(saru), "its Shirodu no longer guards the others");
+        assertTrue(legal.contains(enemy.getHero()));
+    }
+
+    @Test
     void hiddenShinobiCannotBeTargeted() {
         Minion kappa = ready(me, "kappa", 5, 5);
         Minion ninja = ready(enemy, "ninja", 3, 1, Keyword.SHINOBI);
