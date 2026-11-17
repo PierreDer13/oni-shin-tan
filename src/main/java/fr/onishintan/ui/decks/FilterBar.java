@@ -60,9 +60,9 @@ public class FilterBar extends HBox {
         TextField search = new TextField();
         search.setPromptText("Search");
         search.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 14; -fx-background-color: transparent;"
-                + " -fx-alignment: center; -fx-text-fill: white; -fx-prompt-text-fill: white;");
-        // Only on the paper: 12 % to 78 % of the width, 27 % to 61 % of the height.
-        search.relocate(width * 0.12, SEARCH_H * 0.27);
+                + " -fx-font-weight: bold; -fx-alignment: center; -fx-text-fill: white; -fx-prompt-text-fill: white;");
+        // Only on the paper, a little above its middle so the text looks centred: 12 % to 78 % of the width.
+        search.relocate(width * 0.12, SEARCH_H * 0.22);
         search.setPrefSize(width * 0.66, SEARCH_H * 0.34);
         search.textProperty().addListener((property, oldText, newText) -> {
             filter.setSearch(newText);
