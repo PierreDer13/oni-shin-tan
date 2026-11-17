@@ -50,6 +50,7 @@ public class SettingsPanel extends StackPane {
                 onSurrender.run();
             }));
         }
+        actions.getChildren().add(button("案内  Guide", this::openGuide));
         actions.getChildren().add(button("閉じる  Close", this::close));
 
         VBox panel = new VBox(36, label("設定  Settings", 44), rows, actions);
@@ -106,8 +107,16 @@ public class SettingsPanel extends StackPane {
         ((Pane) getParent()).getChildren().remove(this);
     }
 
+
+    /** Swaps the settings for the game guide, over the same screen. */
+    private void openGuide() {
+        Pane screen = (Pane) getParent();
+        close();
+        screen.getChildren().add(new GuidePanel());
+    }
+
     /** A light text button on a faint paper background; it clicks and runs its action when pressed. */
-    private static Label button(String words, Runnable action) {
+    static Label button(String words, Runnable action) {
         Label button = label(words, 22);
         button.setStyle(button.getStyle() + " -fx-background-color: rgba(243,237,225,0.15); -fx-background-radius: 8; -fx-padding: 6 14;");
         HomeView.clickable(button, false, action);
@@ -115,7 +124,7 @@ public class SettingsPanel extends StackPane {
     }
 
     /** A bold light Yu Mincho label of this size. */
-    private static Label label(String words, int size) {
+    static Label label(String words, int size) {
         Label label = new Label(words);
         label.setStyle(FONT + " -fx-font-size: " + size + ";");
         return label;
