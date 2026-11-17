@@ -199,6 +199,7 @@ public class DeckEditorView extends Pane {
             deck.setName(name);
         }
         deck.setCards(cards);
+        DeckStore.save();   // the edited deck is written to disk
         DecksView.open(router, listClass);
     }
 
