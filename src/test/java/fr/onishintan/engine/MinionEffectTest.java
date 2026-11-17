@@ -318,4 +318,15 @@ class MinionEffectTest {
         assertTrue(a.getHealth() < 20 && b.getHealth() < 20, "they hit each other");
         assertFalse(fuma.isHidden());
     }
+        /** Two hidden Fuma face to face: the enemy Fuma forced to fight does not answer with its own Yogake (it looped forever). */
+    @Test
+    void twoFumaKotaroDoNotLoop() {
+        Minion fuma = place(me, 0, card("fuma-kotaro", 9, 6, Keyword.SHINOBI, Keyword.TATAKAE));
+        place(me, 1, card("mine", 2, 20));
+        Minion theirFuma = place(enemy, 0, card("fuma-kotaro", 9, 20, Keyword.SHINOBI));
+        Minion b = place(enemy, 1, card("b", 4, 20));
+        assertTrue(engine.attack(fuma, enemy.getHero()));
+        assertTrue(theirFuma.getHealth() < 20 && b.getHealth() < 20, "the enemy minions hit each other once");
+        assertEquals(20, me.getSide().getAt(1).getHealth(), "no Yogake came back on my side");
+    }
 }

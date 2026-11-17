@@ -59,6 +59,8 @@ final class MinionEffects {
     private final GameEngine engine;
     private final Set<Minion> silenced = Collections.newSetFromMap(new IdentityHashMap<>());
     private final Set<Minion> asleep = Collections.newSetFromMap(new IdentityHashMap<>());
+    /** True while a Yogake makes the enemy minions fight: their forced fights never start another Yogake. */
+    private boolean inYogake;
     /** The aura bonus each minion carries now: {ATK, HP} (Ronin, Jōnin). */
     private final Map<Minion, int[]> auras = new IdentityHashMap<>();
 
@@ -228,15 +230,20 @@ final class MinionEffects {
 
     /** Fūma Kotarō, Yogake: when it reveals itself by attacking, each enemy minion attacks another random enemy minion. */
     private void yogake(Object attacker) {
-        if (!(attacker instanceof Minion f) || !f.isHidden() || !active(f, "fuma-kotaro")) return;
+        if (inYogake || !(attacker instanceof Minion f) || !f.isHidden() || !active(f, "fuma-kotaro")) return;
         Player enemy = engine.getState().opponentOf(engine.ownerOf(f));
         List<Minion> theirs = List.copyOf(enemy.getSide().getMinions());
         if (theirs.size() < 2) return;
-        for (Minion a : theirs) {
-            if (a.isDead()) continue;
-            List<Minion> others = theirs.stream().filter(b -> b != a && !b.isDead()).toList();
-            if (others.isEmpty()) break;
-            engine.fight(a, others.get(engine.rng().nextInt(others.size())));
+        inYogake = true;   // an enemy hidden Fuma forced to fight is not revealing itself: no Yogake in return (it looped forever)
+        try {
+            for (Minion a : theirs) {
+                if (a.isDead()) continue;
+                List<Minion> others = theirs.stream().filter(b -> b != a && !b.isDead()).toList();
+                if (others.isEmpty()) break;
+                engine.fight(a, others.get(engine.rng().nextInt(others.size())));
+            }
+        } finally {
+            inYogake = false;
         }
     }
 
