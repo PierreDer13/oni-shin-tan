@@ -5,6 +5,7 @@ import fr.onishintan.ui.MockCards;
 import fr.onishintan.ui.app.SceneRouter;
 import fr.onishintan.ui.app.Screen;
 import fr.onishintan.ui.app.ScreenGrid;
+import fr.onishintan.ui.app.ScrollTheme;
 import fr.onishintan.ui.cards.CardShelves;
 import fr.onishintan.ui.cards.CardPreview;
 import fr.onishintan.ui.cards.StandingCard;
@@ -63,6 +64,7 @@ public class InventoryView extends Pane {
         scroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
         scroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
         scroll.addEventFilter(ScrollEvent.SCROLL, this::scrollFaster);
+        ScrollTheme.apply(scroll);
         grid.getChildren().add(scroll);
 
         // Top bar: the BACK sign and the card count on the left, the two filter planks beside them.
