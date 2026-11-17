@@ -13,6 +13,7 @@ import fr.onishintan.ui.screens.InventoryView;
 import java.util.function.Consumer;
 
 import javafx.application.Application;
+import javafx.scene.image.Image;
 import javafx.stage.Stage;
 
 public class OniShinTanApp extends Application {
@@ -29,6 +30,7 @@ public class OniShinTanApp extends Application {
         router.register(Screen.INVENTORY, () -> new InventoryView(router));
         router.goTo(Screen.HOME);
         stage.setTitle("Oni Shin Tan");
+        stage.getIcons().add(new Image(OniShinTanApp.class.getResourceAsStream("/images/logos/game-icon.png")));   // window and taskbar icon
         stage.show();
     }
 
