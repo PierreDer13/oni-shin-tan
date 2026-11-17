@@ -5,6 +5,7 @@ import fr.onishintan.ui.cards.DeckListView;
 import fr.onishintan.ui.fx.Fx;
 import fr.onishintan.ui.app.SceneRouter;
 import fr.onishintan.ui.app.Screen;
+import fr.onishintan.ui.app.ScrollTheme;
 import fr.onishintan.ui.MockCards;
 import fr.onishintan.ui.OniShinTanApp;
 
@@ -184,6 +185,7 @@ public class AdventureSelectView extends Pane {
         scroll.setPrefSize(LIST_W + 14, LIST_H);
         scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         scroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
+        ScrollTheme.apply(scroll);
         return scroll;
     }
 
