@@ -37,6 +37,13 @@ public abstract class Combatant {
 
     /** Destroyed outright, whatever its HP, Torii or armour (Banishment, Abyss). */
     public void destroy() { health = 0; }
+
+    /** Inochi: raises max health and current health by n. */
+    public void raiseMaxHealth(int n) {
+        if (n <= 0) return;
+        maxHealth += n;
+        health += n;
+    }
     
     public boolean isDead() { return health <= 0; }
 

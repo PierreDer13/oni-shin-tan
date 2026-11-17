@@ -1,5 +1,6 @@
 package fr.onishintan.engine;
 
+import fr.onishintan.adventure.Upgrade;
 import fr.onishintan.model.Card;
 import fr.onishintan.model.ChessClock;
 import fr.onishintan.model.Combatant;
@@ -26,6 +27,8 @@ import fr.onishintan.model.CurseCard;
 import fr.onishintan.model.CurseZone;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
@@ -68,6 +71,10 @@ public class GameEngine {
     private final Map<Player, List<MinionCard>> graveyards = new HashMap<>();
     /** Yōi: Ki taken off the cards each player had in hand, by card. */
     private final Map<Player, Map<Card, Integer>> handDiscounts = new HashMap<>();
+    /** Adventure upgrades of each player (Inochi, Chikara, Hayasa): none outside the Adventure. */
+    private final Map<Player, Set<Upgrade>> upgrades = new HashMap<>();
+    /** True while a spell card's effect is resolving (Chikara: +3 spell damage). */
+    private boolean castingSpell;
     private final Random rng;
 
     private LongSupplier now = System::currentTimeMillis;   // replaced in tests
@@ -162,6 +169,17 @@ public class GameEngine {
             if (e.source() instanceof Player p && e.target() instanceof Minion m && isMiko(m)) {
                 int bonus = p.getMikoCalls() / MIKO_BONUS_EVERY;
                 if (bonus > 0) m.buff(bonus, bonus);
+            }
+        });
+        // Chikara: +3 ATK to every minion summoned and every weapon equipped
+        bus.subscribe(GameEvent.Type.MINION_SUMMONED, e -> {
+            if (e.source() instanceof Player p && e.target() instanceof Minion m && has(p, Upgrade.CHIKARA)) {
+                m.buff(Upgrade.CHIKARA_BONUS, 0);
+            }
+        });
+        bus.subscribe(GameEvent.Type.WEAPON_EQUIPPED, e -> {
+            if (e.source() instanceof Player p && has(p, Upgrade.CHIKARA) && p.getHero().getWeapon() != null) {
+                p.getHero().getWeapon().addAttack(Upgrade.CHIKARA_BONUS);
             }
         });
         // Oath rewards (3 and 6 stacks): last, so they see what the rule handlers recorded
@@ -454,8 +472,13 @@ public class GameEngine {
         } else if (card instanceof SpellCard) {
             publish(GameEvent.of(GameEvent.Type.SPELL_CAST, p, card));
             triggerTraps(state.opponent(), TrapTrigger.ON_ENEMY_SPELL, null);
-            cardEffects.get(card.getId(), Trigger.BANZAI)
-                    .ifPresent(effect -> effect.apply(new EffectContext(this, p, null, target, second)));
+            castingSpell = true;
+            try {
+                cardEffects.get(card.getId(), Trigger.BANZAI)
+                        .ifPresent(effect -> effect.apply(new EffectContext(this, p, null, target, second)));
+            } finally {
+                castingSpell = false;
+            }
         }
 
         combat.removeDead();
@@ -667,7 +690,7 @@ public class GameEngine {
         if (target == null || amount <= 0) return;
         if (!(source instanceof Oath) && !(source instanceof ChessClock)) {
             Player dealer = cursed != null ? state.opponentOf(cursed) : state.active();
-            amount = rewards.effectDamage(dealer, cursed != null, target, amount + ryu(dealer));
+            amount = rewards.effectDamage(dealer, cursed != null, target, amount + ryu(dealer) + chikaraSpell(dealer));
         }
         amount = familyEffects.capDamage(target, amount);               // Fushimi Inari
         int taken = target.takeDamage(amount);
@@ -724,6 +747,7 @@ public class GameEngine {
      * What to add to the damage or healing number written on card, as it would be dealt by p now (0 if none):
      * Ryu +4, Havoc 3 +1 and Corruption 3 +1 (Curses) on damage, Purity 3 +2 on healing.
      * A Curse held in p's hand deals the giver's damage, so its bonus is the opponent's. The UI shows it in green.
+     * Chikara (Adventure) adds 3 to spell damage.
      * Justice 6 (double damage on some targets) depends on the target and is not counted.
      */
     public int bonusOf(Player p, Card card) {
@@ -735,6 +759,7 @@ public class GameEngine {
             int bonus = ryu(dealer);
             if (OathRewards.has(dealer, OathType.HAVOC, 3)) bonus++;
             if (card instanceof CurseCard && OathRewards.has(dealer, OathType.CORRUPTION, 3)) bonus++;
+            if (card instanceof SpellCard && has(dealer, Upgrade.CHIKARA)) bonus += Upgrade.CHIKARA_BONUS;
             return bonus;
         }
         if (HEAL_NUMBER.matcher(text).find()) {
@@ -747,12 +772,41 @@ public class GameEngine {
 
     // ---------- Oath rewards and penalties ----------
 
-    /** What this card costs p now, Oath rewards included (Silence 3, Deception 3, Descension 3). The UI shows this. */
+    /** What this card costs p now, Oath rewards (Silence 3, Deception 3, Descension 3) and Hayasa included. The UI shows this. */
     public int costOf(Player p, Card card) {
         Map<Card, Integer> off = handDiscounts.get(p);
         int yoi = off == null ? 0 : off.getOrDefault(card, 0);
-        return Math.max(0, rewards.cost(p, card) + familyEffects.costUp(p, card)
+        int cost = Math.max(0, rewards.cost(p, card) + familyEffects.costUp(p, card)
                 - yoi - minionEffects.costCut(p, card));   // Bakeneko, Yōi, Tennō
+        return has(p, Upgrade.HAYASA) && cost > Upgrade.HAYASA_MIN ? cost - 1 : cost;   // Hayasa: -1, minimum 1
+    }
+
+    // ---------- Adventure upgrades ----------
+
+    /**
+     * Gives p his Adventure upgrades for this battle; call it before the first turn.
+     * Inochi raises the hero's max and current HP by 30 at once; Chikara and Hayasa apply from then on.
+     */
+    public void setUpgrades(Player p, Set<Upgrade> chosen) {
+        Set<Upgrade> set = chosen == null || chosen.isEmpty() ? EnumSet.noneOf(Upgrade.class) : EnumSet.copyOf(chosen);
+        Set<Upgrade> before = upgrades.getOrDefault(p, Set.of());
+        if (set.contains(Upgrade.INOCHI) && !before.contains(Upgrade.INOCHI)) p.getHero().raiseMaxHealth(Upgrade.INOCHI_HP);
+        upgrades.put(p, set);
+    }
+
+    /** p's Adventure upgrades (empty outside the Adventure). */
+    public Set<Upgrade> upgradesOf(Player p) {
+        return Collections.unmodifiableSet(upgrades.getOrDefault(p, EnumSet.noneOf(Upgrade.class)));
+    }
+
+    boolean has(Player p, Upgrade u) {
+        Set<Upgrade> set = upgrades.get(p);
+        return set != null && set.contains(u);
+    }
+
+    /** Chikara: +3 to the damage of p's spell being cast. */
+    private int chikaraSpell(Player p) {
+        return castingSpell && has(p, Upgrade.CHIKARA) ? Upgrade.CHIKARA_BONUS : 0;
     }
 
     /** Kawarimi: the attack being resolved hits this minion instead. */
