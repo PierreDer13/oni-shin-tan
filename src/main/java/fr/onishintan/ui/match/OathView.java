@@ -134,11 +134,17 @@ final class OathView extends StackPane {
         bg.setFitHeight(740);
         bg.setPreserveRatio(true);
         bg.setEffect(BoardView.SHADOW);
-        VBox text = new VBox(8, label("Oath of\n" + o[0], 30, INK, BRUSH), label(o[1], 54, INK, JP), label(o[2], 14, INK, BRUSH),
-                label("3 — " + o[3] + "\n6 — " + o[4] + "\n9 — " + o[5], 13, INK, BRUSH), label("Break — " + o[6], 13, "#8f1d1d", BRUSH));
+        VBox text = new VBox(10,
+                label("Oath of\n" + o[0], 30, INK, BRUSH),
+                label(o[1], 46, INK, JP),
+                rule(o[2], 14, INK),
+                rule("3 — " + o[3], 13, INK),
+                rule("6 — " + o[4], 13, INK),
+                rule("9 — " + o[5], 13, INK),
+                rule("Break — " + o[6], 13, "#8f1d1d"));
         text.setAlignment(Pos.TOP_CENTER);
-        text.setMaxWidth(190);
-        text.setPadding(new Insets(50, 0, 0, 0));
+        text.setMaxWidth(200);
+        text.setPadding(new Insets(40, 0, 0, 0));
         ImageView frame = image("stamp-frame", 120), stamp = image("stamp-seal", 140);
         stamp.setRotate(-6);
         StackPane s = new StackPane(bg, text, frame, stamp);
@@ -162,6 +168,14 @@ final class OathView extends StackPane {
         Label l = new Label(s);
         l.setStyle("-fx-font-family: '" + font + "'; -fx-font-size: " + size + "; -fx-text-fill: " + color + "; -fx-text-alignment: center;");
         l.setWrapText(true);
+        return l;
+    }
+
+
+    /** A rule, reward or penalty line in bold serif: the brush font stays for the title, the small text must be easy to read. */
+    private static Label rule(String s, double size, String color) {
+        Label l = label(s, size, color, "Yu Mincho");
+        l.setStyle(l.getStyle() + " -fx-font-weight: bold;");
         return l;
     }
 }
