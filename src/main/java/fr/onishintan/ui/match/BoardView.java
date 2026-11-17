@@ -5,6 +5,7 @@ import fr.onishintan.ui.cards.ShrineView;
 import fr.onishintan.ui.fx.EventBanner;
 import fr.onishintan.ui.fx.Fx;
 import fr.onishintan.ui.screens.HomeView;
+import fr.onishintan.ui.screens.SettingsPanel;
 import fr.onishintan.ui.app.Images;
 import fr.onishintan.ui.app.Sound;
 
@@ -181,10 +182,10 @@ public class BoardView extends Pane {
             wait.play();
         });
         table.getChildren().addAll(bg, live, endTurn, yourClock, enemyClock);
-        // Surrender, top left: it asks first, then the player whose turn it is loses.
-        Label surrender = darkButton("降参  SURRENDER", this::askSurrender);
-        surrender.relocate(20, 20);
-        table.getChildren().add(surrender);
+        // Settings, top left: volumes, window size and Surrender (which asks first).
+        Label settings = darkButton("設定  SETTINGS", () -> table.getChildren().add(new SettingsPanel(this::askSurrender)));
+        settings.relocate(20, 20);
+        table.getChildren().add(settings);
         getChildren().add(table);
         setStyle("-fx-background-color: black;");
         render();
