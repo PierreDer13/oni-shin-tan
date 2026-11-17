@@ -543,6 +543,17 @@ public class BoardView extends Pane {
         return p.getOath().getStacks();
     }
 
+    /** Adventure: the AI's turn is over and you play again at the bottom (the board never flips): End turn works again. */
+    public void yourTurn() {
+        endTurn.setImage(SWITCH_ON);
+        endTurn.setDisable(false);
+        selected = null;
+        powerUsed = false;
+        aiming = false;
+        held = null;
+        render();
+    }
+
     /** Hotseat: the other player now sits at the bottom (their hand, Ki and hero power) and the board flips. */
     public void swapSides() {
         endTurn.setImage(SWITCH_ON);
@@ -1064,6 +1075,24 @@ public void passTo(String name, Runnable onReady) {
 
     /** Plays an attack (GDD): lunge, slash, red damage on both, dead minions cut in half; the board redraws after. */
     private void fight(Combatant attacker, Combatant target) {
+        fight(attacker, target, () -> {});
+    }
+
+    /**
+     * Adventure: the AI attacks, with the same lunge, slash and damage numbers as a click;
+     * `then` runs once the board has redrawn (the next AI move).
+     */
+    public void aiAttack(Combatant attacker, Combatant target, Runnable then) {
+        if (nodes.get(attacker) == null || nodes.get(target) == null) {
+            onAttack.accept(attacker, target);   // not on screen (should not happen): attack without the animation
+            render();
+            then.run();
+            return;
+        }
+        fight(attacker, target, then);
+    }
+
+    private void fight(Combatant attacker, Combatant target, Runnable then) {
         Node a = nodes.get(attacker), t = nodes.get(target);
         if (a.getProperties().get("float") instanceof Animation f) { f.stop(); a.setTranslateY(0); }
         int aHp = life(attacker), tHp = life(target);
@@ -1080,7 +1109,10 @@ public void passTo(String name, Runnable onReady) {
             if (target.isDead()) Fx.deathCut(live, t);
             if (attacker.isDead()) Fx.deathCut(live, a);
             PauseTransition wait = new PauseTransition(Duration.millis(attacker instanceof Hero ? 1300 : 1100));
-            wait.setOnFinished(e -> render());
+            wait.setOnFinished(e -> {
+                render();
+                then.run();
+            });
             wait.play();
         });
     }
