@@ -301,6 +301,18 @@ public class MatchController implements CardPlayer {
         return engine.canPlay(card);
     }
 
+    /** The engine's bonus on this card's damage or healing number, for the active player. */
+    @Override
+    public int bonus(Card card) {
+        return engine.bonusOf(engine.active(), card);
+    }
+
+    /** Who this attacker may hit, by the engine's rule. */
+    @Override
+    public List<Combatant> attackTargets(Combatant attacker) {
+        return engine.legalTargets(attacker);
+    }
+
     /** An attacker and its target: the engine deals the damage both ways and removes the dead. BoardView animates, then redraws. */
     private void attack(Combatant attacker, Combatant target) {
         engine.attack(attacker, target);
