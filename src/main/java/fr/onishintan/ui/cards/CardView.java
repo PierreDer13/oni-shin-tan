@@ -40,6 +40,8 @@ public class CardView extends Group {
     private static final Color DAMAGED = Color.web("#c41e1e");
     /** Better than printed: a Ki cost lowered by Yōi or an Oath, ATK or HP above the card's own. */
     private static final Color GREEN = Color.web("#1f7a3a");
+    /** From this width a card is a big copy (hover previews are 280 or 300): it shows its keyword notes beside it. */
+    private static final double NOTES_FROM = 250;
     /** The edge tags (SPELL on the left, the family on the right), in card coordinates (530 x 742):
      *  width, top, height per letter and the extra height around the letters (SPELL: 30 + 5 x 24 = 150). */
     private static final double SIDE_TAG_W = 40, SIDE_TAG_Y = 345, SIDE_TAG_LETTER_H = 24, SIDE_TAG_PADDING = 30;
@@ -60,6 +62,11 @@ public class CardView extends Group {
         face.setClip(corners);
         getChildren().add(face);
         render();
+        if (width >= NOTES_FROM) {
+            KeywordNotes notes = new KeywordNotes(card);   // a big copy: what its keywords mean, on its right
+            notes.setLayoutX(width + 10);
+            getChildren().add(notes);
+        }
     }
 
         /** Rebuilds the card face from the card's data. */
