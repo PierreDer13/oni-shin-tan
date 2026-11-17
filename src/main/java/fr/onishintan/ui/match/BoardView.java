@@ -47,8 +47,9 @@ import javafx.animation.TranslateTransition;
 import javafx.beans.InvalidationListener;
 
 import javafx.geometry.Insets;
+import javafx.geometry.Bounds;
 import javafx.geometry.Pos;
-
+import javafx.scene.Cursor;
 import javafx.scene.Group;
 import javafx.scene.Node;
 import javafx.scene.control.Label;
@@ -130,6 +131,11 @@ public class BoardView extends Pane {
     private int heldSlot;
     private List<Combatant> heldTargets = List.of();
     private Combatant firstPick;
+    /** The arrow from what aims (an attacker, a held card, a hero power) to the mouse. */
+    private final TargetArrow arrow = new TargetArrow();
+    /** The red rings on a legal target under the mouse while something aims, and how wide they are drawn. */
+    private final ImageView targetMark = image("/images/fx/target.png");
+    private static final double MARK_W = 90;
 
     private boolean powerUsed;
     private Predicate<Combatant> onPower = target -> false;
@@ -186,6 +192,21 @@ public class BoardView extends Pane {
         Label settings = darkButton("設定  SETTINGS", () -> table.getChildren().add(new SettingsPanel(this::askSurrender)));
         settings.relocate(20, 20);
         table.getChildren().add(settings);
+        targetMark.setFitWidth(MARK_W);
+        targetMark.setPreserveRatio(true);
+        targetMark.setMouseTransparent(true);   // clicks still reach the target under it
+        targetMark.setVisible(false);
+        table.getChildren().add(targetMark);    // under the arrow
+        // The targeting arrow, above the board: from what aims to the mouse.
+        table.getChildren().add(arrow);
+        table.addEventFilter(MouseEvent.MOUSE_MOVED, e -> pointArrow(e.getX(), e.getY()));
+        arrow.visibleProperty().addListener((property, wasShown, shown) -> {
+            if (shown) {
+                table.setCursor(Cursor.NONE);   // while aiming, the arrowhead is the cursor
+            } else {
+                table.setCursor(null);          // back to the game's brush cursor
+            }
+        });
         getChildren().add(table);
         setStyle("-fx-background-color: black;");
         render();
@@ -194,6 +215,8 @@ public class BoardView extends Pane {
     /** Redraws everything that changes during a match: heroes, minions, Ki and decks. */
     public void render() {
         live.getChildren().clear();
+        arrow.setVisible(false);   // shown again as soon as the mouse moves, if something still aims
+        targetMark.setVisible(false);
         if (izakaya) props();
         nodes.clear();
         status.clear();
@@ -849,6 +872,7 @@ public void passTo(String name, Runnable onReady) {
             n.setEffect(new DropShadow(BlurType.GAUSSIAN, Color.GOLD, 28, 0.45, 0, 0));   // Kettō: the first minion already picked
             n.setOnMouseClicked(e -> cancelHeld());
         } else if (heldTargets.contains(c)) {
+            markOnHover(n);
             n.setEffect(new DropShadow(30, Color.LIMEGREEN));
             n.setOnMouseClicked(e -> pick(c));
         } else {
@@ -931,6 +955,7 @@ public void passTo(String name, Runnable onReady) {
             n.setOnMouseExited(e -> { if (c != selected) n.setEffect(border(8)); });
             n.setOnMouseClicked(e -> { selected = c == selected ? null : c; render(); });
         } else if (!mine && selected != null && canTarget(c)) {
+            markOnHover(n);
             n.setEffect(new DropShadow(30, Color.CRIMSON));
             n.setOnMouseClicked(e -> {
                 Combatant attacker = selected;
@@ -950,6 +975,39 @@ public void passTo(String name, Runnable onReady) {
     /** Whether the selected attacker may hit t, by the engine's own rule (Shirodu first, no hidden Shinobi, Stealth…). */
     private boolean canTarget(Combatant t) {
         return player.attackTargets(selected).contains(t);
+    }
+
+    /** While aiming: the target rings appear centred on n when the mouse is over it, and go away when it leaves. */
+    private void markOnHover(Node n) {
+        n.addEventHandler(MouseEvent.MOUSE_ENTERED, e -> {
+            Bounds box = table.sceneToLocal(n.localToScene(n.getBoundsInLocal()));
+            targetMark.relocate(box.getCenterX() - MARK_W / 2, box.getCenterY() - MARK_W / 2);
+            targetMark.setVisible(true);
+        });
+        n.addEventHandler(MouseEvent.MOUSE_EXITED, e -> targetMark.setVisible(false));
+    }
+
+    /** Where the targeting arrow starts: the selected attacker, or your hero for a held card or a hero power; null when nothing aims. */
+    private Node arrowSource() {
+        if (selected != null) {
+            return nodes.get(selected);
+        }
+        if (held != null || aiming) {
+            return nodes.get(you.getHero());
+        }
+        return null;
+    }
+
+    /** Points the targeting arrow from its source to the mouse at (x, y) on the table; hides it when nothing aims. */
+    private void pointArrow(double x, double y) {
+        Node from = arrowSource();
+        if (from == null) {
+            arrow.setVisible(false);
+            return;
+        }
+        Bounds box = table.sceneToLocal(from.localToScene(from.getBoundsInLocal()));
+        arrow.span(box.getCenterX(), box.getCenterY(), x, y);
+        arrow.setVisible(true);
     }
 
     /** A soft dark patch under a card so it looks like it lies on the table. */
@@ -1038,6 +1096,7 @@ public void passTo(String name, Runnable onReady) {
     /** While aiming a hero power: each character it may hit glows violet and takes the power on click; anything else cancels. */
     private void aimable(Node n, Combatant c) {
         if (canPowerTarget(c)) {
+            markOnHover(n);
             n.setEffect(new DropShadow(30, Color.web("#b36bff")));
             n.setOnMouseClicked(e -> {
                 aiming = false;
