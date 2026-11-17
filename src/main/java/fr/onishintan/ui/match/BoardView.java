@@ -120,9 +120,9 @@ public class BoardView extends Pane {
     private final ImageView endTurn = new ImageView(SWITCH_ON);
     private Runnable onEndTurn = () -> {};
     private Runnable onReswear = () -> {};
-    private final Label yourClock = hud(new Label(), 1381, 545, 190, 71, 30);
+    private final Label yourClock = hud(new Label(), 1441, 558, 130, 44, 22);
     private Predicate<Card> onTrade = card -> false;
-    private final Label enemyClock = hud(new Label(), 1381, 255, 190, 71, 30);
+    private final Label enemyClock = hud(new Label(), 1441, 268, 130, 44, 22);
     private CardPlayer player;
     /** A card dropped on the board that waits for its target(s): its slot, its legal targets and, for Kettō, the first minion picked. */
     private Card held;
@@ -610,7 +610,7 @@ public void passTo(String name, Runnable onReady) {
             double d = i - mid;
             ImageView back = cardBack(90);
             back.setRotate(180 - d * 4);
-            Tooltip.install(back, new Tooltip(n + " cards in hand"));
+            Tooltip.install(back, quick(n + " cards in hand"));
             place(back, W / 2 - 45 + d * 45, -70 - d * d * 2);
         }
     }
@@ -621,6 +621,14 @@ public void passTo(String name, Runnable onReady) {
         node.setPrefSize(w, h);
         node.relocate(x, y);
         return node;
+    }
+
+
+    /** A tooltip that shows almost at once (JavaFX's default waits a whole second). */
+    static Tooltip quick(String text) {
+        Tooltip tip = new Tooltip(text);
+        tip.setShowDelay(Duration.millis(100));
+        return tip;
     }
 
     /** One side's 7 fixed slots, left to right. Each minion is drawn in the slot it was dropped on; empty slots stay empty. */
@@ -783,6 +791,13 @@ public void passTo(String name, Runnable onReady) {
             w.setPreserveRatio(true);
             w.setTranslateY(4);   // down onto the pegs
             slot.getChildren().add(w);
+            int durability = h.getWeapon().getDurability();
+            if (durability > 1) {
+                Label uses = hud(new Label(String.valueOf(durability)), 0, 0, 34, 34, 18);   // uses left, bottom-right of the rack
+                uses.setAlignment(Pos.CENTER);
+                StackPane.setAlignment(uses, Pos.BOTTOM_RIGHT);
+                slot.getChildren().add(uses);
+            }
             box.getProperties().put("weapon", w);
         }
         place(slot, W / 2 - 120 - 195, zoneY + (119 - 83) / 2);
