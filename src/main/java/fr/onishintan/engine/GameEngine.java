@@ -702,6 +702,49 @@ public class GameEngine {
         publishDraw(p, p.draw());
     }
 
+    /** An effect puts c in p's hand: CARD_ADDED so the hand redraws, or CARD_BURNED if the hand is full (the card is lost). */
+    boolean addToHand(Player p, Card c) {
+        if (c == null) return false;
+        if (p.getHand().size() >= Player.MAX_HAND) {
+            publish(GameEvent.of(GameEvent.Type.CARD_BURNED, p, c));
+            return false;
+        }
+        p.addToHand(c);
+        publish(GameEvent.of(GameEvent.Type.CARD_ADDED, p, c));
+        return true;
+    }
+
+    // ---------- hand display ----------
+
+    private static final java.util.regex.Pattern DAMAGE_NUMBER = java.util.regex.Pattern.compile("(\\d+) damage");
+    private static final java.util.regex.Pattern HEAL_NUMBER =
+            java.util.regex.Pattern.compile("(?i)\\b(heal|restore)[^0-9;.]*?(\\d+)");
+
+    /**
+     * What to add to the damage or healing number written on card, as it would be dealt by p now (0 if none):
+     * Ryu +4, Havoc 3 +1 and Corruption 3 +1 (Curses) on damage, Purity 3 +2 on healing.
+     * A Curse held in p's hand deals the giver's damage, so its bonus is the opponent's. The UI shows it in green.
+     * Justice 6 (double damage on some targets) depends on the target and is not counted.
+     */
+    public int bonusOf(Player p, Card card) {
+        if (p == null || card == null) return 0;
+        String text = card.getEffectText() == null ? "" : card.getEffectText();
+        boolean heldCurse = card instanceof CurseCard cc && p.isHeldCurse(cc);
+        Player dealer = heldCurse ? state.opponentOf(p) : p;
+        if (DAMAGE_NUMBER.matcher(text).find()) {
+            int bonus = ryu(dealer);
+            if (OathRewards.has(dealer, OathType.HAVOC, 3)) bonus++;
+            if (card instanceof CurseCard && OathRewards.has(dealer, OathType.CORRUPTION, 3)) bonus++;
+            return bonus;
+        }
+        if (HEAL_NUMBER.matcher(text).find()) {
+            int bonus = ryu(dealer);
+            if (OathRewards.has(dealer, OathType.PURITY, 3)) bonus += OathRewards.PURITY_HEAL_BONUS;
+            return bonus;
+        }
+        return 0;
+    }
+
     // ---------- Oath rewards and penalties ----------
 
     /** What this card costs p now, Oath rewards included (Silence 3, Deception 3, Descension 3). The UI shows this. */
@@ -865,7 +908,7 @@ public class GameEngine {
         Player owner = ownerOf(m);
         if (owner == null) return;
         owner.getSide().remove(m);
-        owner.addToHand(m.getSource());
+        addToHand(owner, m.getSource());
         publish(GameEvent.of(GameEvent.Type.MINION_REMOVED, owner, m));
     }
 
@@ -986,10 +1029,7 @@ public class GameEngine {
         for (Card c : List.copyOf(from.getHand())) {
             if (c instanceof TrapCard t) {
                 from.removeFromHand(t);
-                if (thief.getHand().size() < Player.MAX_HAND) {
-                    thief.addToHand(t);
-                    stolen++;
-                }
+                if (addToHand(thief, t)) stolen++;
             }
         }
         publish(new GameEvent(GameEvent.Type.TRAPS_STOLEN, from, thief, stolen));

@@ -247,8 +247,8 @@ class OathRewards {
 
     /** Justice 9 and Havoc 9: the Oath card goes to the hand. */
     private void oathCard(Player p, Oath oath) {
-        if (oath.getType() == OathType.JUSTICE) p.addToHand(JUSTICE_CARD);
-        if (oath.getType() == OathType.HAVOC) p.addToHand(WREAK_HAVOC);
+        if (oath.getType() == OathType.JUSTICE) engine.addToHand(p, JUSTICE_CARD);
+        if (oath.getType() == OathType.HAVOC) engine.addToHand(p, WREAK_HAVOC);
     }
 
     /** A break: the Ki earned for next turn, the Oath cards in hand and the Honor 9 bonus go with the Oath. */

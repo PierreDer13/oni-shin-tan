@@ -9,6 +9,7 @@ public record GameEvent(Type type, Object source, Object target, int amount) {
     public enum Type {
         MATCH_STARTED, TURN_STARTED, TURN_ENDED,
         CARD_DRAWN, CARD_BURNED, CARD_PLAYED, CARD_TRADED, SPELL_CAST,
+        CARD_ADDED,                 // source = Player, target = the Card an effect put in his hand (Koi, Kiji, Noppera-bo, Oath cards)
         MINION_SUMMONED, MINION_DIED,
         MINION_REMOVED,             // source = owner, target = the Minion, gone without dying (Kamikakushi: back into the deck)
         ATTACK, DAMAGE, HEAL,

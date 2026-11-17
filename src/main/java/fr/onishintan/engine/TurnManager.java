@@ -15,7 +15,7 @@ import java.util.function.Predicate;
 /**
  * Runs the match order from the GDD:
  * start of match (shuffle, opening hands), then for each turn
- * start (max Ki +1, Ki refilled, reset characters, draw 2), main phase, end.
+ * start (max Ki +1, Ki refilled, reset characters, draw 1), main phase, end.
  * Mulligan, chess clock and start/end-of-turn effects plug in later.
  */
 public class TurnManager {
@@ -24,7 +24,7 @@ public class TurnManager {
     /** Extra Ki on the second player's first turn only (GDD, proposed). */
     public static final int SECOND_PLAYER_BONUS_KI = 1;
     /** Cards drawn at the start of every turn (GDD, 10 Nov). */
-    public static final int DRAW_PER_TURN = 2;
+    public static final int DRAW_PER_TURN = 1;
 
     private final GameState state;
     private final Random rng;

@@ -55,7 +55,7 @@ class GameEngineTest {
         engine.startMatch();
         events.clear();
         engine.beginFirstTurn();
-        assertEquals(List.of(Type.CARD_DRAWN, Type.CARD_DRAWN, Type.TURN_STARTED), types());
+        assertEquals(List.of(Type.CARD_DRAWN, Type.TURN_STARTED), types());
         assertSame(first, engine.active());
     }
 
@@ -65,7 +65,7 @@ class GameEngineTest {
         engine.beginFirstTurn();
         events.clear();
         engine.endTurn();
-        assertEquals(List.of(Type.TURN_ENDED, Type.CARD_DRAWN, Type.CARD_DRAWN, Type.TURN_STARTED), types());
+        assertEquals(List.of(Type.TURN_ENDED, Type.CARD_DRAWN, Type.TURN_STARTED), types());
         assertSame(second, engine.active());
     }
 

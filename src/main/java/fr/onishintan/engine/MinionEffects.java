@@ -146,14 +146,14 @@ final class MinionEffects {
         });
         banzai(fx, "kiji", ctx -> {                     // a copy of a random card of the opponent's hand (not a Curse he holds)
             List<Card> pool = ctx.enemy().getHand().stream().filter(c -> !ctx.enemy().isHeldCurse(c)).toList();
-            if (!pool.isEmpty()) ctx.owner().addToHand(pool.get(engine.rng().nextInt(pool.size())));
+            if (!pool.isEmpty()) engine.addToHand(ctx.owner(), pool.get(engine.rng().nextInt(pool.size())));
         });
 
         // Seppuku
         seppuku(fx, "inasaku-noka", ctx -> engine.heal(ctx.owner().getHero(), 8));
         seppuku(fx, "sendaiku", ctx -> summon(ctx.owner(), "sakana-uri"));
         seppuku(fx, "jujutsu-shihan", ctx -> engine.equip(ctx.owner(), KatanaTier.HONJO_MASAMUNE.toCard()));
-        seppuku(fx, "noppera-bo", ctx -> ctx.owner().addToHand(ctx.source().getSource()));
+        seppuku(fx, "noppera-bo", ctx -> engine.addToHand(ctx.owner(), ctx.source().getSource()));
         seppuku(fx, "oiwa", ctx -> {                    // 2 random deck Curses into the enemy deck
             List<CurseCard> curses = engine.deckCurses();
             for (int i = 0; i < 2 && !curses.isEmpty(); i++) {
@@ -185,8 +185,7 @@ final class MinionEffects {
     }
 
     private void addToHand(Player p, String id) {
-        Card c = engine.catalogCard(id);
-        if (c != null) p.addToHand(c);
+        engine.addToHand(p, engine.catalogCard(id));
     }
 
     private void summon(Player p, String id) {
