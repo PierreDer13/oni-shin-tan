@@ -32,6 +32,7 @@ import javafx.animation.Timeline;
 import javafx.animation.TranslateTransition;
 import javafx.scene.image.ImageView;
 import javafx.scene.Node;
+import javafx.scene.control.Tooltip;
 import javafx.scene.shape.Circle;
 import javafx.util.Duration;
 
@@ -89,6 +90,7 @@ public class HandView extends Group {
         zone.setFill(Color.TRANSPARENT);
         zone.setPickOnBounds(true);
         getChildren().add(0, zone);
+        Tooltip.install(zone, BoardView.quick(cards.size() + " cards in hand"));   // shows in the gaps between your cards
         setOnMouseEntered(e -> fan(true, true));
         setOnMouseMoved(this::pick);
         setOnMouseExited(e -> {showBig(null);hovered = null; fan(false, true); onHover.accept(0); });
