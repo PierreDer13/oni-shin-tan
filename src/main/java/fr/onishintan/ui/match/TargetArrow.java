@@ -48,8 +48,8 @@ final class TargetArrow extends Group {
         measureCurve(fromX, fromY, toX, toY);
         double total = lengthTo[STEPS];
 
-        place(tail, TAIL_X, TAIL_Y, fromX, fromY, angleAt(1));
-        place(head, TIP_X, TIP_Y, toX, toY, angleAt(STEPS) - HEAD_TILT * side);
+        place(tail, TAIL_X, TAIL_Y, fromX, fromY, angleAt(1), side);
+        place(head, TIP_X, TIP_Y, toX, toY, angleAt(STEPS) + HEAD_TILT * side, -side);   // the head is mirrored the other way, so its long barb is on the outside
 
         // The dashes fill the stretch between the tail and the head, spread with equal gaps.
         double dashLength = DASH.getWidth() * SCALE;
@@ -64,7 +64,7 @@ final class TargetArrow extends Group {
         for (int i = 0; i < count; i++) {
             double along = start + gap * (i + 1) + dashLength * (i + 0.5);
             int at = stepAt(along);
-            place(dashes.get(i), DASH.getWidth() / 2, DASH.getHeight() / 2, pointX[at], pointY[at], angleAt(Math.max(1, at)));
+            place(dashes.get(i), DASH.getWidth() / 2, DASH.getHeight() / 2, pointX[at], pointY[at], angleAt(Math.max(1, at)), side);
         }
     }
 
@@ -103,10 +103,10 @@ final class TargetArrow extends Group {
         return Math.toDegrees(Math.atan2(pointY[i] - pointY[i - 1], pointX[i] - pointX[i - 1]));
     }
 
-    /** Puts the picture's point (anchorX, anchorY) on (x, y), turned by `angle` around that point and mirrored when the arrow points left. */
-    private void place(ImageView view, double anchorX, double anchorY, double x, double y, double angle) {
+    /** Puts the picture's point (anchorX, anchorY) on (x, y), turned by `angle` around that point and mirrored when `mirror` is -1. */
+    private static void place(ImageView view, double anchorX, double anchorY, double x, double y, double angle, double mirror) {
         view.relocate(x - anchorX * SCALE, y - anchorY * SCALE);
-        view.getTransforms().setAll(new Rotate(angle, anchorX * SCALE, anchorY * SCALE), new Scale(1, side, anchorX * SCALE, anchorY * SCALE));
+        view.getTransforms().setAll(new Rotate(angle, anchorX * SCALE, anchorY * SCALE), new Scale(1, mirror, anchorX * SCALE, anchorY * SCALE));
     }
 
     /** Makes exactly `count` dashes visible, creating more when needed. */
