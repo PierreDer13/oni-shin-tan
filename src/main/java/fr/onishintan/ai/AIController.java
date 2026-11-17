@@ -97,6 +97,17 @@ public final class AIController {
         return done;
     }
 
+    /** Cards above this Ki go back at the mulligan. */
+    public static final int MULLIGAN_MAX_KI = 4;
+
+    /** The AI's mulligan: it sends back every opening card costing more than 4 Ki. Call engine.mulligan(me, this). */
+    public List<Card> mulliganChoice() {
+        List<Card> back = new ArrayList<>();
+        for (Card c : me.getHand()) if (engine.costOf(me, c) > MULLIGAN_MAX_KI) back.add(c);
+        return back;
+    }
+
+    
     /** The move to play now, or empty when the AI should end its turn. */
     public Optional<Move> nextMove() {
         if (!isMyTurn()) return Optional.empty();
