@@ -1,5 +1,7 @@
 package fr.onishintan.ui.match;
 
+import fr.onishintan.ai.AIController;
+import fr.onishintan.ai.Move;
 import fr.onishintan.engine.GameEngine;
 import fr.onishintan.engine.GameEvent;
 import fr.onishintan.engine.SpellTarget;
@@ -19,9 +21,12 @@ import fr.onishintan.model.Shrine;
 import fr.onishintan.model.TrapCard;
 import fr.onishintan.ui.MockCards;
 import fr.onishintan.ui.app.HeroChoice;
+import javafx.animation.PauseTransition;
 import javafx.scene.paint.Color;
+import javafx.util.Duration;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Random;
 import java.util.function.Consumer;
 
@@ -44,6 +49,15 @@ public class MatchController implements CardPlayer {
     private int cardsDrawnThisTurn;
     /** False until the second player's first turn: then their whole opening hand is dealt, not only the 2 cards drawn. */
     private boolean secondHandDealt;
+    /** Adventure: the AI that plays the second player (at the top). Null in a hotseat match. */
+    private final AIController ai;
+    /** Adventure: the pause between two AI moves, so each one can be seen. */
+    private static final Duration AI_STEP = Duration.millis(1500);
+    /** Adventure: how long the ENEMY TURN banner shows before the AI's first move. */
+    private static final Duration AI_START = Duration.millis(2000);
+    /** Adventure: an AI turn never has more moves than this. */
+    private static final int AI_MAX_MOVES = 40;
+    private int aiMoves;
 
     /** A hotseat match with test decks from MockCards (the Adventure uses this); at the end, onEnd gets whether the first player won. */
     public MatchController(String boardName, HeroClass yours, HeroClass theirs, Consumer<Boolean> onEnd) {
@@ -52,6 +66,15 @@ public class MatchController implements CardPlayer {
 
     /** A hotseat match between these two players (PvP: the decks they chose); at the end, onEnd gets whether the first player won. */
     public MatchController(String boardName, Player first, Player second, Consumer<Boolean> onEnd) {
+        this(boardName, first, second, null, onEnd);
+    }
+
+    /**
+     * difficulty null: a hotseat match (Oaths, clocks, pass veil, the board flips each turn).
+     * Otherwise an Adventure battle: you (first) at the bottom against the AI (second) at the top,
+     * with no Oath (so no clock), no pass veil, and the board never flips (GDD, Adventure).
+     */
+    public MatchController(String boardName, Player first, Player second, AIController.Difficulty difficulty, Consumer<Boolean> onEnd) {
         HeroClass yours = first.getHero().getHeroClass();
         HeroClass theirs = second.getHero().getHeroClass();
         // 1. The two players, each given their Gusoku armour.
@@ -66,6 +89,7 @@ public class MatchController implements CardPlayer {
         engine.getBus().subscribe(GameEvent.Type.CARD_DRAWN, event -> cardsDrawnThisTurn++);
         engine.startMatch();
         engine.beginFirstTurn();
+        ai = difficulty == null ? null : new AIController(engine, second, difficulty, new Random());
         pauseClock();   // the engine starts the first player's clock: it waits until both Oaths are sworn
 
         // 3. The table, with each action plugged into the engine.
@@ -83,7 +107,12 @@ public class MatchController implements CardPlayer {
         // A trap that goes off is shown to both players (the engine has already applied its effect).
         engine.getBus().subscribe(GameEvent.Type.TRAP_TRIGGERED, event -> board.revealTrap((TrapCard) event.target()));
         // A trap you set is shown big, then flips and glides to its place by your hero.
-        engine.getBus().subscribe(GameEvent.Type.TRAP_SET, event -> board.showTrapSet((TrapCard) event.target()));
+        // Adventure: the AI's traps stay hidden (only their face-down back shows by its hero).
+        engine.getBus().subscribe(GameEvent.Type.TRAP_SET, event -> {
+            if (ai == null || event.source() == first) {
+                board.showTrapSet((TrapCard) event.target());
+            }
+        });
         // A clock timeout: remember who ran out and the damage, for the TIME'S UP animation once checkClock() returns.
         engine.getBus().subscribe(GameEvent.Type.CLOCK_TIMEOUT, event -> {
             timedOutHero = (Hero) event.target();
@@ -97,8 +126,13 @@ public class MatchController implements CardPlayer {
         announceOathEvents();
         board.setOnReswear(this::reswear);
 
-        // 4. Each player swears an Oath behind a pass veil, then the first player's hand is dealt.
-        chooseOaths(yours, theirs);
+        // 4. Hotseat: each player swears an Oath behind a pass veil, then the first player's hand is dealt.
+        //    Adventure: no Oath, your hand is dealt at once.
+        if (ai == null) {
+            chooseOaths(yours, theirs);
+        } else {
+            board.dealHand();
+        }
     }
 
     /** The table to show on screen. */
@@ -293,7 +327,9 @@ public class MatchController implements CardPlayer {
      */
     private void endTurn() {
         cardsDrawnThisTurn = 0;
-        board.holdEffects();   // banners and stamps from the end of the turn wait for the pass veil
+        if (ai == null) {
+            board.holdEffects();   // banners and stamps from the end of the turn wait for the pass veil
+        }
         engine.endTurn();
         afterTurnEnded();
     }
@@ -306,6 +342,15 @@ public class MatchController implements CardPlayer {
         // A broken Oath can kill its own hero: then the match is over and there is no pass veil.
         if (engine.getState().isOver()) {
             board.render();
+            return;
+        }
+
+        // Adventure: no flip and no veil, the AI plays its turn at the top.
+        if (ai != null) {
+            board.render();
+            aiMoves = 0;
+            board.announce("敵の番", "ENEMY TURN", second.getName(), CURSE_RED);
+            nextAiStep(AI_START);
             return;
         }
 
@@ -323,6 +368,56 @@ public class MatchController implements CardPlayer {
                 board.dealDrawnCards(drawn);   // the cards they drew fly in from their deck
             }
         });
+    }
+
+    /** Adventure: the next AI move comes after a short pause, so you can follow the enemy's turn. */
+    private void nextAiStep() {
+        nextAiStep(AI_STEP);
+    }
+
+    private void nextAiStep(Duration pause) {
+        PauseTransition wait = new PauseTransition(pause);
+        wait.setOnFinished(event -> aiStep());
+        wait.play();
+    }
+
+    /** Adventure: the AI plays one move and the board redraws; when it has nothing left to play, its turn ends. */
+    private void aiStep() {
+        if (engine.getState().isOver()) {
+            board.render();
+            return;
+        }
+        Optional<Move> move = Optional.empty();
+        if (aiMoves < AI_MAX_MOVES) {
+            move = ai.nextMove();
+        }
+        if (move.isEmpty()) {
+            endAiTurn();
+            return;
+        }
+        aiMoves++;
+        if (move.get().kind() == Move.Kind.ATTACK) {
+            // The attack plays with its animation (lunge, slash, damage), then the next move comes.
+            board.aiAttack(move.get().attacker(), move.get().target(), this::nextAiStep);
+            return;
+        }
+        ai.play(move.get());
+        board.render();
+        nextAiStep();
+    }
+
+    /** Adventure: the engine ends the AI's turn and starts yours: the cards you draw fly in, End turn works again. */
+    private void endAiTurn() {
+        cardsDrawnThisTurn = 0;
+        engine.endTurn();
+        if (engine.getState().isOver()) {
+            board.render();
+            return;
+        }
+        board.yourTurn();
+        if (cardsDrawnThisTurn > 0) {
+            board.dealDrawnCards(cardsDrawnThisTurn);
+        }
     }
 
     /**

@@ -6,6 +6,8 @@ import fr.onishintan.ui.fx.Fx;
 import fr.onishintan.ui.app.SceneRouter;
 import fr.onishintan.ui.app.Screen;
 import fr.onishintan.ui.MockCards;
+import fr.onishintan.ai.AIController;
+import fr.onishintan.data.AdventureDecks;
 import fr.onishintan.ui.OniShinTanApp;
 
 import fr.onishintan.model.Card;
@@ -18,7 +20,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.IntStream;
 import javafx.util.Duration;
 
 import javafx.animation.ScaleTransition;
@@ -44,17 +45,12 @@ public class AdventureSelectView extends Pane {
     public static final double W = 1600, H = 900, K = W / 1672;   // the page image is 1672 x 941
     private static final String[] ADVENTURES = { "machi", "taifu", "fuji" };
     private static final double[] LEFT = { 8, 428, 822 }, RIGHT = { 418, 812, 1172 };   // each panel's edges in the image
-    private static final String[] BOARDS = { "town", "ship", "fuji" };
-    /** Each battle's music, in the same order as BOARDS: the town, the sea (the ship), Mount Fuji. */
+    /** The decks of the run and its opponents, battle by battle (Pierre's data/AdventureDecks: boards and opponents too). */
+    private static final AdventureDecks DECKS = new AdventureDecks(MockCards.ALL);
+    /** Each battle's music, in the same order as AdventureDecks.board(i): the town, the sea (the ship), Mount Fuji. */
     private static final String[] BOARD_MUSIC = { "town-map-music", "sea-map-music", "fuji-map-music" };
     /** The deck list's size inside the frame. */
     private static final double LIST_W = 370, LIST_H = 530;
-    /** Your opponent in battles 1 to 3, per class (GDD, Adventure). */
-    private static final Map<HeroClass, HeroClass[]> FOES = Map.of(
-            HeroClass.SAMURAI, new HeroClass[] { HeroClass.KANNUSHI, HeroClass.ONI, HeroClass.NINJA },
-            HeroClass.NINJA, new HeroClass[] { HeroClass.ONI, HeroClass.KANNUSHI, HeroClass.SAMURAI },
-            HeroClass.KANNUSHI, new HeroClass[] { HeroClass.SAMURAI, HeroClass.NINJA, HeroClass.ONI },
-            HeroClass.ONI, new HeroClass[] { HeroClass.NINJA, HeroClass.SAMURAI, HeroClass.KANNUSHI });
     /** The run's upgrades (GDD): name, effect. */
     private static final String[][] UPGRADES = { { "命 Inochi", "Hero max HP +30" },
             { "力 Chikara", "Minions and weapons +3 ATK, spells +3 damage" }, { "速さ Hayasa", "Your cards cost 1 Ki less (min 1)" } };
@@ -159,7 +155,9 @@ public class AdventureSelectView extends Pane {
         banner.relocate((x0 + x1) / 2 - 125, 70);
         if (i > won) banner.setEffect(new ColorAdjust(0, -0.6, -0.5, 0));
         if (i == won) HomeView.clickable(banner, true, () -> {
-            router.register(Screen.ADVENTURE_BATTLE, () -> OniShinTanApp.match(BOARDS[i], heroClass, FOES.get(heroClass)[i],
+            // You against the AI, which gets harder battle by battle (Town EASY, Ocean NORMAL, Mount Fuji HARD).
+            router.register(Screen.ADVENTURE_BATTLE, () -> OniShinTanApp.adventure(AdventureDecks.board(i), DECKS.hero("You", heroClass),
+                    DECKS.enemy(heroClass, i), AIController.Difficulty.forBattle(i),
                     v -> open(router, heroClass, v ? won + 1 : 0, v ? picked : List.of())));
             router.setMusic(Screen.ADVENTURE_BATTLE, BOARD_MUSIC[i]);   // the town, the sea or Mount Fuji theme
             router.goTo(Screen.ADVENTURE_BATTLE);
@@ -187,10 +185,9 @@ public class AdventureSelectView extends Pane {
         return scroll;
     }
 
-    /** The deck this class gets for the run. Placeholder: the class's mock cards plus the neutral ones, cycled to 30. */
+    /** The 40-card deck this class is given for the run (AdventureDecks). */
     private List<Card> deck() {
-        List<Card> pool = MockCards.ALL.stream().filter(c -> c.getHeroClass() == heroClass || c.getHeroClass() == HeroClass.NEUTRAL).toList();
-        return IntStream.range(0, 30).mapToObj(i -> pool.get(i % pool.size())).toList();
+        return DECKS.playerDeck(heroClass);
     }
 
     /** Cream text in the card font with a soft shadow, readable on the frame's dark inside. */

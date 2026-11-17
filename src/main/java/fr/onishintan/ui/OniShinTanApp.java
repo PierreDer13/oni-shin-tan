@@ -1,5 +1,6 @@
 package fr.onishintan.ui;
 
+import fr.onishintan.ai.AIController;
 import fr.onishintan.model.HeroClass;
 import fr.onishintan.model.Player;
 import fr.onishintan.ui.app.SceneRouter;
@@ -43,6 +44,12 @@ public class OniShinTanApp extends Application {
     /** A hotseat match between two players with their own decks (PvP): at the end, onEnd gets whether the first player won. */
     public static BoardView match(String boardName, Player first, Player second, Consumer<Boolean> onEnd) {
         MatchController match = new MatchController(boardName, first, second, onEnd);
+        return match.getBoard();
+    }
+
+    /** An Adventure battle: you play first at the bottom against the AI (no Oaths, no clocks, no pass veil); onEnd gets whether you won. */
+    public static BoardView adventure(String boardName, Player you, Player enemy, AIController.Difficulty difficulty, Consumer<Boolean> onEnd) {
+        MatchController match = new MatchController(boardName, you, enemy, difficulty, onEnd);
         return match.getBoard();
     }
 

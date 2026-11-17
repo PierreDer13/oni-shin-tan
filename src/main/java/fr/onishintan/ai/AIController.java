@@ -32,8 +32,8 @@ import fr.onishintan.model.Status;
  * Greedy, one move at a time: every legal move gets a score and the best one is played, until none is worth it.
  * Order of a turn: lethal on the hero if it can (HARD), cards from the most expensive it can pay, the hero power
  * with the Ki left, then attacks (good trades first, the hero when no trade is worth more).
- * EASY makes a careless move half the time (ends its turn early, a random attack, a card on a random target) and
- * sometimes hits the hero instead of trading; NORMAL about one time in eight; HARD never does, checks lethal and removes the Curses it holds.
+ * EASY makes a careless move about one time in three (a random attack, a card on a random target) and
+ * sometimes hits the hero instead of trading; NORMAL one time in ten; HARD never does, checks lethal and removes the Curses it holds.
  * When its board is full or its deck is empty, it accepts even trades so that a match always ends.
  *
  * The UI animates each move: nextMove(), animate, play(move), and endTurn when nextMove() is empty.
@@ -42,7 +42,7 @@ import fr.onishintan.model.Status;
 public final class AIController {
 
     public enum Difficulty {
-        EASY(0.5), NORMAL(0.12), HARD(0);
+        EASY(0.3), NORMAL(0.1), HARD(0);
 
         /** How often a random legal move replaces the best one. */
         final double mistakes;
@@ -105,6 +105,13 @@ public final class AIController {
         List<Scored> moves = legalMoves();
         if (moves.isEmpty()) return Optional.empty();
         if (rng.nextDouble() < difficulty.mistakes) return mistake();
+        return best();
+    }
+
+    /** The best-scored move, or empty when none is worth playing. */
+    private Optional<Move> best() {
+        List<Scored> moves = legalMoves();
+        if (moves.isEmpty()) return Optional.empty();
         Scored best = moves.stream().max(Comparator.comparingDouble(Scored::score)).get();
         return best.score > 0 ? Optional.of(best.move) : Optional.empty();
     }
@@ -124,13 +131,11 @@ public final class AIController {
     }
 
     /**
-     * A careless move: ends the turn early (cards left in hand), a random attack on a random legal target,
-     * or a random playable card on a random target. Empty when it ends the turn.
+     * A careless move: a random attack on a random legal target, or a random playable card on a random target.
+     * Never an early end of turn: the AI always gets to its attacks. Empty only when nothing at all can be played.
      */
     private Optional<Move> mistake() {
-        int roll = rng.nextInt(3);
-        if (roll == 0) return Optional.empty();
-        if (roll == 1) {
+        if (rng.nextBoolean()) {
             List<Combatant> attackers = attackers();
             if (!attackers.isEmpty()) {
                 Combatant a = attackers.get(rng.nextInt(attackers.size()));
@@ -139,7 +144,7 @@ public final class AIController {
             }
         }
         List<Card> playable = me.getHand().stream().filter(engine::canPlay).toList();
-        if (playable.isEmpty()) return Optional.empty();
+        if (playable.isEmpty()) return best();
         Card card = playable.get(rng.nextInt(playable.size()));
         Scored s = cardMove(card);
         if (s == null) return Optional.empty();
