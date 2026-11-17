@@ -5,6 +5,7 @@ import fr.onishintan.ui.fx.Fx;
 import fr.onishintan.model.HeroClass;
 import fr.onishintan.ui.app.SceneRouter;
 import fr.onishintan.ui.decks.DecksView;
+import fr.onishintan.ui.decks.DeckPickView;
 import fr.onishintan.ui.app.Screen;
 import fr.onishintan.ui.app.Sound;
 import fr.onishintan.ui.app.Images;
@@ -83,7 +84,7 @@ public class HomeView extends Pane {
         add("scroll", 175, 20, 170);
         profile(175, 20, PLAYER_NAME, PLAYER_REI);
         button("adventure", 480, 610, 300, Screen.CLASS_SELECT);
-        button("pvp", 820, 610, 300, Screen.DECK_SELECT);
+        clickable(add("button-pvp", 820, 610, 300), false, () -> grid.getChildren().add(new DeckPickView(router)));   // laid over the home screen
         // Bottom bar: Deck Builder shows every deck, Inventory and Profile go to their screen, Settings opens over the home screen.
         clickable(add("button-deck-builder", 390, 790, 190), false, () -> DecksView.open(router, null));
         button("inventory", 600, 790, 190, Screen.INVENTORY);
