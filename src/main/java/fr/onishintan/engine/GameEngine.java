@@ -86,6 +86,9 @@ public class GameEngine {
 
     /** True once beginFirstTurn() ran: the clocks may start from then on. */
     private boolean turnsBegun;
+    /** The players who already used their mulligan (once each, before the first turn). */
+    private final Set<Player> mulliganDone = new HashSet<>();
+
     /** True while the table is hidden (Oath choice, hotseat pass veil): no clock runs. */
     private boolean clockPaused;
 
@@ -240,6 +243,38 @@ public class GameEngine {
         publish(GameEvent.of(GameEvent.Type.TURN_STARTED, p, null));
         turnsBegun = true;
         startClock(p);
+    }
+
+    
+    /**
+     * Mulligan, once per player between startMatch() and beginFirstTurn(): the chosen cards of p's opening hand
+     * are replaced. The new cards are drawn first, then the old ones go back into the deck at random places,
+     * so a card sent back cannot come straight back. Cards not in p's hand are ignored; an empty list keeps the hand.
+     * Publishes MULLIGAN_DONE (target = the new cards, amount = how many were replaced).
+     * @return the new cards, or an empty list if the mulligan is refused (already done, or the first turn began)
+     */
+    public List<Card> mulligan(Player p, List<Card> toReplace) {
+        if (p == null || turnsBegun || mulliganDone.contains(p)
+                || (p != state.getFirst() && p != state.getSecond())) return List.of();
+        mulliganDone.add(p);
+        List<Card> back = new ArrayList<>();
+        if (toReplace != null) {
+            for (Card c : toReplace) if (c != null && !back.contains(c) && p.getHand().contains(c)) back.add(c);
+        }
+        List<Card> fresh = new ArrayList<>();
+        for (int i = 0; i < back.size(); i++) p.getDeck().draw().ifPresent(fresh::add);
+        for (Card c : back) {
+            p.removeFromHand(c);
+            p.getDeck().insertRandom(c, rng);
+        }
+        fresh.forEach(p::addToHand);
+        publish(new GameEvent(GameEvent.Type.MULLIGAN_DONE, p, List.copyOf(fresh), back.size()));
+        return fresh;
+    }
+
+    /** True once p used his mulligan (the UI hides the mulligan screen). */
+    public boolean hasMulliganed(Player p) {
+        return mulliganDone.contains(p);
     }
 
     /**
