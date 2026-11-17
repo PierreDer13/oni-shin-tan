@@ -38,8 +38,8 @@ public class CardView extends Group {
     private static final String SERIF = "Yu Mincho";
     private static final Color INK = Color.web("#1f1b17");
     private static final Color DAMAGED = Color.web("#c41e1e");
-    /** A Ki cost lowered by Yōi or an Oath. */
-    private static final Color CHEAPER = Color.web("#1f7a3a");
+    /** Better than printed: a Ki cost lowered by Yōi or an Oath, ATK or HP above the card's own. */
+    private static final Color GREEN = Color.web("#1f7a3a");
     /** The edge tags (SPELL on the left, the family on the right), in card coordinates (530 x 742):
      *  width, top, height per letter and the extra height around the letters (SPELL: 30 + 5 x 24 = 150). */
     private static final double SIDE_TAG_W = 40, SIDE_TAG_Y = 345, SIDE_TAG_LETTER_H = 24, SIDE_TAG_PADDING = 30;
@@ -82,7 +82,11 @@ public class CardView extends Group {
             }
         }
         int[] s = stats();
-        if (s != null) { stat(s[0], "攻撃 ATK", 27, INK); stat(s[1], card instanceof WeaponCard ? "耐久 DUR" : "体力 HP", 402, damaged() ? DAMAGED : INK); }
+        if (s != null) {
+            int[] base = printed();
+            stat(s[0], "攻撃 ATK", 27, statColour(s[0], base[0], false));
+            stat(s[1], card instanceof WeaponCard ? "耐久 DUR" : "体力 HP", 402, statColour(s[1], base[1], damaged()));
+        }
         text(desc, 22, 154 + 24 * kw, 32, 208 - 24 * kw, 210).setFont(Font.font(SERIF, 22)); // description, top middle
         if (card.getRarity() == Rarity.LEGENDARY)
             rarityTag("伝説 LEGENDARY", 190, "#8a6a1c, #f7e08a 30%, #fff6c8 50%, #d4ab4a 70%, #8a6a1c", "#3a2a05", Color.GOLD);
@@ -103,11 +107,13 @@ public class CardView extends Group {
         setEffect(new DropShadow(BlurType.GAUSSIAN, Color.HOTPINK, 12, 0.85, 0, 0));
     }
 
-    /** Writes `ki` in the Ki circle instead of the printed cost (used by the hand); a lower price is written in green. */
+    /** Writes `ki` in the Ki circle instead of the printed cost (used by the hand): green when cheaper, red when dearer. */
     public void showCost(int ki) {
         kiLabel.setText(String.valueOf(ki));
         if (ki < card.getKiCost()) {
-            kiLabel.setTextFill(CHEAPER);
+            kiLabel.setTextFill(GREEN);
+        } else if (ki > card.getKiCost()) {
+            kiLabel.setTextFill(DAMAGED);
         }
     }
 
@@ -132,9 +138,25 @@ public class CardView extends Group {
     protected boolean onBoard() { return false; }
 
     protected int[] stats() {
+        return printed();
+    }
+
+    /** The printed ATK and HP (durability for weapons), or null for spells. */
+    private int[] printed() {
         if (card instanceof MinionCard m) return new int[] { m.getBaseAttack(), m.getBaseHealth() };
         if (card instanceof WeaponCard w) return new int[] { w.getAttack(), w.getDurability() };
         return null;
+    }
+
+    /** Red when hurt, green above the printed value (a buff), ink otherwise. */
+    private static Color statColour(int value, int printed, boolean hurt) {
+        if (hurt) {
+            return DAMAGED;
+        }
+        if (value > printed) {
+            return GREEN;
+        }
+        return INK;
     }
 
     /**
