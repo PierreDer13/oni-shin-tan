@@ -40,14 +40,14 @@ final class TrapView {
         // Only static methods.
     }
 
-    /** One face-down trap: a small card back with a red 罠 ("trap") seal on it. */
+    /** One face-down trap: a small card back with a red TRAP label on it. */
     static StackPane back() {
         ImageView image = BoardView.image("/images/frames/card-back.png");
         image.setFitWidth(BACK_W);
         image.setPreserveRatio(true);
 
-        Label seal = new Label("罠");
-        seal.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 22; -fx-font-weight: bold; -fx-text-fill: #f3ede1;"
+        Label seal = new Label("TRAP");
+        seal.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 14; -fx-font-weight: bold; -fx-text-fill: #f3ede1;"
                 + " -fx-background-color: #b3372a; -fx-background-radius: 20; -fx-padding: 2 7;");
 
         StackPane back = new StackPane(image, seal);

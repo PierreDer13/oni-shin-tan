@@ -660,23 +660,20 @@ public void passTo(String name, Runnable onReady) {
 
             // Keyword overlays. follow() makes them move with the card when it attacks.
             status.follow(view);
-            if (minion.hasKeyword(Keyword.PASSIVE)) {
-                status.flag(minion, x, y);
-            }
             if (minion.hasTorii()) {
                 status.gate("torii", minion, x, y);
             }
             if (minion.hasKeyword(Keyword.SHIRODU)) {
                 status.gate("shirodu", minion, x, y);
             }
+            if (minion.hasKeyword(Keyword.PASSIVE)) {
+                status.flag(minion, x, y);   // after the gates, so the flag lies on top of a Shirodu gate
+            }
             if (minion.isHidden()) {
                 status.shinobi(x, y);
             }
             if (minion.hasKeyword(Keyword.SEPPUKU)) {
                 status.seppuku(x, y);
-            }
-            if (minion.hasKeyword(Keyword.TATAKAE) && minion.isSummonedThisTurn()) {
-                status.tatakae(minion, x, y);
             }
             if (minion.hasKeyword(Keyword.BANZAI)) {
                 status.banzai(minion, x, y);
@@ -716,13 +713,13 @@ public void passTo(String name, Runnable onReady) {
     private void auraGlow(int slot, double y) {
         double x = SLOT_X + 2 + slot * SLOT_STEP;
         double cardH = MINION_W * CardView.H / CardView.W;
-        Rectangle glow = new Rectangle(MINION_W, cardH, Color.web("#b7a6dd", 0.25));
-        glow.setArcWidth(16);
-        glow.setArcHeight(16);
+        Rectangle glow = new Rectangle(MINION_W + 16, cardH + 16, Color.web("#b7a6dd", 0.35));   // wider than the card: the rim shows around a minion standing there
+        glow.setArcWidth(20);
+        glow.setArcHeight(20);
         glow.setEffect(new DropShadow(30, Color.web("#b7a6dd")));
         glow.setMouseTransparent(true);
         glow.setViewOrder(1);   // behind the cards
-        glow.relocate(x, y);
+        glow.relocate(x - 8, y - 8);
         live.getChildren().add(glow);
     }
 
