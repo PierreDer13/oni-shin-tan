@@ -82,9 +82,9 @@ public class HandView extends Group {
             cards.add(v);
         }
         getChildren().addAll(cards);
-        // The hover zone covers only the lowered hand at the bottom of the screen, so the hand doesn't rise
-        // when the mouse is over something above it (your traps). Once it has risen, the raised cards keep it up.
-        double half = (cards.size() - 1) / 2.0 * GAP + CARD_W / 2 + 10;
+        // The hover zone covers the raised hand's width at the bottom of the screen: the outer cards stay inside it once spread,
+        // so the hand doesn't drop and rise again under the mouse. It stays low, so the hand doesn't rise over your traps.
+        double half = (cards.size() - 1) / 2.0 * RAISED_GAP + CARD_W / 2 + 10;
         Rectangle zone = new Rectangle(BoardView.W / 2 - half, LOWERED_TOP, half * 2, BoardView.H - LOWERED_TOP);
         zone.setFill(Color.TRANSPARENT);
         zone.setPickOnBounds(true);
