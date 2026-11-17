@@ -87,8 +87,7 @@ public class MatchController implements CardPlayer {
         engine = new GameEngine(first, second, new Random());
         engine.setCatalog(MockCards.ALL);   // the cards that effects create or summon (Sendaiku, Sakana uri, Inari, Oiwa)
         engine.getBus().subscribe(GameEvent.Type.CARD_DRAWN, event -> cardsDrawnThisTurn++);
-        engine.startMatch();
-        engine.beginFirstTurn();
+        engine.startMatch();   // the opening hands; turn 1 begins once both mulligans are done (startTurns)
         ai = difficulty == null ? null : new AIController(engine, second, difficulty, new Random());
         pauseClock();   // the engine starts the first player's clock: it waits until both Oaths are sworn
 
@@ -126,12 +125,17 @@ public class MatchController implements CardPlayer {
         announceOathEvents();
         board.setOnReswear(this::reswear);
 
-        // 4. Hotseat: each player swears an Oath behind a pass veil, then the first player's hand is dealt.
-        //    Adventure: no Oath, your hand is dealt at once.
+        // 4. Hotseat: each player swears an Oath then does the mulligan behind a pass veil; turn 1 then begins.
+        //    Adventure: no Oath, the AI does its mulligan at once, then yours; turn 1 then begins.
         if (ai == null) {
             chooseOaths(yours, theirs);
         } else {
-            board.dealHand();
+            engine.mulligan(second, ai.mulliganChoice());   // the AI sends back its expensive cards at once
+            board.mulligan(first, cards -> {
+                engine.mulligan(first, cards);
+                startTurns();
+                board.dealHand();
+            });
         }
     }
 
@@ -237,16 +241,29 @@ public class MatchController implements CardPlayer {
     private void chooseOaths(HeroClass yours, HeroClass theirs) {
         board.chooseOath(yours, firstOath -> {
             swear(first, firstOath);
-            board.chooseOath(theirs, secondOath -> {
-                swear(second, secondOath);
-                board.passTo(first.getName(), () -> {
-                    resumeClock();          // both Oaths are sworn: the first player's clock starts now
-                    clockTicker.start();
-                    board.dealHand();
+            board.mulligan(first, firstCards -> {
+                engine.mulligan(first, firstCards);
+                board.chooseOath(theirs, secondOath -> {
+                    swear(second, secondOath);
+                    board.mulligan(second, secondCards -> {
+                        engine.mulligan(second, secondCards);
+                        board.passTo(first.getName(), () -> {
+                            startTurns();
+                            resumeClock();          // both Oaths are sworn: the first player's clock starts now
+                            clockTicker.start();
+                            board.dealHand();
+                        });
+                    });
                 });
+                board.passTo(second.getName(), () -> {});
             });
-            board.passTo(second.getName(), () -> {});
         });
+    }
+
+    /** After both mulligans: the first player's turn 1 begins (Ki and a draw), then the table is redrawn. */
+    private void startTurns() {
+        engine.beginFirstTurn();
+        board.render();
     }
 
     /** The engine records the Oath (it checks the rule at the end of each turn); the board shows its scroll. */
