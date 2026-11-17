@@ -12,6 +12,7 @@ import java.util.regex.Pattern;
 
 import fr.onishintan.engine.GameEngine;
 import fr.onishintan.engine.SpellTarget;
+import fr.onishintan.model.BoardSide;
 import fr.onishintan.model.Card;
 import fr.onishintan.model.Combatant;
 import fr.onishintan.model.CurseCard;
@@ -25,6 +26,7 @@ import fr.onishintan.model.Player;
 import fr.onishintan.model.RiteCard;
 import fr.onishintan.model.ShrineCard;
 import fr.onishintan.model.Status;
+import fr.onishintan.model.BoardSide;
 
 /**
  * The Adventure opponent (GDD, Adventure): plays its turn through GameEngine only, like a player would.
@@ -187,7 +189,7 @@ public final class AIController {
         if (!engine.canPlay(card)) return null;
         int slot = -1;
         if (card instanceof MinionCard || card instanceof ShrineCard || card instanceof RiteCard) {
-            slot = me.getSide().firstFree();
+            slot = centreSlot();
             if (slot < 0) return null;
         }
         List<Combatant> targets = card instanceof MinionCard ? engine.banzaiTargets(card) : engine.spellTargets(card);
@@ -203,6 +205,17 @@ public final class AIController {
         double score = 10 + engine.costOf(me, card) * 3 + targetBonus(card, target);
         return new Scored(Move.play(card, slot, target, second), score);
     }
+
+
+    /** Where the AI puts a minion, Shrine or Rite: the free slot nearest the middle (3, then 2, 4, 1, 5, 0, 6); -1 if full. */
+    private int centreSlot() {
+        int middle = BoardSide.MAX / 2;
+        for (int d = 0; d <= middle; d++) {
+            if (me.getSide().isFree(middle - d)) return middle - d;
+            if (middle + d < BoardSide.MAX && me.getSide().isFree(middle + d)) return middle + d;
+        }
+        return -1;
+    }    
 
     /** The hero power with the Ki left once the cards are paid: after every card (score below any card). */
     private Scored powerMove() {
