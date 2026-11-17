@@ -18,9 +18,9 @@ import fr.onishintan.model.RiteCard;
 import fr.onishintan.model.Shrine;
 import fr.onishintan.model.TrapCard;
 import fr.onishintan.ui.MockCards;
+import fr.onishintan.ui.app.HeroChoice;
 import javafx.scene.paint.Color;
 
-import java.util.Map;
 import java.util.List;
 import java.util.Random;
 import java.util.function.Consumer;
@@ -30,13 +30,6 @@ import java.util.function.Consumer;
  * Each click on the board calls one engine method, then the board redraws from the players' new state.
  */
 public class MatchController implements CardPlayer {
-    /** Each class's hero portrait (images/heroes/<name>.png). */
-    private static final Map<HeroClass, String> PORTRAIT = Map.of(
-            HeroClass.SAMURAI, "yasuke",
-            HeroClass.NINJA, "hattori-hanzo",
-            HeroClass.KANNUSHI, "kada-no-azumamaro",
-            HeroClass.ONI, "shuten-doji");
-
     private final GameEngine engine;
     private final BoardView board;
     /** Plays first and starts at the bottom of the screen. */
@@ -76,7 +69,7 @@ public class MatchController implements CardPlayer {
         pauseClock();   // the engine starts the first player's clock: it waits until both Oaths are sworn
 
         // 3. The table, with each action plugged into the engine.
-        board = new BoardView(boardName, second, PORTRAIT.get(theirs), first, PORTRAIT.get(yours));
+        board = new BoardView(boardName, second, HeroChoice.portrait(theirs), first, HeroChoice.portrait(yours));
         showClocks();
         board.setOnPlay(this);
         board.setOnAttack(this::attack);

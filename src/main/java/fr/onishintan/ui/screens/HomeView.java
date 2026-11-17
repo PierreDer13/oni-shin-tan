@@ -110,7 +110,7 @@ public class HomeView extends Pane {
         Group g = Fx.waving(new Image(getClass().getResourceAsStream("/images/home/banner-" + heroClass + ".png")), w, 45);
         g.relocate(x, y);
         grid.getChildren().add(g);
-        clickable(g, true, () -> DecksView.open(router, HeroClass.valueOf(heroClass.toUpperCase())));
+        clickable(g, true, () -> grid.getChildren().add(new HeroPicker(HeroClass.valueOf(heroClass.toUpperCase()))));   // pick this class's hero
     }
 
     /** Hover: small dark shadow and 4 % bigger (hanging items grow down from their top). Press: click sound, then the action. */
