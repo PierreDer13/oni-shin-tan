@@ -43,7 +43,7 @@ public class MatchController implements CardPlayer {
     /** Notes what an action did (damage, healing, deaths, traps) so the board can show it before redrawing. */
     private final EffectRecorder recorder;
     /** Before a played card's effects: the card landing, or a spell or a Banzai taking effect (GDD timing). */
-    private static final double PLACE_PAUSE = 200, EFFECT_PAUSE = 300;
+    private static final double PLACE_PAUSE = 200, EFFECT_PAUSE = 300, POWER_PAUSE = 500;   // POWER_PAUSE: a shuriken or beam reaches its target
     /** How long effects show before the redraw; at the end of a turn they all fit in 0.75 s. */
     private static final double EFFECT_SHOW = 700, TURN_SHOW = 750;
     private final BoardView board;
@@ -401,7 +401,7 @@ public class MatchController implements CardPlayer {
         boolean used = engine.useHeroPower(target);
         List<GameEvent> events = recorder.stop();
         if (used) {
-            board.replay(events, 0, EFFECT_SHOW, () -> {});   // the damage, a death, a trap, one step after the other
+            board.replay(events, POWER_PAUSE, EFFECT_SHOW, () -> {});   // the damage, a death, a trap, one step after the other
         }
         return used;
     }
