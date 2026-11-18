@@ -2,13 +2,14 @@ package fr.onishintan.ui.cards;
 
 import fr.onishintan.model.Shrine;
 
-import javafx.geometry.Pos;
 import javafx.scene.Group;
-import javafx.scene.control.Label;
+import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
+import javafx.scene.text.Text;
+import javafx.scene.text.TextBoundsType;
 
 /**
  * A Shrine standing on the board: its card, with the turns it has left in a lavender circle where a minion's HP would be.
@@ -29,18 +30,19 @@ public class ShrineView extends Group {
 
         CardView card = new CardView(shrine.getSource(), width);
 
-        Circle ring = new Circle(TURNS_X * k, TURNS_Y * k, TURNS_RADIUS * k, Color.web(LAVENDER));
+        Circle ring = new Circle(TURNS_RADIUS * k, Color.web(LAVENDER));
         ring.setStroke(Color.web(CREAM));
         ring.setStrokeWidth(4 * k);
 
-        Label turns = new Label(String.valueOf(shrine.getTurnsLeft()));
+        Text turns = new Text(String.valueOf(shrine.getTurnsLeft()));
         turns.setFont(Font.font("Yu Mincho", FontWeight.BOLD, 64 * k));
-        turns.setTextFill(Color.web(CREAM));
-        turns.setAlignment(Pos.CENTER);
-        turns.setPrefSize(TURNS_RADIUS * 2 * k, TURNS_RADIUS * 2 * k);
-        turns.relocate((TURNS_X - TURNS_RADIUS) * k, (TURNS_Y - TURNS_RADIUS) * k);
+        turns.setFill(Color.web(CREAM));
+        turns.setBoundsType(TextBoundsType.VISUAL);   // measured on the digit itself, not the font's tall line box
 
-        getChildren().addAll(card, ring, turns);
+        StackPane badge = new StackPane(ring, turns);   // centres the digit on the circle
+        badge.relocate((TURNS_X - TURNS_RADIUS - 2) * k, (TURNS_Y - TURNS_RADIUS - 2) * k);   // - 2: half the stroke
+
+        getChildren().addAll(card, badge);
     }
 
     /** The Shrine this view shows. */
