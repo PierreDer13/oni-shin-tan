@@ -100,6 +100,13 @@ public class HandView extends Group {
         fan(false, false);
     }
 
+    /** Yōi was just played: every Ki cost in the hand pulses gold. */
+    void sparkleCosts() {
+        for (CardView v : cards) {
+            v.sparkleCost();
+        }
+    }
+
     /** Places the cards on an arc centred on the board; raised = lifted and spread out; animate = glide there.
      *  The hovered card rises above the others, straightens up and grows. */
     private void fan(boolean raised, boolean animate) {

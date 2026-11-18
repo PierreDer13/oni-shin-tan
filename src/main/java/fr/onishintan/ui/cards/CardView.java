@@ -14,6 +14,7 @@ import java.util.Map;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import javafx.animation.ScaleTransition;
 import javafx.geometry.HPos;
 import javafx.geometry.NodeOrientation;
 import javafx.geometry.Orientation;
@@ -36,6 +37,7 @@ import javafx.scene.text.TextAlignment;
 import javafx.scene.transform.Scale;
 import javafx.scene.text.Text;
 import javafx.scene.text.TextFlow;
+import javafx.util.Duration;
 
 /** One card in the karuta layout: drawn at the art's size (530 x 742), then scaled to the width asked. */
 public class CardView extends Group {
@@ -133,6 +135,18 @@ public class CardView extends Group {
         } else if (ki > card.getKiCost()) {
             kiLabel.setTextFill(DAMAGED);
         }
+    }
+
+    /** Yōi: the Ki number swells twice with a golden glow. */
+    public void sparkleCost() {
+        kiLabel.setEffect(new DropShadow(12, Color.GOLD));
+        ScaleTransition pulse = new ScaleTransition(Duration.millis(250), kiLabel);
+        pulse.setToX(1.8);
+        pulse.setToY(1.8);
+        pulse.setAutoReverse(true);
+        pulse.setCycleCount(4);
+        pulse.setOnFinished(e -> kiLabel.setEffect(null));
+        pulse.play();
     }
 
     /**
