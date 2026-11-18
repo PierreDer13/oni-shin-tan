@@ -130,4 +130,21 @@ class UpgradeTest {
         assertEquals(Upgrade.HAYASA, Upgrade.fromLabel("hayasa"));
         assertNull(Upgrade.fromLabel("nothing"));
     }
+
+    @Test
+    void chikaraStaysWithItsOwnerWhenYourSpellSetsOffAnEnemyTrap() {
+        engine.setUpgrades(me, Set.of(Upgrade.CHIKARA));
+        start();
+        TrapCard makibishi = new TrapCard("makibishi", "Makibishi", "撒菱", "", 2, Rarity.COMMON, HeroClass.NINJA,
+                "The enemy summons a minion: deal 6 damage to it", "", TrapTrigger.ON_ENEMY_SUMMON);
+        assertTrue(enemy.setTrap(makibishi));
+        List<Integer> hits = new ArrayList<>();
+        engine.getBus().subscribe(GameEvent.Type.DAMAGE, e -> hits.add(e.amount()));
+        SpellCard kagura = new SpellCard("kagura", "Kagura", "神楽", "", 1, Rarity.COMMON, HeroClass.KANNUSHI, "", "");
+        me.addToHand(kagura);
+        assertTrue(engine.playCard(kagura, 0, null));      // the first Miko sets off the enemy's Makibishi
+        assertFalse(hits.isEmpty());
+        assertTrue(hits.get(0) <= 6, "the enemy's trap must not get your +3 spell damage, hit " + hits.get(0));
+    }
+
 }
