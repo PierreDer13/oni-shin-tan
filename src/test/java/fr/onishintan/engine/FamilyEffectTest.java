@@ -166,7 +166,9 @@ class FamilyEffectTest {
         Minion m = place(me, 1, card("m", 1, 5));
         assertTrue(play(shrine("meiji-otorii", 1), 0, null));
         assertEquals(4, m.getAttack());
-        engine.endTurn();                        // the Shrine had one turn: gone
+        engine.endTurn();                        // still standing during the enemy's turn
+        assertEquals(4, m.getAttack());
+        engine.endTurn();                        // my next turn starts: its one turn is used up, gone
         assertEquals(1, m.getAttack());
     }
 
@@ -197,6 +199,7 @@ class FamilyEffectTest {
         assertEquals(9, m.getHealth());
         assertTrue(m.hasKeyword(Keyword.SHIRODU));
         engine.endTurn();
+        engine.endTurn();                        // my next turn starts: the Shrine expires
         assertFalse(m.hasKeyword(Keyword.SHIRODU));
         assertTrue(guard.hasKeyword(Keyword.SHIRODU), "a Shirodu of its own stays");
     }
