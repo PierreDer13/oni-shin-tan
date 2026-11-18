@@ -1,6 +1,7 @@
 package fr.onishintan.ui;
 
 import fr.onishintan.ai.AIController;
+import fr.onishintan.adventure.Upgrade;
 import fr.onishintan.model.HeroClass;
 import fr.onishintan.model.Player;
 import fr.onishintan.ui.app.SceneRouter;
@@ -12,6 +13,7 @@ import fr.onishintan.ui.screens.HomeView;
 import fr.onishintan.ui.screens.InventoryView;
 
 import java.util.function.Consumer;
+import java.util.Set;
 
 import javafx.application.Application;
 import javafx.scene.image.Image;
@@ -47,9 +49,11 @@ public class OniShinTanApp extends Application {
         return match.getBoard();
     }
 
-    /** An Adventure battle: you play first at the bottom against the AI (no Oaths, no clocks, no pass veil); onEnd gets whether you won. */
-    public static BoardView adventure(String boardName, Player you, Player enemy, AIController.Difficulty difficulty, Consumer<Boolean> onEnd) {
+    /** An Adventure battle: you play first at the bottom against the AI (no Oaths, no clocks, no pass veil), with the run's bonuses; onEnd gets whether you won. */
+    public static BoardView adventure(String boardName, Player you, Player enemy, AIController.Difficulty difficulty,
+                                      Set<Upgrade> upgrades, Consumer<Boolean> onEnd) {
         MatchController match = new MatchController(boardName, you, enemy, difficulty, onEnd);
+        match.setUpgrades(upgrades);
         return match.getBoard();
     }
 

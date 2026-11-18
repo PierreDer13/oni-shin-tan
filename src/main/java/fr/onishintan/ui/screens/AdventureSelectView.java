@@ -6,9 +6,12 @@ import fr.onishintan.ui.fx.Fx;
 import fr.onishintan.ui.app.SceneRouter;
 import fr.onishintan.ui.app.Screen;
 import fr.onishintan.ui.app.ScrollTheme;
+import fr.onishintan.ui.app.Images;
 import fr.onishintan.ui.MockCards;
 import fr.onishintan.ai.AIController;
 import fr.onishintan.data.AdventureDecks;
+import fr.onishintan.adventure.Upgrade;
+import fr.onishintan.data.SaveManager;
 import fr.onishintan.ui.OniShinTanApp;
 
 import fr.onishintan.model.Card;
@@ -20,10 +23,13 @@ import fr.onishintan.model.Rarity;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.EnumSet;
 import java.util.Set;
 import javafx.util.Duration;
 
 import javafx.animation.ScaleTransition;
+import javafx.animation.Animation;
+import javafx.animation.FadeTransition;
 import javafx.beans.InvalidationListener;
 import javafx.geometry.Pos;
 import javafx.scene.Group;
@@ -33,9 +39,12 @@ import javafx.scene.effect.DropShadow;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.control.Tooltip;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.layout.HBox;
+import javafx.scene.text.TextAlignment;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.transform.Scale;
@@ -51,10 +60,9 @@ public class AdventureSelectView extends Pane {
     /** Each battle's music, in the same order as AdventureDecks.board(i): the town, the sea (the ship), Mount Fuji. */
     private static final String[] BOARD_MUSIC = { "town-map-music", "sea-map-music", "fuji-map-music" };
     /** The deck list's size inside the frame. */
-    private static final double LIST_W = 370, LIST_H = 530;
-    /** The run's upgrades (GDD): name, effect. */
-    private static final String[][] UPGRADES = { { "命 Inochi", "Hero max HP +30" },
-            { "力 Chikara", "Minions and weapons +3 ATK, spells +3 damage" }, { "速さ Hayasa", "Your cards cost 1 Ki less (min 1)" } };
+    private static final double LIST_W = 370, LIST_H = 485;
+    /** How wide a bonus emblem shows on Choose Bonus, and in the row of bonuses picked. */
+    private static final double BONUS_W = 240, PICKED_W = 40;
     /** Each class's reward for finishing its Adventure (GDD, Yokai and kami). */
     private static final Map<HeroClass, Card> KAMI = Map.of(
             HeroClass.NINJA, new MinionCard("tsukuyomi", "Tsukuyomi", "月読", "つくよみ", 8, Rarity.LEGENDARY, HeroClass.NINJA,
@@ -99,17 +107,36 @@ public class AdventureSelectView extends Pane {
         page.setPreserveRatio(true);
         Label title = text("札  " + heroClass.name() + " DECK", 30);
         grid.getChildren().addAll(page, title, deckScroll, HomeView.back(() -> router.goTo(Screen.CLASS_SELECT)));
-        Label held = text(String.join("   ", picked), 20);
-        held.relocate(1185, 790);
-        grid.getChildren().add(held);
-        if (picked.size() < Math.min(won, 2)) {   // one choice after win 1, one after win 2
+        // The bonuses picked in this run: small emblems under the deck title (hover one to read it).
+        HBox bonuses = new HBox(6);
+        for (String label : picked) {
+            Upgrade upgrade = Upgrade.fromLabel(label);
+            if (upgrade != null) {
+                ImageView small = emblem(upgrade, PICKED_W);
+                Tooltip tip = new Tooltip(upgrade.getLabel() + "\n" + upgrade.getDescription());
+                tip.setShowDelay(Duration.millis(100));
+                Tooltip.install(small, tip);
+                bonuses.getChildren().add(small);
+            }
+        }
+        bonuses.relocate(1185, 180);
+        grid.getChildren().add(bonuses);
+        if (bonusPending()) {   // one choice after win 1, one after win 2
             Label bonus = text("恩恵  CHOOSE BONUS", 26);
             bonus.relocate(1230, 740);
             HomeView.clickable(bonus, false, () -> chooseBonus(router));
+            // It glows until picked: gold, slowly fading in and out.
+            bonus.setStyle(bonus.getStyle() + " -fx-text-fill: #ffd84a;");
+            FadeTransition glow = new FadeTransition(Duration.millis(700), bonus);
+            glow.setFromValue(1);
+            glow.setToValue(0.45);
+            glow.setAutoReverse(true);
+            glow.setCycleCount(Animation.INDEFINITE);
+            glow.play();
             grid.getChildren().add(bonus);
         }
         title.relocate(1185, 130);
-        deckScroll.relocate(1185, 185);
+        deckScroll.relocate(1185, 230);   // under the deck title and the bonuses picked
         deckList();
         for (int i = 0; i < ADVENTURES.length; i++) panel(router, i);
         if (won == 3) reward(router);
@@ -119,17 +146,28 @@ public class AdventureSelectView extends Pane {
 
     /** The Choose bonus pop-up: the upgrades not taken yet; picking one keeps it for the rest of the run. */
     private void chooseBonus(SceneRouter router) {
-        VBox box = new VBox(24, text("恩恵を選べ   CHOOSE A BONUS", 36));
-        box.setAlignment(Pos.CENTER);
-        for (String[] u : UPGRADES) if (!picked.contains(u[0])) {
-            Label b = text(u[0] + "   " + u[1], 26);
-            HomeView.clickable(b, false, () -> {
-                List<String> p = new ArrayList<>(picked);
-                p.add(u[0]);
-                open(router, heroClass, won, p);
+        // The bonuses not taken yet, side by side: emblem, name and effect; clicking one keeps it for the rest of the run.
+        HBox choices = new HBox(50);
+        choices.setAlignment(Pos.CENTER);
+        for (Upgrade upgrade : Upgrade.values()) {
+            if (picked.contains(upgrade.getLabel())) {
+                continue;   // already taken in this run
+            }
+            Label effect = text(upgrade.getDescription(), 18);
+            effect.setWrapText(true);
+            effect.setMaxWidth(BONUS_W);
+            effect.setTextAlignment(TextAlignment.CENTER);
+            VBox choice = new VBox(12, emblem(upgrade, BONUS_W), text(upgrade.getLabel(), 28), effect);
+            choice.setAlignment(Pos.TOP_CENTER);
+            HomeView.clickable(choice, false, () -> {
+                List<String> now = new ArrayList<>(picked);
+                now.add(upgrade.getLabel());
+                open(router, heroClass, won, now);
             });
-            box.getChildren().add(b);
+            choices.getChildren().add(choice);
         }
+        VBox box = new VBox(40, text("恩恵を選べ   CHOOSE A BONUS", 36), choices);
+        box.setAlignment(Pos.CENTER);
         grid.getChildren().add(new StackPane(new Rectangle(W, H, Color.rgb(0, 0, 0, 0.8)), box));
     }
 
@@ -143,7 +181,10 @@ public class AdventureSelectView extends Pane {
         grow.setToY(1);
         grow.play();
         Label claim = text("受領  CLAIM", 30);
-        HomeView.clickable(claim, false, () -> router.goTo(Screen.HOME));
+        HomeView.clickable(claim, false, () -> {
+            new SaveManager().unlock(KAMI.get(heroClass).getId());   // the kami joins your collection for good
+            router.goTo(Screen.HOME);
+        });
         VBox box = new VBox(24, text("報酬  REWARD", 40), card, claim);
         box.setAlignment(Pos.CENTER);
         grid.getChildren().add(new StackPane(new Rectangle(W, H, Color.rgb(0, 0, 0, 0.8)), box));
@@ -156,9 +197,13 @@ public class AdventureSelectView extends Pane {
         banner.relocate((x0 + x1) / 2 - 125, 70);
         if (i > won) banner.setEffect(new ColorAdjust(0, -0.6, -0.5, 0));
         if (i == won) HomeView.clickable(banner, true, () -> {
+            if (bonusPending()) {
+                chooseBonus(router);   // no next battle before the bonus is picked
+                return;
+            }
             // You against the AI, which gets harder battle by battle (Town EASY, Ocean NORMAL, Mount Fuji HARD).
             router.register(Screen.ADVENTURE_BATTLE, () -> OniShinTanApp.adventure(AdventureDecks.board(i), DECKS.hero("You", heroClass),
-                    DECKS.enemy(heroClass, i), AIController.Difficulty.forBattle(i),
+                    DECKS.enemy(heroClass, i), AIController.Difficulty.forBattle(i), upgrades(),
                     v -> open(router, heroClass, v ? won + 1 : 0, v ? picked : List.of())));
             router.setMusic(Screen.ADVENTURE_BATTLE, BOARD_MUSIC[i]);   // the town, the sea or Mount Fuji theme
             router.goTo(Screen.ADVENTURE_BATTLE);
@@ -190,6 +235,28 @@ public class AdventureSelectView extends Pane {
     /** The 40-card deck this class is given for the run (AdventureDecks). */
     private List<Card> deck() {
         return DECKS.playerDeck(heroClass);
+    }
+
+    /** True while a bonus is owed (one after the 1st win, one after the 2nd): the next battle waits until it is picked. */
+    private boolean bonusPending() {
+        return picked.size() < Math.min(won, 2);
+    }
+
+    /** The bonuses picked so far in this run, as the engine's Upgrades (the screen keeps their labels, e.g. "命 Inochi"). */
+    private Set<Upgrade> upgrades() {
+        Set<Upgrade> chosen = EnumSet.noneOf(Upgrade.class);
+        for (String label : picked) {
+            Upgrade upgrade = Upgrade.fromLabel(label);
+            if (upgrade != null) {
+                chosen.add(upgrade);
+            }
+        }
+        return chosen;
+    }
+
+    /** A bonus's round emblem (images/adventure/<name>.png), `size` wide. */
+    private static ImageView emblem(Upgrade upgrade, double size) {
+        return new ImageView(Images.get("/images/adventure/" + upgrade.name().toLowerCase() + ".png", size, size));
     }
 
     /** Cream text in the card font with a soft shadow, readable on the frame's dark inside. */

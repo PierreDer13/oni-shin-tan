@@ -2,6 +2,7 @@ package fr.onishintan.ui.match;
 
 import fr.onishintan.ai.AIController;
 import fr.onishintan.ai.Move;
+import fr.onishintan.adventure.Upgrade;
 import fr.onishintan.engine.GameEngine;
 import fr.onishintan.engine.GameEvent;
 import fr.onishintan.engine.SpellTarget;
@@ -26,6 +27,7 @@ import javafx.scene.paint.Color;
 import javafx.util.Duration;
 
 import java.util.List;
+import java.util.Set;
 import java.util.Optional;
 import java.util.Random;
 import java.util.function.Consumer;
@@ -142,6 +144,12 @@ public class MatchController implements CardPlayer {
     /** The table to show on screen. */
     public BoardView getBoard() {
         return board;
+    }
+
+    /** Adventure: the bonuses picked during this run apply to you (engine.setUpgrades); called before the first turn. */
+    public void setUpgrades(Set<Upgrade> upgrades) {
+        engine.setUpgrades(first, upgrades);
+        board.render();   // Inochi's 130 HP shows at once
     }
 
 
