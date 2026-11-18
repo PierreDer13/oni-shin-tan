@@ -146,8 +146,7 @@ public class MatchController implements CardPlayer {
             chooseOaths(yours, theirs);
         } else {
             engine.mulligan(second, ai.mulliganChoice());   // the AI sends back its expensive cards at once
-            board.mulligan(first, cards -> {
-                engine.mulligan(first, cards);
+            board.mulligan(first, cards -> engine.mulligan(first, cards), () -> {
                 startTurns();
                 board.dealHand();
             });
@@ -267,12 +266,10 @@ public class MatchController implements CardPlayer {
     private void chooseOaths(HeroClass yours, HeroClass theirs) {
         board.chooseOath(yours, firstOath -> {
             swear(first, firstOath);
-            board.mulligan(first, firstCards -> {
-                engine.mulligan(first, firstCards);
+            board.mulligan(first, firstCards -> engine.mulligan(first, firstCards), () -> {
                 board.chooseOath(theirs, secondOath -> {
                     swear(second, secondOath);
-                    board.mulligan(second, secondCards -> {
-                        engine.mulligan(second, secondCards);
+                    board.mulligan(second, secondCards -> engine.mulligan(second, secondCards), () -> {
                         board.passTo(first.getName(), () -> {
                             startTurns();
                             resumeClock();          // both Oaths are sworn: the first player's clock starts now

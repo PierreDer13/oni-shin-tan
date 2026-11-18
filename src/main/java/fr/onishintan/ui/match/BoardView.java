@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.function.Predicate;
 
@@ -676,8 +677,10 @@ public class BoardView extends Pane {
     public void chooseOath(HeroClass c, Consumer<String> onSworn) { table.getChildren().add(new OathView(c, onSworn)); }
 
 
-    /** Start of a match: p's opening hand covers the table; onDone gets the cards to send back (engine.mulligan). */
-    public void mulligan(Player p, Consumer<List<Card>> onDone) { table.getChildren().add(new MulliganView(p, onDone)); }
+    /** Start of a match: p's opening hand covers the table; `exchange` swaps the cards sent back (engine.mulligan), then onDone. */
+    public void mulligan(Player p, Function<List<Card>, List<Card>> exchange, Runnable onDone) {
+        table.getChildren().add(new MulliganView(p, exchange, onDone));
+    }
     
     
     private final Map<Player, String> oaths = new HashMap<>();
