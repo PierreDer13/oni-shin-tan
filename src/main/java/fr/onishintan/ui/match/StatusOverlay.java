@@ -19,8 +19,12 @@ import javafx.animation.Interpolator;
 import javafx.animation.ParallelTransition;
 import javafx.animation.ScaleTransition;
 import javafx.animation.TranslateTransition;
+import javafx.animation.KeyFrame;
+import javafx.animation.KeyValue;
+import javafx.animation.Timeline;
 import javafx.scene.Node;
 import javafx.scene.effect.DropShadow;
+import javafx.scene.effect.ColorAdjust;
 import javafx.geometry.Rectangle2D;
 import javafx.scene.Group;
 import javafx.scene.image.Image;
@@ -37,8 +41,9 @@ final class StatusOverlay {
     private final Pane live;
     private final Runnable shake;
     private final Set<List<Object>> shown = new HashSet<>();          // (image, minion) pairs already dropped in
-    private Set<Object> asleepBefore = new HashSet<>();   // minions and heroes asleep at the last redraw
-    private Set<Object> asleepNow = new HashSet<>();      // the ones asleep at this redraw
+    private Set<List<Object>> before = new HashSet<>();   // (status, minion or hero) pairs shown at the last redraw
+    private Set<List<Object>> now = new HashSet<>();      // and at this one
+    private static final Duration DIM = Duration.millis(500);   // a Shinobi card darkening as it hides
     private final Map<List<Object>, Node> gates = new HashMap<>();
     private Group on;   // the card the effects being added belong to
     /** The Torii column: gap between two gates, and the most room the column may take below the first gate. */
@@ -55,9 +60,16 @@ final class StatusOverlay {
     /** Call at every redraw: forgets gates that are gone and the old images. */
     void clear() {
         shown.removeIf(key -> !keeps(key));
-        asleepBefore = asleepNow;
-        asleepNow = new HashSet<>();
+        before = now;
+        now = new HashSet<>();
         gates.clear();
+    }
+
+    /** Notes that `who` shows `status` at this redraw; true if it did not at the last one (it just got it). */
+    private boolean isNew(String status, Object who) {
+        List<Object> key = List.of(status, who);
+        now.add(key);
+        return !before.contains(key);
     }
 
 
@@ -70,8 +82,18 @@ final class StatusOverlay {
         live.getChildren().add(on);
     }
 
-    /** Shinobi: two ink clouds drift slowly in opposite directions over a hidden card, on top of its darkening. */
-    void shinobi(double x, double y) {
+    /** Shinobi: the hidden card darkens and two ink clouds drift over it in opposite directions; the first time, both come in over 0.5 s. */
+    void shinobi(Node card, Minion m, double x, double y) {
+        boolean fresh = isNew("shinobi", m);
+        if (card.getEffect() == null) {   // a glow (it can attack, it is a target) wins over the darkening
+            ColorAdjust dark = new ColorAdjust(0, -0.4, -0.45, 0);
+            card.setEffect(dark);
+            if (fresh) {
+                new Timeline(
+                        new KeyFrame(Duration.ZERO, new KeyValue(dark.saturationProperty(), 0), new KeyValue(dark.brightnessProperty(), 0)),
+                        new KeyFrame(DIM, new KeyValue(dark.saturationProperty(), -0.4), new KeyValue(dark.brightnessProperty(), -0.45))).play();
+            }
+        }
         for (int k = 0; k < 2; k++) {
             ImageView c = BoardView.image("/images/fx/shinobi-cloud-" + (1 + (int) (Math.random() * 5)) + ".png");
             c.setFitWidth(100);
@@ -79,6 +101,12 @@ final class StatusOverlay {
             c.setOpacity(0.9);
             add(c, x + (k == 0 ? -10 : 20), y + (k == 0 ? 20 : 95));
             sway(c, k == 0 ? 1 : -1, 10);
+            if (fresh) {
+                FadeTransition in = new FadeTransition(DIM, c);
+                in.setFromValue(0);
+                in.setToValue(0.9);
+                in.play();
+            }
         }
     }
 
@@ -131,8 +159,7 @@ final class StatusOverlay {
 
     /** Asleep (Status.SLEEP): z, z, Z float up from the top-right corner of the card or hero at (x, y) and fade, over and over. */
     void sleep(Object who, double x, double y) {
-        asleepNow.add(who);
-        if (!asleepBefore.contains(who)) {   // just fell asleep: the dart hits first
+        if (isNew("sleep", who)) {   // just fell asleep: the dart hits first
             dart(x, y);
         }
         String[] letters = { "z", "z", "Z" };

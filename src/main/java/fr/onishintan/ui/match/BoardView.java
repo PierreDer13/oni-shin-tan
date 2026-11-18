@@ -870,9 +870,6 @@ public void passTo(String name, Runnable onReady) {
 
             MinionView view = new MinionView(minion, MINION_W);
             clickable(view, minion, p == you);
-            if (minion.isHidden() && view.getEffect() == null) {
-                view.setEffect(new ColorAdjust(0, -0.4, -0.45, 0));   // Shinobi: darkened while hidden
-            }
 
             // The big preview opens on the left for the right-hand slots, so it stays on screen.
             boolean rightHandSlot = slot >= 4;
@@ -891,7 +888,7 @@ public void passTo(String name, Runnable onReady) {
                 status.flag(minion, x, y);   // after the gates, so the flag lies on top of a Shirodu gate
             }
             if (minion.isHidden()) {
-                status.shinobi(x, y);
+                status.shinobi(view, minion, x, y);
             }
             if (minion.hasKeyword(Keyword.SEPPUKU)) {
                 status.seppuku(x, y);
