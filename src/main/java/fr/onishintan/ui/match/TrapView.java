@@ -28,7 +28,7 @@ final class TrapView {
 
     private static final double REVEAL_W = 260;              // the trap's size when it goes off
     private static final Duration HALF_FLIP = Duration.millis(200);
-    private static final Duration READ_TIME = Duration.millis(1200);
+    private static final Duration READ_TIME = Duration.millis(500);
     // Setting a trap, counted from the moment it is played.
     private static final Duration SET_SHOWN = Duration.millis(200);        // popped up in the middle
     private static final Duration SET_READ = Duration.millis(1000);        // stayed there to be read

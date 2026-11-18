@@ -391,14 +391,22 @@ public class MatchController implements CardPlayer {
         return engine.legalTargets(attacker);
     }
 
-    /** An attacker and its target: the engine deals the damage both ways and removes the dead. BoardView animates, then redraws. */
-    private void attack(Combatant attacker, Combatant target) {
+    /** An attacker and its target: the engine deals the damage both ways and removes the dead. Returns what happened, for BoardView to replay. */
+    private List<GameEvent> attack(Combatant attacker, Combatant target) {
+        recorder.start();
         engine.attack(attacker, target);
+        return recorder.stop();
     }
 
     /** Hero power with a target (Ninja Shuriken, Oni Jikininki) or without (Kannushi Miko: target is null). True if the engine accepted it. */
     private boolean useHeroPower(Combatant target) {
-        return engine.useHeroPower(target);
+        recorder.start();
+        boolean used = engine.useHeroPower(target);
+        List<GameEvent> events = recorder.stop();
+        if (used) {
+            board.replay(events, 0, EFFECT_SHOW, () -> {});   // the damage, a death, a trap, one step after the other
+        }
+        return used;
     }
 
     /** Samurai power: equip the chosen blade. True if the engine accepted it (enough Ki, not used yet this turn). */
