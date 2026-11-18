@@ -27,7 +27,7 @@ import javafx.scene.text.Font;
 import javafx.util.Duration;
 
 /** Oaths on scrolls (GDD, Oaths): the choice at the start of a match, the stamped scroll to reread, the small one by the hero. */
-final class OathView extends StackPane {
+public final class OathView extends StackPane {
     private static final Image SCROLL = new Image(OathView.class.getResourceAsStream("/images/hud/oath-scroll.png"));
     private static final String INK = "#1f1b17", RED = "#c41e1e", BRUSH = "Kaushan Script", JP = "Yuji Syuku";
     static {   // the brush fonts of the scrolls (OFL, Google Fonts)
@@ -75,6 +75,23 @@ final class OathView extends StackPane {
         VBox box = new VBox(20, label("誓いを立てよ   SWEAR YOUR OATH", 34, "#f3ede1", JP), row);
         box.setAlignment(Pos.CENTER);
         getChildren().addAll(new Rectangle(BoardView.W, BoardView.H, Color.rgb(0, 0, 0, 0.5)), box);
+    }
+
+
+    /** The deck builder: the class's three Oaths side by side, to read before building; a click anywhere closes them. */
+    public static StackPane browse(HeroClass c) {
+        HBox row = new HBox(80);
+        row.setAlignment(Pos.CENTER);
+        for (String[] o : OATHS.get(c)) {
+            StackPane s = scroll(o);
+            s.getChildren().get(3).setOpacity(0);   // not sworn: no seal
+            row.getChildren().add(s);
+        }
+        VBox box = new VBox(20, label("誓い   OATHS", 34, "#f3ede1", JP), row);
+        box.setAlignment(Pos.CENTER);
+        StackPane panel = new StackPane(new Rectangle(BoardView.W, BoardView.H, Color.rgb(0, 0, 0, 0.6)), box);
+        panel.setOnMouseClicked(e -> ((Pane) panel.getParent()).getChildren().remove(panel));
+        return panel;
     }
 
     /** A sworn Oath's full scroll, stamped, to reread it. */

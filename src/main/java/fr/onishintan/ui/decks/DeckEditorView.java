@@ -10,6 +10,7 @@ import fr.onishintan.ui.app.ScreenGrid;
 import fr.onishintan.ui.app.Sound;
 import fr.onishintan.ui.app.Images;
 import fr.onishintan.ui.cards.CardPreview;
+import fr.onishintan.ui.match.OathView;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -87,7 +88,9 @@ public class DeckEditorView extends Pane {
         cancel.relocate(1180, 712);
         Label save = DecksView.button("Save", this::save);
         save.relocate(1460, 712);
-        grid.getChildren().addAll(plaque, nameField, countLabel, messageLabel, cancel, save);
+        Label oaths = DecksView.button("誓  Oaths", () -> grid.getChildren().add(OathView.browse(deck.getHeroClass())));   // the class's 3 Oaths, to read
+        oaths.relocate(1310, 712);
+        grid.getChildren().addAll(plaque, nameField, countLabel, messageLabel, cancel, oaths, save);
 
                // Left: the filter bar, then every card this deck may hold. Right: the deck.
         allowed = cardsAllowed();
