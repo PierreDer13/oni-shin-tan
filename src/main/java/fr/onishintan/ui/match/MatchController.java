@@ -42,8 +42,8 @@ public class MatchController implements CardPlayer {
     private final GameEngine engine;
     /** Notes what an action did (damage, healing, deaths, traps) so the board can show it before redrawing. */
     private final EffectRecorder recorder;
-    /** Before a spell or a Banzai takes effect, and the extra wait while a trap shows face up (GDD timing). */
-    private static final double PLACE_PAUSE = 200, EFFECT_PAUSE = 300, TRAP_PAUSE = 500;
+    /** Before a played card's effects: the card landing, or a spell or a Banzai taking effect (GDD timing). */
+    private static final double PLACE_PAUSE = 200, EFFECT_PAUSE = 300;
     /** How long effects show before the redraw; at the end of a turn they all fit in 0.75 s. */
     private static final double EFFECT_SHOW = 700, TURN_SHOW = 750;
     private final BoardView board;
@@ -114,8 +114,12 @@ public class MatchController implements CardPlayer {
         board.setOnGameOver(() -> onEnd.accept(firstWon()));
         board.setOnSurrender(this::surrender);
 
-        // A trap that goes off is shown to both players (the engine has already applied its effect).
-        engine.getBus().subscribe(GameEvent.Type.TRAP_TRIGGERED, event -> board.revealTrap((TrapCard) event.target()));
+        // A trap that goes off is shown to both players. During a play or an end of turn, the replay shows it in its turn instead.
+        engine.getBus().subscribe(GameEvent.Type.TRAP_TRIGGERED, event -> {
+            if (!recorder.recording()) {
+                board.revealTrap((TrapCard) event.target());
+            }
+        });
         // A trap you set is shown big, then flips and glides to its place by your hero.
         // Adventure: the AI's traps stay hidden (only their face-down back shows by its hero).
         engine.getBus().subscribe(GameEvent.Type.TRAP_SET, event -> {
@@ -353,12 +357,6 @@ public class MatchController implements CardPlayer {
         boolean banzai = card instanceof MinionCard minion && minion.hasKeyword(Keyword.BANZAI);
         if (spell || banzai) {
             pause = EFFECT_PAUSE;
-        }
-        for (GameEvent event : events) {
-            if (event.type() == GameEvent.Type.TRAP_TRIGGERED) {
-                pause += TRAP_PAUSE;   // the trap shows face up before its effect
-                break;
-            }
         }
         return pause;
     }
