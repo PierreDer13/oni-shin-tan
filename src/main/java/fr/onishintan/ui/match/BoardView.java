@@ -827,7 +827,7 @@ public void passTo(String name, Runnable onReady) {
                 status.banzai(minion, x, y);
             }
             if (minion.hasStatus(Status.SLEEP)) {
-                status.sleep(x, y);
+                status.sleep(minion, x, y);
             }
         }
     }
@@ -919,7 +919,7 @@ public void passTo(String name, Runnable onReady) {
         place(box, W / 2 - wid / 2, zoneY + (119 - hgt) / 2);
         if (h.hasStatus(Status.SLEEP)) {
             status.follow(box);
-            status.sleep(W / 2 + wid / 2 - BoardView.MINION_W - 10, zoneY);   // zzz from the hero's top-right corner
+            status.sleep(h, W / 2 + wid / 2 - BoardView.MINION_W - 10, zoneY);   // zzz from the hero's top-right corner
         }
         if (h.getHeroClass() == HeroClass.SAMURAI) weaponSlot(h, box, zoneY);
     }

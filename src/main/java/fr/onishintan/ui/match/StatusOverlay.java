@@ -37,6 +37,8 @@ final class StatusOverlay {
     private final Pane live;
     private final Runnable shake;
     private final Set<List<Object>> shown = new HashSet<>();          // (image, minion) pairs already dropped in
+    private Set<Object> asleepBefore = new HashSet<>();   // minions and heroes asleep at the last redraw
+    private Set<Object> asleepNow = new HashSet<>();      // the ones asleep at this redraw
     private final Map<List<Object>, Node> gates = new HashMap<>();
     private Group on;   // the card the effects being added belong to
     /** The Torii column: gap between two gates, and the most room the column may take below the first gate. */
@@ -53,6 +55,8 @@ final class StatusOverlay {
     /** Call at every redraw: forgets gates that are gone and the old images. */
     void clear() {
         shown.removeIf(key -> !keeps(key));
+        asleepBefore = asleepNow;
+        asleepNow = new HashSet<>();
         gates.clear();
     }
 
@@ -126,7 +130,11 @@ final class StatusOverlay {
     }
 
     /** Asleep (Status.SLEEP): z, z, Z float up from the top-right corner of the card or hero at (x, y) and fade, over and over. */
-    void sleep(double x, double y) {
+    void sleep(Object who, double x, double y) {
+        asleepNow.add(who);
+        if (!asleepBefore.contains(who)) {   // just fell asleep: the dart hits first
+            dart(x, y);
+        }
         String[] letters = { "z", "z", "Z" };
         int[] sizes = { 16, 20, 26 };
         for (int i = 0; i < letters.length; i++) {
@@ -148,6 +156,25 @@ final class StatusOverlay {
             loop.play();
             z.sceneProperty().addListener((o, was, now) -> { if (now == null) loop.stop(); });
         }
+    }
+
+
+    /** A sleep dart flies in from the top-right, sticks in the corner of the card at (x, y), then fades away. */
+    private void dart(double x, double y) {
+        ImageView d = BoardView.image("/images/fx/sleep-dart.png");   // the tip is at the bottom-left
+        d.setFitWidth(90);
+        d.setPreserveRatio(true);
+        add(d, x + BoardView.MINION_W - 40, y - 40);
+        TranslateTransition fly = new TranslateTransition(Duration.millis(250), d);
+        fly.setFromX(120);
+        fly.setFromY(-80);
+        fly.setToX(0);
+        fly.setToY(0);
+        FadeTransition fade = new FadeTransition(Duration.millis(400), d);
+        fade.setDelay(Duration.millis(800));
+        fade.setToValue(0);
+        fly.setOnFinished(e -> fade.play());
+        fly.play();
     }
 
     /** Drifts a node `dist` px left and right forever, 3 to 5 s each way, from a random point; stops once it leaves the screen. */
