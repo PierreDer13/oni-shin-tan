@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 
 import fr.onishintan.model.*;
 
-/** Chess clock: 7 min bank, +2 s per turn, timeout = half HP, +30 s, turn over. */
+/** Chess clock: 7 min bank, +2 s per turn, timeout = half HP, +30 s, the turn goes on. */
 class ChessClockTest {
 
     private final long[] time = {0};
@@ -77,15 +77,19 @@ class ChessClockTest {
     }
 
     @Test
-    void timeoutTakesHalfHpAddsThirtySecondsAndEndsTurn() {
+    void timeoutTakesHalfHpAddsThirtySecondsAndKeepsTheTurn() {
         start();
         assertFalse(engine.checkClock());
         int hp = me.getHero().getHealth();
         time[0] = ChessClock.BANK_MS;
         assertTrue(engine.checkClock());
         assertEquals(hp - (hp + 1) / 2, me.getHero().getHealth());
-        assertEquals(ChessClock.TIMEOUT_BONUS_MS + ChessClock.INCREMENT_MS, engine.remainingMs(me));
-        assertEquals(ChessClock.BANK_MS, engine.remainingMs(enemy));   // his turn, t = 0 for him
+        assertSame(me, engine.active());                                 // no turn skipped
+        assertEquals(ChessClock.TIMEOUT_BONUS_MS, engine.remainingMs(me)); // the clock runs on from +30 s
+        assertEquals(ChessClock.BANK_MS, engine.remainingMs(enemy));
+        time[0] = ChessClock.BANK_MS + 10_000;
+        assertEquals(ChessClock.TIMEOUT_BONUS_MS - 10_000, engine.remainingMs(me));
+        assertFalse(engine.checkClock());
     }
 
     @Test

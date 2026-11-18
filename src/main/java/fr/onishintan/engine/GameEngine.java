@@ -321,7 +321,7 @@ public class GameEngine {
 
     /**
      * The UI calls this about every 200 ms. Bank empty: the active hero takes
-     * half his HP (rounded up), gets +30 s, and his turn ends.
+     * half his HP (rounded up) and gets +30 s; his turn goes on.
      * @return true if a timeout happened
      */
     public boolean checkClock() {
@@ -333,7 +333,6 @@ public class GameEngine {
         p.getClock().add(ChessClock.TIMEOUT_BONUS_MS);
         publish(new GameEvent(GameEvent.Type.CLOCK_TIMEOUT, p, p.getHero(), damage));
         dealDamage(p.getClock(), p.getHero(), damage);
-        if (!state.isOver()) endTurn();
         return true;
     }
 
