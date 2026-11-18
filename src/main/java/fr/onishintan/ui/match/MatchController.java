@@ -242,7 +242,12 @@ public class MatchController implements CardPlayer {
 
     /** The player whose turn it is gives up: the other player wins at once and the clocks stop. */
     private void surrender() {
-        engine.concede(engine.active());
+        // Adventure: you are the only one with a Surrender button, even during the AI's turn.
+        Player quitter = engine.active();
+        if (ai != null) {
+            quitter = first;
+        }
+        engine.concede(quitter);
 
         
         clockTicker.stop();
