@@ -45,12 +45,20 @@ public class Player {
      * Draws the top card. Returns it if it reached the hand; empty if the deck
      * was out or the hand was full (the card is then burned, as in the GDD).
      */
+    private boolean drewFromEmptyDeck;   // the last draw found no card (fatigue)
+
     public Optional<Card> draw() {
         Optional<Card> top = deck.draw();
+        drewFromEmptyDeck = top.isEmpty();
         if (top.isEmpty() || hand.size() >= MAX_HAND)
             return Optional.empty();
         hand.add(top.get());
         return top;
+    }
+
+    /** True if the last draw found the deck empty (fatigue), false if a card came or was burned. */
+    public boolean drewFromEmptyDeck() {
+        return drewFromEmptyDeck;
     }
 
     /**

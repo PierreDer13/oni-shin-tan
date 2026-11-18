@@ -58,7 +58,8 @@ final class MinionEffects {
 
     private final GameEngine engine;
     private final Set<Minion> silenced = Collections.newSetFromMap(new IdentityHashMap<>());
-    private final Set<Minion> asleep = Collections.newSetFromMap(new IdentityHashMap<>());
+    /** Sleeping minions and how many ends of their owner's turn they still sleep through. */
+    private final Map<Minion, Integer> asleep = new IdentityHashMap<>();
     /** True while a Yogake makes the enemy minions fight: their forced fights never start another Yogake. */
     private boolean inYogake;
     /** The aura bonus each minion carries now: {ATK, HP} (Ronin, Jōnin). */
@@ -225,7 +226,12 @@ final class MinionEffects {
 
     /** Hakahori: +2 ATK when another friendly minion dies. */
     private void hakahori(Player owner, Minion dead) {
-        for (Minion m : owner.getSide().getMinions()) if (m != dead && active(m, "hakahori")) m.buff(2, 0);
+        for (Minion m : List.copyOf(owner.getSide().getMinions())) {
+            if (m != dead && active(m, "hakahori")) {
+                engine.announce(m, owner);
+                m.buff(2, 0);
+            }
+        }
     }
 
     /** Fūma Kotarō, Yogake: when it reveals itself by attacking, each enemy minion attacks another random enemy minion. */
@@ -234,6 +240,7 @@ final class MinionEffects {
         Player enemy = engine.getState().opponentOf(engine.ownerOf(f));
         List<Minion> theirs = List.copyOf(enemy.getSide().getMinions());
         if (theirs.size() < 2) return;
+        engine.announce(f, engine.ownerOf(f));
         inYogake = true;   // an enemy hidden Fuma forced to fight is not revealing itself: no Yogake in return (it looped forever)
         try {
             for (Minion a : theirs) {
@@ -247,19 +254,31 @@ final class MinionEffects {
         }
     }
 
-    /** Jorōgumo, Oyasumi, Otoshiana: the minion falls asleep until the end of its owner's turn. */
+    /**
+     * Jorōgumo, Oyasumi, Otoshiana: the minion falls asleep until the end of its owner's next turn.
+     * Put to sleep during its owner's own turn (Oyasumi, Otoshiana), it sleeps through the rest
+     * of that turn and the whole next one too (decided 18 Nov).
+     */
     void sleep(Minion m) {
         if (m == null || m.isDead()) return;
         m.addStatus(Status.SLEEP);
-        asleep.add(m);
+        int ends = engine.ownerOf(m) == engine.getState().active() ? 2 : 1;
+        asleep.merge(m, ends, Math::max);
     }
 
     /** Jorōgumo: the sleeper wakes at the end of its owner's turn. */
     private void wake(Player p) {
-        for (Minion m : List.copyOf(asleep)) {
-            if (p.getSide().slotOf(m) >= 0 || m.isDead()) {
-                m.removeStatus(Status.SLEEP);
+        for (Minion m : List.copyOf(asleep.keySet())) {
+            if (m.isDead()) {
                 asleep.remove(m);
+            } else if (p.getSide().slotOf(m) >= 0) {
+                int left = asleep.get(m) - 1;
+                if (left > 0) {
+                    asleep.put(m, left);
+                } else {
+                    m.removeStatus(Status.SLEEP);
+                    asleep.remove(m);
+                }
             }
         }
     }

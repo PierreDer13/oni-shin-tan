@@ -32,6 +32,9 @@ public record GameEvent(Type type, Object source, Object target, int amount) {
         CURSE_TRIGGERED,            // source = cursed Player, target = the CurseCard
         CURSE_REMOVED,              // source = Player who paid the removal, target = the CurseCard
         RITE_PERFORMED,             // source = Player, target = the RiteCard (after its Ancestors are summoned)        
+        FATIGUE,                    // source = Player who drew from an empty deck, target = his Hero, amount = damage (1, 2, 3...), then DAMAGE
+        EFFECT_TRIGGERED,           // source = the Minion, Shrine, Oath or held CurseCard whose effect goes off now, target = its owner Player;
+                                    // published just BEFORE the effect acts (Seppuku, start / end of turn, passives, Shrines, Oath rewards, Gaki)
         CLOCK_TIMEOUT,              // source = Player, target = his Hero, amount = damage (ceil(HP / 2))       
         SHRINE_PLACED,              // source = Player, target = the Shrine, amount = slot
         SHRINE_EXPIRED,             // source = Player, target = the Shrine (its slot is free again)       
