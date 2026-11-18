@@ -60,7 +60,7 @@ class OathRewards {
             Rarity.COMMON, HeroClass.SAMURAI, "", "", 5, 5, null);
 
     /** Rewards that work once per turn (any player's turn). */
-    private enum Once { RETAINER, PURITY_DRAW, HAVOC_DRAW, HONOR_FIRST, DEFLECT }
+    private enum Once { RETAINER, PURITY_DRAW, HAVOC_DRAW, HONOR_FIRST, SILENCE_FIRST, DEFLECT }
 
     private final GameEngine engine;
     private final Map<Player, Integer> kiNextTurn = new HashMap<>();
@@ -69,8 +69,7 @@ class OathRewards {
     private final Map<Minion, int[]> auras = new IdentityHashMap<>();
     /** Honor 9: the minions that got +4 ATK and Tatakae, and whether they had Tatakae before. */
     private final Map<Minion, Boolean> honored = new IdentityHashMap<>();
-    /** Silence 9: minions played from the hand this turn. */
-    private final List<Minion> playedThisTurn = new ArrayList<>();
+
     private boolean minionCardPlayed;    // a MinionCard was played, its MINION_SUMMONED comes next
     private boolean settingExtraTrap;    // Deception 9: the free Trap does not chain
 
@@ -190,7 +189,6 @@ class OathRewards {
 
     private void startTurn(Player p) {
         usedThisTurn.clear();
-        playedThisTurn.clear();
         Integer ki = kiNextTurn.remove(p);
         if (ki != null) p.gainTemporaryKi(ki);
         for (Player giver : players()) {                                     // Corruption 9: start of every turn
@@ -233,15 +231,20 @@ class OathRewards {
         }
     }
 
-    /** Silence 9 records the minions played from the hand. Honor 9: the first one each turn gets +4 ATK and Tatakae. */
+    /**
+     * A minion played from the hand. Honor 9: the first one each turn gets +4 ATK and Tatakae.
+     * Silence 9: the first one each turn is cloned at once (a fresh copy of its card, no Banzai) in the leftmost free slot.
+     */
     private void minionSummoned(Player p, Minion m) {
         if (!minionCardPlayed) return;
         minionCardPlayed = false;
-        playedThisTurn.add(m);
         if (has(p, OathType.HONOR, 9) && once(p, Once.HONOR_FIRST)) {
             honored.put(m, m.hasKeyword(Keyword.TATAKAE));
             m.buff(HONOR_FIRST_ATK, 0);
             m.giveKeyword(Keyword.TATAKAE);
+        }
+        if (has(p, OathType.SILENCE, 9) && once(p, Once.SILENCE_FIRST)) {
+            engine.summon(p, m.getSource());
         }
     }
 
@@ -307,7 +310,7 @@ class OathRewards {
         }
     }
 
-    /** End of p's turn, before his Oath is checked: Allegiance 3, Silence 6 and 9, Discipline 3 and 6, Peace 6, Divinity 6, Purity 9. */
+    /** End of p's turn, before his Oath is checked: Allegiance 3, Silence 6, Discipline 3 and 6, Peace 6, Divinity 6, Purity 9. */
     void endTurn(Player p) {
         TurnTracker turn = engine.getTurnTracker();
         if (has(p, OathType.ALLEGIANCE, 3)) randomMinion(p).ifPresent(m -> m.buff(ALLEGIANCE_BUFF, ALLEGIANCE_BUFF));
@@ -320,11 +323,6 @@ class OathRewards {
         if (has(p, OathType.DIVINITY, 6)) {
             engine.heal(p.getHero(), DIVINITY_HEAL);
             randomMinion(p).ifPresent(m -> m.buff(DIVINITY_BUFF, DIVINITY_BUFF));
-        }
-        if (has(p, OathType.SILENCE, 9)) {                                   // duplicate the biggest minion played
-            playedThisTurn.stream().filter(m -> p.getSide().slotOf(m) >= 0 && !m.isDead())
-                    .max(Comparator.comparingInt(Minion::getAttack).thenComparingInt(Minion::getHealth))
-                    .ifPresent(m -> engine.summon(p, m.getSource()));
         }
         if (has(p, OathType.PURITY, 9)) {                                    // fully heal all your minions
             for (Minion m : List.copyOf(p.getSide().getMinions())) engine.heal(m, m.getMaxHealth());
