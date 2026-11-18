@@ -350,7 +350,7 @@ public class BoardView extends Pane {
 
     /**
      * Shows what an engine action did, then redraws: waits `pauseMs` (the card just played stays where it was dropped),
-     * plays each effect on the cards still on screen, holds `showMs` so it can be seen, then redraws and runs `then`.
+     * plays the effects one step after the other on the cards still on screen, holds `showMs`, then redraws and runs `then`.
      * With nothing to show, the hold is skipped.
      */
     public void replay(List<GameEvent> events, double pauseMs, double showMs, Runnable then) {
@@ -360,10 +360,7 @@ public class BoardView extends Pane {
         }
         double holdMs = hold;
         PauseTransition pause = new PauseTransition(Duration.millis(pauseMs));
-        pause.setOnFinished(e -> {
-            for (GameEvent event : events) {
-                show(event);
-            }
+        pause.setOnFinished(e -> showFrom(events, 0, () -> {   // the effects one step after the other, then the hold
             if (rising) {
                 smokeNewMinions();
                 rising = false;
@@ -378,15 +375,46 @@ public class BoardView extends Pane {
                 then.run();
             });
             wait.play();
-        });
+        }));
         pause.play();
     }
 
-    /** One effect on its card: a slash and the red number for damage, the healing number, the cut for a death. */
-    private void show(GameEvent event) {
+    /** How long one step of effects plays before the next one starts, and how long a trap takes to flip, be read and start its cut. */
+    private static final double STEP_MS = 450, TRAP_STEP_MS = 1600;
+
+    /**
+     * Shows the effects from index `from` one step after the other, then runs `then`. A step is a run of the same effect
+     * from the same source (an area spell hits everyone at once); a trap is always a step of its own.
+     */
+    private void showFrom(List<GameEvent> events, int from, Runnable then) {
+        if (from >= events.size()) {
+            then.run();
+            return;
+        }
+        GameEvent first = events.get(from);
+        int next = from;
+        double stepMs = 0;
+        do {
+            stepMs = Math.max(stepMs, show(events.get(next)));
+            next++;
+        } while (next < events.size() && first.type() != GameEvent.Type.TRAP_TRIGGERED
+                && events.get(next).type() == first.type() && events.get(next).source() == first.source());
+        int after = next;
+        PauseTransition step = new PauseTransition(Duration.millis(stepMs));
+        step.setOnFinished(e -> showFrom(events, after, then));
+        step.play();
+    }
+
+    /** One effect: a slash and the red number for damage, the healing number, the cut for a death, a trap flipping face up.
+     *  Returns how long it plays, so the next step waits for it. */
+    private double show(GameEvent event) {
+        if (event.type() == GameEvent.Type.TRAP_TRIGGERED) {
+            revealTrap((TrapCard) event.target());
+            return TRAP_STEP_MS;
+        }
         Node node = nodes.get(event.target());
         if (node == null) {
-            return;   // not on screen before the action (summoned by it): it simply appears with the redraw
+            return 0;   // not on screen before the action (summoned by it): it simply appears with the redraw
         }
         switch (event.type()) {
             case DAMAGE -> {
@@ -395,8 +423,11 @@ public class BoardView extends Pane {
             }
             case HEAL -> Fx.heal(live, node, event.amount());
             case MINION_DIED -> Fx.deathCut(live, node);
-            default -> { }   // a trap shows itself (revealTrap)
+            default -> {
+                return 0;   // nothing to show (a card added to the hand flies in after the redraw)
+            }
         }
+        return STEP_MS;
     }
 
     /** Black smoke rises over each of your minions that was not on screen before the play: they came back from the dead. */

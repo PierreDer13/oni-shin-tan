@@ -44,7 +44,7 @@ final class StatusOverlay {
     /** The Torii column: gap between two gates, and the most room the column may take below the first gate. */
     private static final double TORII_STEP = 30, TORII_ROOM = 90;
     /** How wide a minion's armour plate is drawn. */
-    private static final double ARMOUR_W = 34;
+    private static final double ARMOUR_W = 42;
 
     /** live: the board layer to draw on; shake: the small screen shake played when a gate lands. */
     StatusOverlay(Pane live, Runnable shake) {
@@ -88,9 +88,9 @@ final class StatusOverlay {
         plate.setFitWidth(ARMOUR_W);
         plate.setPreserveRatio(true);
         Label value = new Label(String.valueOf(m.getArmour()));
-        value.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 12; -fx-font-weight: bold; -fx-text-fill: #1f1b17;");
+        value.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 14; -fx-font-weight: bold; -fx-text-fill: #1f1b17;");
         StackPane badge = new StackPane(plate, value);
-        add(badge, x + BoardView.MINION_W - ARMOUR_W - 2, y + 92);
+        add(badge, x + BoardView.MINION_W - ARMOUR_W - 2, y + 104);
         drop(List.of("armour", m), badge);
     }
 

@@ -38,4 +38,9 @@ final class EffectRecorder {
         recording = false;
         return new ArrayList<>(events);
     }
+
+    /** True between start() and stop(): the replay will show what happens now. */
+    boolean recording() {
+        return recording;
+    }
 }
