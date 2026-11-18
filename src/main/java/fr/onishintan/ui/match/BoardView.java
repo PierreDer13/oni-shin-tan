@@ -114,6 +114,8 @@ public class BoardView extends Pane {
     private boolean dealt;   // the hand stays hidden until the opening deal
     private boolean rising;   // the card just played brings dead minions back (black smoke on them)
     private boolean yoi;      // Yōi was just played: the costs in hand sparkle after the redraw
+    private String signature = "";   // the card just played, for its own move before its effects (SignatureFx)
+    private int signatureSlot;       // and its slot (Nue's shockwave starts there)
     /** Opening hand: deals the bottom player's cards in from their deck. */
     public void dealHand() {
         dealt = true;
@@ -311,6 +313,8 @@ public class BoardView extends Pane {
     public void showPlayed(Card card, int slot) {
         rising = card.getId().equals("kuchiyose") || card.getId().equals("izanami");
         yoi = card.getId().equals("yoi");
+        signature = card.getId();
+        signatureSlot = slot;
         drawHand();
         Node played;
         if (card instanceof MinionCard && you.getSide().getAt(slot) != null) {
@@ -363,7 +367,7 @@ public class BoardView extends Pane {
         }
         double holdMs = hold;
         PauseTransition pause = new PauseTransition(Duration.millis(pauseMs));
-        pause.setOnFinished(e -> showFrom(events, 0, () -> {   // the effects one step after the other, then the hold
+        pause.setOnFinished(e -> afterSignature(() -> showFrom(events, 0, () -> {   // the card's move, the effects step by step, the hold
             arrivals();   // the minions that just came: smoke or petals
             PauseTransition wait = new PauseTransition(Duration.millis(holdMs));
             wait.setOnFinished(f -> {
@@ -375,8 +379,37 @@ public class BoardView extends Pane {
                 then.run();
             });
             wait.play();
-        }));
+        })));
         pause.play();
+    }
+
+
+    /** The card just played makes its own move first (Iaidō's draw, Nue's shockwave, Sakasama's flip…), then `then` runs. */
+    private void afterSignature(Runnable then) {
+        double ms = 0;
+        switch (signature) {
+            case "iaido" -> ms = SignatureFx.iaido(live);
+            case "nue" -> ms = SignatureFx.shockwave(live, SLOT_X + 2 + signatureSlot * SLOT_STEP + MINION_W / 2, YOUR_Y + 80);
+            case "enma" -> ms = SignatureFx.judgement(live);
+            case "sakasama" -> {
+                List<Node> enemies = new ArrayList<>();
+                for (Minion m : enemy.getSide().getMinions()) {
+                    enemies.add(nodes.get(m));
+                }
+                ms = SignatureFx.upsideDown(enemies);
+            }
+            case "chiburi", "katana-kaji" -> {
+                if (nodes.get(you.getHero()).getProperties().get("weapon") instanceof Node blade) {
+                    Fx.sparks(live, blade);
+                    ms = 400;
+                }
+            }
+            default -> { }   // no move of its own
+        }
+        signature = "";
+        PauseTransition wait = new PauseTransition(Duration.millis(ms));
+        wait.setOnFinished(e -> then.run());
+        wait.play();
     }
 
     /** How long one step of effects plays before the next one starts, and how long a trap takes to flip, be read and start its cut. */
@@ -423,6 +456,7 @@ public class BoardView extends Pane {
             }
             case HEAL -> Fx.heal(live, node, event.amount());
             case MINION_DIED -> Fx.deathCut(live, node);
+            case MINION_REMOVED -> SignatureFx.vanish(node);   // Kamikakushi: spirited away
             default -> {
                 return 0;   // nothing to show (a card added to the hand flies in after the redraw)
             }
