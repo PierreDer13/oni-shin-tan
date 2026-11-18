@@ -13,15 +13,18 @@ import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.EnumMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 
 /**
  * Save files of the game, in a folder of the player's home (~/.onishintan by default):
  * decks.properties (the decks built in the editor), settings.properties (music and effects volumes)
- * and collection.properties (the kami won at the end of an Adventure).
+ * collection.properties (the kami won at the end of an Adventure) and profile.properties
+ * (name, Rei, wins and losses per class, the hero picked for each class).
  * Only ids and plain values are written: the UI turns card ids back into cards with its catalog.
  * A missing or broken file gives the defaults and never crashes the game; a save that fails
  * returns false and leaves the previous file untouched (written to a .tmp file, then moved).
@@ -30,6 +33,7 @@ public class SaveManager {
     public static final String DECKS_FILE = "decks.properties";
     public static final String SETTINGS_FILE = "settings.properties";
     public static final String COLLECTION_FILE = "collection.properties";
+    public static final String PROFILE_FILE = "profile.properties";
 
     /** Volumes used when nothing is saved yet (the same as AudioSettings). */
     public static final double DEFAULT_MUSIC = 0.35;
@@ -53,6 +57,58 @@ public class SaveManager {
         public static Volumes defaults() { return new Volumes(DEFAULT_MUSIC, DEFAULT_EFFECTS); }
 
         private static double clamp(double v) { return Double.isNaN(v) ? 0 : Math.max(0, Math.min(1, v)); }
+    }
+
+    /**
+     * The Profile page: the player's name, his Rei points and his wins and losses per class
+     * (a class never played counts 0). Records are immutable: withResult, withUsername and withRei give a new one.
+     */
+    public record Stats(String username, int rei, Map<HeroClass, Integer> wins, Map<HeroClass, Integer> losses) {
+        public Stats {
+            username = username == null ? "" : username.trim();
+            rei = Math.max(0, rei);
+            wins = counts(wins);
+            losses = counts(losses);
+        }
+
+        /** Nothing played yet: no name, 0 Rei, 0 wins, 0 losses. */
+        public static Stats defaults() { return new Stats("", 0, Map.of(), Map.of()); }
+
+        public int winsOf(HeroClass c) { return wins.getOrDefault(c, 0); }
+
+        public int lossesOf(HeroClass c) { return losses.getOrDefault(c, 0); }
+
+        public int playedOf(HeroClass c) { return winsOf(c) + lossesOf(c); }
+
+        public int totalWins() { return wins.values().stream().mapToInt(Integer::intValue).sum(); }
+
+        public int totalLosses() { return losses.values().stream().mapToInt(Integer::intValue).sum(); }
+
+        /** Every match counted: wins + losses (a draw counts as neither). */
+        public int played() { return totalWins() + totalLosses(); }
+
+        /** The same stats with one more win or loss for that class (call it at the end of a match). */
+        public Stats withResult(HeroClass c, boolean won) {
+            if (c == null) return this;
+            Map<HeroClass, Integer> w = new EnumMap<>(HeroClass.class);
+            Map<HeroClass, Integer> l = new EnumMap<>(HeroClass.class);
+            w.putAll(wins);
+            l.putAll(losses);
+            (won ? w : l).merge(c, 1, Integer::sum);
+            return new Stats(username, rei, w, l);
+        }
+
+        public Stats withUsername(String name) { return new Stats(name, rei, wins, losses); }
+
+        public Stats withRei(int points) { return new Stats(username, points, wins, losses); }
+
+        private static Map<HeroClass, Integer> counts(Map<HeroClass, Integer> m) {
+            Map<HeroClass, Integer> copy = new EnumMap<>(HeroClass.class);
+            if (m != null) {
+                m.forEach((c, n) -> { if (c != null && n != null && n > 0) copy.put(c, n); });
+            }
+            return Collections.unmodifiableMap(copy);
+        }
     }
 
     private final Path dir;
@@ -138,6 +194,54 @@ public class SaveManager {
         Properties p = new Properties();
         p.setProperty("unlocked", String.join(",", ids));
         return write(COLLECTION_FILE, p, "Oni Shin Tan - collection");
+    }
+
+    // ---------- profile ----------
+
+    /** The saved Profile stats, or Stats.defaults(). A broken number counts 0. */
+    public Stats loadStats() {
+        Properties p = read(PROFILE_FILE);
+        Map<HeroClass, Integer> wins = new EnumMap<>(HeroClass.class);
+        Map<HeroClass, Integer> losses = new EnumMap<>(HeroClass.class);
+        for (HeroClass c : HeroClass.values()) {
+            wins.put(c, intOf(p.getProperty("wins." + c.name()), 0));
+            losses.put(c, intOf(p.getProperty("losses." + c.name()), 0));
+        }
+        return new Stats(p.getProperty("username", ""), intOf(p.getProperty("rei"), 0), wins, losses);
+    }
+
+    /** Saves the Profile stats; the heroes picked per class stay as they are. */
+    public boolean saveStats(Stats s) {
+        Stats stats = s == null ? Stats.defaults() : s;
+        Properties p = read(PROFILE_FILE);
+        p.setProperty("username", stats.username());
+        p.setProperty("rei", String.valueOf(stats.rei()));
+        for (HeroClass c : HeroClass.values()) {
+            p.setProperty("wins." + c.name(), String.valueOf(stats.winsOf(c)));
+            p.setProperty("losses." + c.name(), String.valueOf(stats.lossesOf(c)));
+        }
+        return write(PROFILE_FILE, p, "Oni Shin Tan - profile");
+    }
+
+    /** The hero picked for each class (its id, e.g. HeroChoice's); a class with none picked is missing. */
+    public Map<HeroClass, String> loadHeroes() {
+        Properties p = read(PROFILE_FILE);
+        Map<HeroClass, String> heroes = new EnumMap<>(HeroClass.class);
+        for (HeroClass c : HeroClass.values()) {
+            String id = p.getProperty("hero." + c.name());
+            if (id != null && !id.isBlank()) heroes.put(c, id.trim());
+        }
+        return Collections.unmodifiableMap(heroes);
+    }
+
+    /** Replaces the heroes picked per class; the Profile stats stay as they are. */
+    public boolean saveHeroes(Map<HeroClass, String> heroes) {
+        Properties p = read(PROFILE_FILE);
+        for (HeroClass c : HeroClass.values()) p.remove("hero." + c.name());
+        if (heroes != null) {
+            heroes.forEach((c, id) -> { if (c != null && id != null && !id.isBlank()) p.setProperty("hero." + c.name(), id.trim()); });
+        }
+        return write(PROFILE_FILE, p, "Oni Shin Tan - profile");
     }
 
     // ---------- files ----------

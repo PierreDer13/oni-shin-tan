@@ -5,17 +5,20 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import fr.onishintan.data.SaveManager.DeckData;
+import fr.onishintan.data.SaveManager.Stats;
 import fr.onishintan.data.SaveManager.Volumes;
 import fr.onishintan.model.HeroClass;
 
-/** SaveManager: decks, volumes and the Adventure collection written to disk and read back. */
+/** SaveManager: decks, volumes, the Adventure collection and the Profile written to disk and read back. */
 class SaveManagerTest {
 
     @TempDir
@@ -79,5 +82,56 @@ class SaveManagerTest {
         SaveManager save = new SaveManager(dir);
         save.saveVolumes(Volumes.defaults());
         assertFalse(Files.exists(dir.resolve(SaveManager.SETTINGS_FILE + ".tmp")));
+    }
+
+    @Test
+    void noProfileGivesEmptyStatsAndNoHeroes() {
+        SaveManager save = new SaveManager(dir.resolve("none"));
+        assertEquals(Stats.defaults(), save.loadStats());
+        assertEquals(0, save.loadStats().played());
+        assertTrue(save.loadHeroes().isEmpty());
+    }
+
+    @Test
+    void statsComeBackWithWinsAndLossesPerClass() {
+        SaveManager save = new SaveManager(dir);
+        Stats stats = Stats.defaults().withUsername(" Pierre ").withRei(120)
+                .withResult(HeroClass.NINJA, true).withResult(HeroClass.NINJA, true)
+                .withResult(HeroClass.NINJA, false).withResult(HeroClass.ONI, false);
+        assertTrue(save.saveStats(stats));
+        Stats back = new SaveManager(dir).loadStats();
+        assertEquals(stats, back);
+        assertEquals("Pierre", back.username());
+        assertEquals(120, back.rei());
+        assertEquals(2, back.winsOf(HeroClass.NINJA));
+        assertEquals(3, back.playedOf(HeroClass.NINJA));
+        assertEquals(0, back.playedOf(HeroClass.SAMURAI));
+        assertEquals(2, back.totalWins());
+        assertEquals(2, back.totalLosses());
+        assertEquals(4, back.played());
+    }
+
+    @Test
+    void heroesAndStatsShareTheProfileWithoutErasingEachOther() {
+        SaveManager save = new SaveManager(dir);
+        Map<HeroClass, String> heroes = new EnumMap<>(HeroClass.class);
+        heroes.put(HeroClass.SAMURAI, "miyamoto-musashi");
+        heroes.put(HeroClass.KANNUSHI, "abe-no-seimei");
+        assertTrue(save.saveHeroes(heroes));
+        assertTrue(save.saveStats(Stats.defaults().withResult(HeroClass.SAMURAI, true)));
+        assertEquals(heroes, save.loadHeroes());                  // saving the stats kept the heroes
+        assertTrue(save.saveHeroes(Map.of(HeroClass.ONI, "shuten-doji")));
+        assertEquals(Map.of(HeroClass.ONI, "shuten-doji"), save.loadHeroes());   // replaced, not merged
+        assertEquals(1, save.loadStats().winsOf(HeroClass.SAMURAI));             // saving the heroes kept the stats
+    }
+
+    @Test
+    void brokenProfileNumbersCountZero() throws IOException {
+        Files.writeString(dir.resolve(SaveManager.PROFILE_FILE), "username=Kayne\nrei=lots\nwins.NINJA=-4\nlosses.ONI=2\n");
+        Stats stats = new SaveManager(dir).loadStats();
+        assertEquals("Kayne", stats.username());
+        assertEquals(0, stats.rei());
+        assertEquals(0, stats.winsOf(HeroClass.NINJA));
+        assertEquals(2, stats.lossesOf(HeroClass.ONI));
     }
 }
