@@ -40,6 +40,7 @@ import java.util.function.Predicate;
 import javafx.util.Duration;
 
 import javafx.animation.Animation;
+import javafx.animation.FadeTransition;
 import javafx.animation.Interpolator;
 import javafx.animation.KeyFrame;
 import javafx.animation.KeyValue;
@@ -108,6 +109,8 @@ public class BoardView extends Pane {
     private KiBarView ki;
     private HandView hand;
     private boolean dealt;   // the hand stays hidden until the opening deal
+    private boolean rising;   // the card just played brings dead minions back (black smoke on them)
+    private boolean yoi;      // Yōi was just played: the costs in hand sparkle after the redraw
     /** Opening hand: deals the bottom player's cards in from their deck. */
     public void dealHand() {
         dealt = true;
@@ -303,11 +306,14 @@ public class BoardView extends Pane {
      * a spell big in the middle; the hand is drawn again without it. The redraw after the effects replaces all of this.
      */
     public void showPlayed(Card card, int slot) {
+        rising = card.getId().equals("kuchiyose") || card.getId().equals("izanami");
+        yoi = card.getId().equals("yoi");
         drawHand();
         Node played;
         if (card instanceof MinionCard && you.getSide().getAt(slot) != null) {
             played = new MinionView(you.getSide().getAt(slot), MINION_W);
             played.relocate(SLOT_X + 2 + slot * SLOT_STEP, YOUR_Y);
+            nodes.put(you.getSide().getAt(slot), played);   // its effects show on this card, and it gets no smoke
         } else if (card instanceof MinionCard || card instanceof ShrineCard) {
             played = new CardView(card, MINION_W);   // already gone (a trap killed it): its card shows in the slot
             played.relocate(SLOT_X + 2 + slot * SLOT_STEP, YOUR_Y);
@@ -350,9 +356,17 @@ public class BoardView extends Pane {
             for (GameEvent event : events) {
                 show(event);
             }
+            if (rising) {
+                smokeNewMinions();
+                rising = false;
+            }
             PauseTransition wait = new PauseTransition(Duration.millis(holdMs));
             wait.setOnFinished(f -> {
                 render();
+                if (yoi) {
+                    hand.sparkleCosts();   // the hand is new now, with its lowered costs
+                    yoi = false;
+                }
                 then.run();
             });
             wait.play();
@@ -374,6 +388,29 @@ public class BoardView extends Pane {
             case HEAL -> Fx.heal(live, node, event.amount());
             case MINION_DIED -> Fx.deathCut(live, node);
             default -> { }   // a trap shows itself (revealTrap)
+        }
+    }
+
+    /** Black smoke rises over each of your minions that was not on screen before the play: they came back from the dead. */
+    private void smokeNewMinions() {
+        for (int slot = 0; slot < BoardSide.MAX; slot++) {
+            Minion m = you.getSide().getAt(slot);
+            if (m != null && !nodes.containsKey(m)) {
+                ImageView smoke = image("/images/fx/black-smoke.png");   // 600 x 198
+                smoke.setFitWidth(180);
+                smoke.setPreserveRatio(true);
+                smoke.setMouseTransparent(true);
+                smoke.relocate(SLOT_X + 2 + slot * SLOT_STEP + MINION_W / 2 - 90, YOUR_Y + 40);
+                table.getChildren().add(smoke);   // on the table: the redraw clears `live`, the smoke keeps going over the new minion
+                TranslateTransition rise = new TranslateTransition(Duration.millis(1200), smoke);
+                rise.setByY(-40);
+                FadeTransition fade = new FadeTransition(Duration.millis(1200), smoke);
+                fade.setFromValue(1);
+                fade.setToValue(0);
+                fade.setOnFinished(e -> table.getChildren().remove(smoke));
+                rise.play();
+                fade.play();
+            }
         }
     }
 
