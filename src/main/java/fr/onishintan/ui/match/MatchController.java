@@ -43,7 +43,7 @@ public class MatchController implements CardPlayer {
     /** Notes what an action did (damage, healing, deaths, traps) so the board can show it before redrawing. */
     private final EffectRecorder recorder;
     /** Before a spell or a Banzai takes effect, and the extra wait while a trap shows face up (GDD timing). */
-    private static final double EFFECT_PAUSE = 300, TRAP_PAUSE = 500;
+    private static final double PLACE_PAUSE = 200, EFFECT_PAUSE = 300, TRAP_PAUSE = 500;
     /** How long effects show before the redraw; at the end of a turn they all fit in 0.75 s. */
     private static final double EFFECT_SHOW = 700, TURN_SHOW = 750;
     private final BoardView board;
@@ -348,7 +348,7 @@ public class MatchController implements CardPlayer {
 
     /** How long the table waits before a played card's effects show: 0.3 s for a spell or a Banzai, 0.5 s more when a trap went off. */
     private static double pauseBefore(Card card, List<GameEvent> events) {
-        double pause = 0;
+        double pause = PLACE_PAUSE;   // the card lands before anything else happens
         boolean spell = card instanceof SpellCard && !(card instanceof TrapCard);
         boolean banzai = card instanceof MinionCard minion && minion.hasKeyword(Keyword.BANZAI);
         if (spell || banzai) {

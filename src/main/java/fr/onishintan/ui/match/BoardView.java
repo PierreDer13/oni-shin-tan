@@ -197,6 +197,7 @@ public class BoardView extends Pane {
             wait.play();
         });
         table.getChildren().addAll(bg, live, endTurn, yourClock, enemyClock);
+        live.setPickOnBounds(false);   // a click on empty table goes through to the board (cancels an aim)
         // Settings, top left: volumes, window size and Surrender (which asks first).
         Label settings = darkButton("設定  SETTINGS", () -> table.getChildren().add(new SettingsPanel(this::askSurrender)));
         settings.relocate(20, 20);
@@ -322,6 +323,14 @@ public class BoardView extends Pane {
             played.relocate(W / 2 - PLAYED_W / 2, H / 2 - PLAYED_W * CardView.H / CardView.W / 2);
         }
         played.setMouseTransparent(true);
+        // Placed: it comes down onto the table, from big to its size.
+        ScaleTransition land = new ScaleTransition(Duration.millis(180), played);
+        land.setFromX(1.4);
+        land.setFromY(1.4);
+        land.setToX(1);
+        land.setToY(1);
+        land.setInterpolator(Interpolator.EASE_IN);
+        land.play();
         live.getChildren().add(played);
         if (card instanceof MinionCard) {
             Minion minion = you.getSide().getAt(slot);
