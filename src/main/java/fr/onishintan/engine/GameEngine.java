@@ -4,6 +4,7 @@ import fr.onishintan.adventure.Upgrade;
 import fr.onishintan.model.Card;
 import fr.onishintan.model.ChessClock;
 import fr.onishintan.model.Combatant;
+import fr.onishintan.model.Deck;
 import fr.onishintan.model.Hero;
 import fr.onishintan.model.Minion;
 import fr.onishintan.model.MinionCard;
@@ -61,6 +62,8 @@ public class GameEngine {
     private final FamilyEffects familyEffects = new FamilyEffects(this, minionEffects);
     /** Kawarimi: the minion an attack is turned onto by a trap, null otherwise. */
     private Minion redirected;
+    private final Map<Player, Integer> fatigue = new HashMap<>();   // empty-deck draws so far, per player
+    private List<GameEvent> heard;          // events waiting for the listeners while a rule handler runs (publish)
     /** Otoshiana: a trap cancelled the attack being resolved. */
     private boolean attackCancelled;
     /** Every card the match may create by id (tokens, Curses): set by the UI, later by cards.json. */
@@ -204,9 +207,29 @@ public class GameEngine {
         listeners.remove(listener);
     }
 
+    /**
+     * The rule handlers run first; the listeners (UI) hear the events after them, in cause-then-consequence
+     * order: an event comes before the events its handlers published (MINION_DIED before its Seppuku,
+     * TURN_ENDED before the end-of-turn effects), and nothing is heard until the outermost event is handled.
+     */
     void publish(GameEvent event) {
-        bus.publish(event);
-        for (GameListener l : List.copyOf(listeners)) l.onEvent(event, state);
+        List<GameEvent> outer = heard;
+        heard = new ArrayList<>();
+        heard.add(event);
+        List<GameEvent> mine;
+        try {
+            bus.publish(event);
+        } finally {
+            mine = heard;
+            heard = outer;
+        }
+        if (outer != null) {                       // published by a rule handler: heard after its cause
+            outer.addAll(mine);
+            return;
+        }
+        for (GameEvent e : mine) {
+            for (GameListener l : List.copyOf(listeners)) l.onEvent(e, state);
+        }
     }
 
     /** Honor, Peace and Justice: who attacked what this turn. */
@@ -243,6 +266,7 @@ public class GameEngine {
     public void beginFirstTurn() {
         Player p = state.active();
         turns.startTurn().forEach(card -> publishDraw(p, card));
+        if (state.isOver()) return;           // fatigue can kill
         publish(GameEvent.of(GameEvent.Type.TURN_STARTED, p, null));
         turnsBegun = true;
         startClock(p);
@@ -310,6 +334,7 @@ public class GameEngine {
         List<Optional<Card>> drawn = turns.endTurn();
         Player next = state.active();
         drawn.forEach(card -> publishDraw(next, card));
+        if (state.isOver()) return;           // fatigue can kill
         publish(GameEvent.of(GameEvent.Type.TURN_STARTED, next, null));
         startClock(next);
     }
@@ -427,7 +452,6 @@ public class GameEngine {
         }
         if (redirected != null && !redirected.isDead()) target = redirected;   // Kawarimi: the log takes the hit
         boolean ok = combat.resolve(attacker, target);
-        if (ok) familyEffects.afterAttack(attacker);                // Meiji Ōtorii
         if (ok) checkGameOver();
         return ok;
     }
@@ -620,8 +644,15 @@ public class GameEngine {
     /** Runs the effect a minion has for this trigger, if any. */
     void runTrigger(Trigger trigger, Player owner, Minion source, Combatant target) {
         if (source == null || minionEffects.isSilenced(source)) return;   // Shike
-        cardEffects.get(source.getSource().getId(), trigger)
-                .ifPresent(effect -> applyAs(effect, new EffectContext(this, owner, source, target)));
+        Optional<Effect> effect = cardEffects.get(source.getSource().getId(), trigger);
+        if (effect.isEmpty()) return;
+        if (trigger != Trigger.BANZAI) announce(source, owner);            // a Banzai is announced by its CARD_PLAYED
+        applyAs(effect.get(), new EffectContext(this, owner, source, target));
+    }
+
+    /** EFFECT_TRIGGERED, just before a triggered effect acts: the UI shows its banner and keeps it in order in the replay. */
+    void announce(Object source, Player owner) {
+        publish(GameEvent.of(GameEvent.Type.EFFECT_TRIGGERED, source, owner));
     }
 
     /** Runs a trigger for every minion on that player's side (copy: the board may change). */
@@ -753,7 +784,7 @@ public class GameEngine {
      */
     void dealDamage(Object source, Combatant target, int amount) {
         if (target == null || amount <= 0) return;
-        if (!(source instanceof Oath) && !(source instanceof ChessClock)) {
+        if (!(source instanceof Oath) && !(source instanceof ChessClock) && !(source instanceof Deck)) {   // fatigue: no bonus
             Player dealer = dealer();
             amount = rewards.effectDamage(dealer, cursed != null, target, amount + ryu(dealer) + chikaraSpell(dealer));
         }
@@ -1196,9 +1227,24 @@ public class GameEngine {
     private void publishDraw(Player p, Optional<Card> drawn) {
         if (drawn.isPresent()) {
             publish(GameEvent.of(GameEvent.Type.CARD_DRAWN, p, drawn.get()));
-        } else if (!p.getDeck().isEmpty() || p.getHand().size() >= Player.MAX_HAND) {
+        } else if (p.drewFromEmptyDeck()) {
+            fatigue(p);
+        } else {
             publish(GameEvent.of(GameEvent.Type.CARD_BURNED, p, null));
         }
+    }
+
+    /** Fatigue (decided 18 Nov): each draw from an empty deck deals 1, then 2, then 3... to the drawer's own hero, with no bonus. */
+    private void fatigue(Player p) {
+        if (state.isOver()) return;
+        int damage = fatigue.merge(p, 1, Integer::sum);
+        publish(new GameEvent(GameEvent.Type.FATIGUE, p, p.getHero(), damage));
+        dealDamage(p.getDeck(), p.getHero(), damage);
+    }
+
+    /** The damage p's next draw from an empty deck will deal (the UI can show it on the empty deck). */
+    public int nextFatigue(Player p) {
+        return fatigue.getOrDefault(p, 0) + 1;
     }
 
     /** Called after every action that can kill a hero (combat, spells). */

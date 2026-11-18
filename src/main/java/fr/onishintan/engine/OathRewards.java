@@ -2,7 +2,6 @@ package fr.onishintan.engine;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
@@ -133,6 +132,7 @@ class OathRewards {
         if (amount <= 0) return amount;
         Player q = engine.ownerOf(target);
         if (q == null || target != q.getHero() || !has(q, OathType.PEACE, 9) || !once(q, Once.DEFLECT)) return amount;
+        announce(q);
         engine.dealDamage(q.getOath(), engine.getState().opponentOf(q).getHero(), amount);
         return 0;
     }
@@ -152,6 +152,7 @@ class OathRewards {
         Player p = engine.active();
         if (restored > 0 && target instanceof Minion m && m.getHealth() >= m.getMaxHealth()
                 && p.getSide().slotOf(m) >= 0 && has(p, OathType.PURITY, 6) && once(p, Once.PURITY_DRAW)) {
+            announce(p);
             engine.draw(p);
         }
     }
@@ -190,9 +191,13 @@ class OathRewards {
     private void startTurn(Player p) {
         usedThisTurn.clear();
         Integer ki = kiNextTurn.remove(p);
-        if (ki != null) p.gainTemporaryKi(ki);
+        if (ki != null) {
+            announce(p);
+            p.gainTemporaryKi(ki);
+        }
         for (Player giver : players()) {                                     // Corruption 9: start of every turn
             if (has(giver, OathType.CORRUPTION, 9) && !engine.getState().isOver()) {
+                announce(giver);
                 engine.runHandCurses(engine.getState().opponentOf(giver));
             }
         }
@@ -203,6 +208,7 @@ class OathRewards {
         for (Player giver : players()) {
             Player holder = engine.getState().opponentOf(giver);
             if (holder != ending && has(giver, OathType.CORRUPTION, 9) && !engine.getState().isOver()) {
+                announce(giver);
                 engine.runHandCurses(holder);
             }
         }
@@ -211,18 +217,25 @@ class OathRewards {
     /** Discipline 9: every card played gives 1 Ki. */
     private void cardPlayed(Player p, Card c) {
         if (c instanceof MinionCard) minionCardPlayed = true;
-        if (has(p, OathType.DISCIPLINE, 9)) p.gainTemporaryKi(1);
+        if (has(p, OathType.DISCIPLINE, 9)) {
+            announce(p);
+            p.gainTemporaryKi(1);
+        }
     }
 
     /** A Trap set is a card played too (Discipline 9). Deception 9: set another, different Trap from the hand or deck, free. */
     private void trapSet(Player p, TrapCard trap) {
         if (settingExtraTrap) return;
-        if (has(p, OathType.DISCIPLINE, 9)) p.gainTemporaryKi(1);
+        if (has(p, OathType.DISCIPLINE, 9)) {
+            announce(p);
+            p.gainTemporaryKi(1);
+        }
         if (!has(p, OathType.DECEPTION, 9)) return;
         List<TrapCard> other = new ArrayList<>();
         for (Card c : p.getHand()) if (c instanceof TrapCard t && !t.getId().equals(trap.getId()) && p.canSetTrap(t)) other.add(t);
         for (Card c : p.getDeck().getCards()) if (c instanceof TrapCard t && !t.getId().equals(trap.getId()) && p.canSetTrap(t)) other.add(t);
         if (other.isEmpty()) return;
+        announce(p);
         settingExtraTrap = true;
         try {
             engine.setExtraTrap(p, other.get(engine.rng().nextInt(other.size())));
@@ -239,11 +252,13 @@ class OathRewards {
         if (!minionCardPlayed) return;
         minionCardPlayed = false;
         if (has(p, OathType.HONOR, 9) && once(p, Once.HONOR_FIRST)) {
+            announce(p);
             honored.put(m, m.hasKeyword(Keyword.TATAKAE));
             m.buff(HONOR_FIRST_ATK, 0);
             m.giveKeyword(Keyword.TATAKAE);
         }
         if (has(p, OathType.SILENCE, 9) && once(p, Once.SILENCE_FIRST)) {
+            announce(p);
             engine.summon(p, m.getSource());
         }
     }
@@ -275,6 +290,7 @@ class OathRewards {
         Player p = engine.active();
         if (attacker instanceof Minion && target == engine.getState().opponentOf(p).getHero()
                 && has(p, OathType.HONOR, 6)) {
+            announce(p);
             engine.heal(p.getHero(), HONOR_HEAL);
         }
     }
@@ -282,8 +298,12 @@ class OathRewards {
     /** Justice 3: an enemy minion dies, +1 Ki next turn. Allegiance 6: your last minion dies, a Retainer. */
     private void minionDied(Player owner) {
         Player killer = engine.getState().opponentOf(owner);
-        if (has(killer, OathType.JUSTICE, 3)) addKi(killer, 1);
+        if (has(killer, OathType.JUSTICE, 3)) {
+            announce(killer);
+            addKi(killer, 1);
+        }
         if (owner.getSide().size() == 0 && has(owner, OathType.ALLEGIANCE, 6) && once(owner, Once.RETAINER)) {
+            announce(owner);
             engine.summon(owner, RETAINER);
         }
     }
@@ -291,6 +311,7 @@ class OathRewards {
     /** Deception 6: the enemy sets off one of your Traps, draw a card and +1 Ki next turn. */
     private void trapTriggered(Player owner) {
         if (!has(owner, OathType.DECEPTION, 6)) return;
+        announce(owner);
         engine.draw(owner);
         addKi(owner, 1);
     }
@@ -298,7 +319,10 @@ class OathRewards {
     /** Corruption 6: the enemy pays to remove one of your Curses, draw a card. */
     private void curseRemoved(Player holder) {
         Player giver = engine.getState().opponentOf(holder);
-        if (has(giver, OathType.CORRUPTION, 6)) engine.draw(giver);
+        if (has(giver, OathType.CORRUPTION, 6)) {
+            announce(giver);
+            engine.draw(giver);
+        }
     }
 
     /** Havoc 6: once the active player has dealt 6+ damage this turn, he draws a card (once). */
@@ -306,6 +330,7 @@ class OathRewards {
         Player p = engine.active();
         if (has(p, OathType.HAVOC, 6) && engine.getTurnTracker().getDamageDealt() >= HAVOC_DRAW_AT
                 && once(p, Once.HAVOC_DRAW)) {
+            announce(p);
             engine.draw(p);
         }
     }
@@ -313,18 +338,33 @@ class OathRewards {
     /** End of p's turn, before his Oath is checked: Allegiance 3, Silence 6, Discipline 3 and 6, Peace 6, Divinity 6, Purity 9. */
     void endTurn(Player p) {
         TurnTracker turn = engine.getTurnTracker();
-        if (has(p, OathType.ALLEGIANCE, 3)) randomMinion(p).ifPresent(m -> m.buff(ALLEGIANCE_BUFF, ALLEGIANCE_BUFF));
-        if (has(p, OathType.SILENCE, 6) && turn.getCardsPlayed() <= SILENCE_MAX_CARDS) engine.draw(p);
-        if (has(p, OathType.DISCIPLINE, 3) && turn.getKiSpent() >= DISCIPLINE_KI_SPENT) addKi(p, 1);
-        if (has(p, OathType.DISCIPLINE, 6)) {
+        if (has(p, OathType.ALLEGIANCE, 3) && !p.getSide().getMinions().isEmpty()) {
+            announce(p);
+            randomMinion(p).ifPresent(m -> m.buff(ALLEGIANCE_BUFF, ALLEGIANCE_BUFF));
+        }
+        if (has(p, OathType.SILENCE, 6) && turn.getCardsPlayed() <= SILENCE_MAX_CARDS) {
+            announce(p);
+            engine.draw(p);
+        }
+        if (has(p, OathType.DISCIPLINE, 3) && turn.getKiSpent() >= DISCIPLINE_KI_SPENT) {
+            announce(p);
+            addKi(p, 1);
+        }
+        if (has(p, OathType.DISCIPLINE, 6) && turn.getKiSpent() >= DISCIPLINE_DRAW_EVERY) {
+            announce(p);
             for (int i = 0; i < turn.getKiSpent() / DISCIPLINE_DRAW_EVERY; i++) engine.draw(p);
         }
-        if (has(p, OathType.PEACE, 6)) engine.heal(p.getHero(), PEACE_HEAL);
+        if (has(p, OathType.PEACE, 6)) {
+            announce(p);
+            engine.heal(p.getHero(), PEACE_HEAL);
+        }
         if (has(p, OathType.DIVINITY, 6)) {
+            announce(p);
             engine.heal(p.getHero(), DIVINITY_HEAL);
             randomMinion(p).ifPresent(m -> m.buff(DIVINITY_BUFF, DIVINITY_BUFF));
         }
-        if (has(p, OathType.PURITY, 9)) {                                    // fully heal all your minions
+        if (has(p, OathType.PURITY, 9) && !p.getSide().getMinions().isEmpty()) {   // fully heal all your minions
+            announce(p);
             for (Minion m : List.copyOf(p.getSide().getMinions())) engine.heal(m, m.getMaxHealth());
         }
     }
@@ -386,6 +426,11 @@ class OathRewards {
 
     private List<Player> players() {
         return List.of(engine.getState().getFirst(), engine.getState().getSecond());
+    }
+
+    /** EFFECT_TRIGGERED with the Oath as source, just before its reward acts. */
+    private void announce(Player p) {
+        engine.announce(p.getOath(), p);
     }
 
     private void addKi(Player p, int n) {

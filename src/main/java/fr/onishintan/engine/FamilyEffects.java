@@ -117,7 +117,10 @@ final class FamilyEffects {
     /** Gaki: at the start of his turn, its holder loses 1 Ki (one per Gaki held). */
     private void gakiTurnStart(Player p) {
         int n = Math.min(held(p, "gaki"), p.getKi());
-        if (n > 0) p.spendKi(n);
+        if (n <= 0) return;
+        p.getHand().stream().filter(c -> c instanceof CurseCard && "gaki".equals(c.getId()) && p.isHeldCurse(c))
+                .findFirst().ifPresent(g -> engine.announce(g, p));
+        p.spendKi(n);
     }
 
     private static int held(Player p, String id) {
@@ -135,20 +138,14 @@ final class FamilyEffects {
         return Math.min(amount, m.getArmour() + m.getHealth() - 1);
     }
 
-    /** Meiji Ōtorii: a minion next to it heals 3 after it attacks (still alive). */
-    void afterAttack(Combatant attacker) {
-        if (!(attacker instanceof Minion m) || m.isDead()) return;
-        Player owner = engine.ownerOf(m);
-        if (owner == null) return;
-        int n = shrinesNextTo(owner, m, "meiji-otorii");
-        if (n > 0) engine.heal(m, SHRINE_HEAL * n * factor(owner));
-    }
-
     /** End of the Shrine owner's turn, before the Shrines tick: Heiwa no Torii heals, Itsukushima gives Torii. */
     private void endTurn(Player p) {
         for (Shrine s : p.getSide().shrines()) {
             List<Minion> next = p.getSide().adjacent(p.getSide().slotOf(s));
-            switch (s.getSource().getId()) {
+            String id = s.getSource().getId();
+            if (next.isEmpty() || !(id.equals("heiwa-no-torii") || id.equals("itsukushima"))) continue;
+            engine.announce(s, p);
+            switch (id) {
                 case "heiwa-no-torii" -> next.forEach(m -> engine.heal(m, SHRINE_HEAL * factor(p)));
                 case "itsukushima" -> next.forEach(m -> { for (int i = 0; i < factor(p); i++) m.giveKeyword(Keyword.TORII); });
                 default -> { }

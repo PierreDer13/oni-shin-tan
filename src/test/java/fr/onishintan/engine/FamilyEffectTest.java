@@ -95,6 +95,25 @@ class FamilyEffectTest {
     }
 
     @Test
+    void kawarimiIsHeardBeforeTheAttackWhichTargetsTheLog() {
+        Minion target = place(enemy, 0, card("target", 1, 5));
+        Minion attacker = place(me, 0, card("attacker", 6, 6));
+        attacker.onTurnStart();
+        enemy.setTrap(trap("kawarimi", TrapTrigger.ON_ENEMY_ATTACK_MINION));
+        List<GameEvent> heard = new ArrayList<>();
+        engine.addListener((e, s) -> heard.add(e));
+
+        assertTrue(engine.attack(attacker, target));
+
+        List<GameEvent.Type> types = heard.stream().map(GameEvent::type).toList();
+        int trap = types.indexOf(GameEvent.Type.TRAP_TRIGGERED);
+        int log = types.indexOf(GameEvent.Type.MINION_SUMMONED);
+        int attack = types.indexOf(GameEvent.Type.ATTACK);
+        assertTrue(trap >= 0 && trap < log && log < attack, "TRAP_TRIGGERED, then the log, then ATTACK");
+        assertSame(heard.get(log).target(), heard.get(attack).target(), "ATTACK.target() is the log, the real target");
+    }
+
+    @Test
     void makibishiHitsTheSummonedMinion() {
         enemy.setTrap(trap("makibishi", TrapTrigger.ON_ENEMY_SUMMON));
         assertTrue(play(card("big", 2, 10), 0, null));
@@ -112,7 +131,12 @@ class FamilyEffectTest {
         long asleep = List.of(a, b, c).stream().filter(m -> m.hasStatus(Status.SLEEP)).count();
         assertEquals(2, asleep);
         engine.endTurn();
-        assertTrue(List.of(a, b, c).stream().noneMatch(m -> m.hasStatus(Status.SLEEP)), "they wake at the end of my turn");
+        assertEquals(2, List.of(a, b, c).stream().filter(m -> m.hasStatus(Status.SLEEP)).count(), "asleep during my turn: they sleep through my next one too");
+        engine.endTurn();                        // my next turn
+        List.of(a, b, c).forEach(Minion::onTurnStart);
+        assertEquals(1, List.of(a, b, c).stream().filter(Minion::canAttack).count(), "the two sleepers still cannot attack");
+        engine.endTurn();
+        assertTrue(List.of(a, b, c).stream().noneMatch(m -> m.hasStatus(Status.SLEEP)), "they wake at the end of my next turn");
     }
 
     @Test
@@ -127,6 +151,12 @@ class FamilyEffectTest {
         assertEquals(hp, enemy.getHero().getHealth());
         assertTrue(attacker.hasStatus(Status.SLEEP));
         assertFalse(attacker.canAttack());
+        engine.endTurn();
+        engine.endTurn();                        // my next turn: still asleep
+        assertTrue(attacker.hasStatus(Status.SLEEP));
+        assertFalse(attacker.canAttack());
+        engine.endTurn();
+        assertFalse(attacker.hasStatus(Status.SLEEP), "awake after the end of my next turn");
     }
 
     @Test
@@ -173,13 +203,14 @@ class FamilyEffectTest {
     }
 
     @Test
-    void meijiHealsAfterAttacking() {
+    void meijiNoLongerHealsAfterAttacking() {
         Minion m = place(me, 1, card("m", 1, 10));
         Minion e = place(enemy, 0, card("e", 4, 20));
         m.onTurnStart();
         assertTrue(play(shrine("meiji-otorii", 2), 0, null));
         assertTrue(engine.attack(m, e));
-        assertEquals(9, m.getHealth(), "10 - 4 + 3");
+        assertEquals(6, m.getHealth(), "10 - 4, no heal (decided 18 Nov)");
+        assertEquals(16, e.getHealth(), "1 + 3 ATK from Meiji");
     }
 
     @Test
