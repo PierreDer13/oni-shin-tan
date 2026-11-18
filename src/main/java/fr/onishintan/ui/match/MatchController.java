@@ -526,18 +526,20 @@ public class MatchController implements CardPlayer {
             clockTicker.stop();
             return;
         }
-        cardsDrawnThisTurn = 0;   // a timeout ends the turn inside checkClock(): count only the cards drawn by it
         boolean timedOut = engine.checkClock();
         showClocks();
         if (!timedOut) {
             return;
         }
+        // Timeout: half HP and +30 s, the turn goes on. The clock waits during the TIME'S UP animation.
         clockTicker.stop();
+        pauseClock();
         board.showTimeout(timedOutHero, timeoutDamage, () -> {
             if (engine.getState().isOver()) {
                 return;   // the timeout killed the hero: showTimeout already shows the game over
             }
-            afterTurnEnded();
+            resumeClock();
+            board.render();
             clockTicker.start();
         });
     }
