@@ -75,6 +75,8 @@ public class GameEngine {
     private final Map<Player, Set<Upgrade>> upgrades = new HashMap<>();
     /** True while a spell card's effect is resolving (Chikara: +3 spell damage). */
     private boolean castingSpell;
+    /** Whose effect is resolving (a spell, a Banzai, a trigger, a trap): its damage gets that player's bonuses. */
+    private Player effectOwner;
     private final Random rng;
 
     private LongSupplier now = System::currentTimeMillis;   // replaced in tests
@@ -510,7 +512,7 @@ public class GameEngine {
             castingSpell = true;
             try {
                 cardEffects.get(card.getId(), Trigger.BANZAI)
-                        .ifPresent(effect -> effect.apply(new EffectContext(this, p, null, target, second)));
+                        .ifPresent(effect -> applyAs(effect, new EffectContext(this, p, null, target, second)));
             } finally {
                 castingSpell = false;
             }
@@ -612,7 +614,7 @@ public class GameEngine {
     void runTrigger(Trigger trigger, Player owner, Minion source, Combatant target) {
         if (source == null || minionEffects.isSilenced(source)) return;   // Shike
         cardEffects.get(source.getSource().getId(), trigger)
-                .ifPresent(effect -> effect.apply(new EffectContext(this, owner, source, target)));
+                .ifPresent(effect -> applyAs(effect, new EffectContext(this, owner, source, target)));
     }
 
     /** Runs a trigger for every minion on that player's side (copy: the board may change). */
@@ -697,7 +699,7 @@ public class GameEngine {
             publish(GameEvent.of(GameEvent.Type.MINION_SUMMONED, p, a));
             for (RiteCard past : p.getRites()) {
                 cardEffects.get(past.getId(), Trigger.BANZAI)
-                        .ifPresent(effect -> effect.apply(new EffectContext(this, p, a, target)));
+                        .ifPresent(effect -> applyAs(effect, new EffectContext(this, p, a, target)));
             }
             triggerTraps(state.opponent(), TrapTrigger.ON_ENEMY_SUMMON, a);
             if (state.isOver()) return;
@@ -712,9 +714,30 @@ public class GameEngine {
         if (trap.isEmpty()) return;
         publish(GameEvent.of(GameEvent.Type.TRAP_TRIGGERED, owner, trap.get()));
         cardEffects.get(trap.get().getId(), Trigger.TRAP)
-                .ifPresent(effect -> effect.apply(new EffectContext(this, owner, null, target)));
+                .ifPresent(effect -> applyAs(effect, new EffectContext(this, owner, null, target)));
         combat.removeDead();
         checkGameOver();
+    }
+
+    /**
+     * Runs an effect as its owner's, so its damage gets the owner's bonuses (Ryū, Oaths, Chikara)
+     * and not the active player's: an enemy trap or death effect set off by your spell stays the enemy's.
+     */
+    private void applyAs(Effect effect, EffectContext ctx) {
+        Player before = effectOwner;
+        effectOwner = ctx.owner();
+        try {
+            effect.apply(ctx);
+        } finally {
+            effectOwner = before;
+        }
+    }
+
+    /** Who deals effect damage now: the cursing player (Corruption 3), else the effect's owner, else the active player. */
+    private Player dealer() {
+        if (cursed != null) return state.opponentOf(cursed);
+        if (effectOwner != null) return effectOwner;
+        return state.active();
     }
 
     /**
@@ -724,7 +747,7 @@ public class GameEngine {
     void dealDamage(Object source, Combatant target, int amount) {
         if (target == null || amount <= 0) return;
         if (!(source instanceof Oath) && !(source instanceof ChessClock)) {
-            Player dealer = cursed != null ? state.opponentOf(cursed) : state.active();
+            Player dealer = dealer();
             amount = rewards.effectDamage(dealer, cursed != null, target, amount + ryu(dealer) + chikaraSpell(dealer));
         }
         amount = familyEffects.capDamage(target, amount);               // Fushimi Inari
