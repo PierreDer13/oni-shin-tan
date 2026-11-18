@@ -270,7 +270,7 @@ public class HandView extends Group {
      */
     private void dealFrom(int firstIndex, Duration wait) {
         // While cards are flying, the hand ignores the mouse, so it doesn't fan out in the middle of the deal.
-        setMouseTransparent(true);
+        setMouseTransparent(firstIndex < cards.size());   // nothing to deal (0 cards drawn): the hand stays usable
 
         for (int i = firstIndex; i < cards.size(); i++) {
             CardView card = cards.get(i);
