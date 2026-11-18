@@ -17,11 +17,14 @@ import fr.onishintan.model.Keyword;
 import fr.onishintan.model.Card;
 import fr.onishintan.model.Combatant;
 import fr.onishintan.model.Minion;
+import fr.onishintan.model.MinionCard;
 import fr.onishintan.model.Oath;
 import fr.onishintan.model.Shrine;
+import fr.onishintan.model.ShrineCard;
 import fr.onishintan.model.Player;
 import fr.onishintan.model.TrapCard;
 import fr.onishintan.engine.GameEngine;
+import fr.onishintan.engine.GameEvent;
 import fr.onishintan.model.KatanaTier;
 import fr.onishintan.model.Status;
 
@@ -236,8 +239,7 @@ public class BoardView extends Pane {
         traps(enemy, TRAPS_X, ENEMY_TRAPS_Y);
         traps(you, TRAPS_X, YOUR_TRAPS_Y);
         deck(enemy, 182, 239);
-        live.getChildren().add(hand = new HandView(you, this::drop, this::trade, this::previewCost, this::costOf, this::bonusOf, this::canPlay));
-        hand.setVisible(dealt);
+        drawHand();
         enemyHand(enemy);
         healEffects();
         if (enemy.getHero().isDead() || you.getHero().isDead()) gameOver(enemy.getHero().isDead());
@@ -288,6 +290,88 @@ public class BoardView extends Pane {
     /** A trap went off: both players see it flip face up in the middle of the table, then it is cut. */
     public void revealTrap(TrapCard trap) {
         TrapView.reveal(table, trap);   // the table, not `live`: a redraw in the middle would erase it
+    }
+
+    /** How wide a spell shows in the middle of the table while its effects play. */
+    private static final double PLAYED_W = 220;
+
+    /**
+     * The card just played appears at once, before its effects: a minion in its slot (as a board minion), a Shrine in its slot,
+     * a spell big in the middle; the hand is drawn again without it. The redraw after the effects replaces all of this.
+     */
+    public void showPlayed(Card card, int slot) {
+        drawHand();
+        Node played;
+        if (card instanceof MinionCard && you.getSide().getAt(slot) != null) {
+            played = new MinionView(you.getSide().getAt(slot), MINION_W);
+            played.relocate(SLOT_X + 2 + slot * SLOT_STEP, YOUR_Y);
+        } else if (card instanceof MinionCard || card instanceof ShrineCard) {
+            played = new CardView(card, MINION_W);   // already gone (a trap killed it): its card shows in the slot
+            played.relocate(SLOT_X + 2 + slot * SLOT_STEP, YOUR_Y);
+        } else {
+            played = new CardView(card, PLAYED_W);
+            played.relocate(W / 2 - PLAYED_W / 2, H / 2 - PLAYED_W * CardView.H / CardView.W / 2);
+        }
+        played.setMouseTransparent(true);
+        live.getChildren().add(played);
+        if (card instanceof MinionCard) {
+            Minion minion = you.getSide().getAt(slot);
+            if (minion != null && minion.hasKeyword(Keyword.BANZAI)) {
+                status.follow(played);
+                status.banzai(minion, SLOT_X + 2 + slot * SLOT_STEP, YOUR_Y);   // 万歳! bursts out before the effect (shown once)
+            }
+        }
+    }
+
+    /** Your hand, drawn again from your cards (after a play, the card is no longer in it). */
+    private void drawHand() {
+        live.getChildren().remove(hand);
+        hand = new HandView(you, this::drop, this::trade, this::previewCost, this::costOf, this::bonusOf, this::canPlay);
+        hand.setVisible(dealt);
+        live.getChildren().add(hand);
+    }
+
+    /**
+     * Shows what an engine action did, then redraws: waits `pauseMs` (the card just played stays where it was dropped),
+     * plays each effect on the cards still on screen, holds `showMs` so it can be seen, then redraws and runs `then`.
+     * With nothing to show, the hold is skipped.
+     */
+    public void replay(List<GameEvent> events, double pauseMs, double showMs, Runnable then) {
+        double hold = showMs;
+        if (events.isEmpty()) {
+            hold = 0;
+        }
+        double holdMs = hold;
+        PauseTransition pause = new PauseTransition(Duration.millis(pauseMs));
+        pause.setOnFinished(e -> {
+            for (GameEvent event : events) {
+                show(event);
+            }
+            PauseTransition wait = new PauseTransition(Duration.millis(holdMs));
+            wait.setOnFinished(f -> {
+                render();
+                then.run();
+            });
+            wait.play();
+        });
+        pause.play();
+    }
+
+    /** One effect on its card: a slash and the red number for damage, the healing number, the cut for a death. */
+    private void show(GameEvent event) {
+        Node node = nodes.get(event.target());
+        if (node == null) {
+            return;   // not on screen before the action (summoned by it): it simply appears with the redraw
+        }
+        switch (event.type()) {
+            case DAMAGE -> {
+                Fx.slash(live, node);
+                Fx.damageNumber(live, node, event.amount());
+            }
+            case HEAL -> Fx.heal(live, node, event.amount());
+            case MINION_DIED -> Fx.deathCut(live, node);
+            default -> { }   // a trap shows itself (revealTrap)
+        }
     }
 
     /** You just set a trap: it is shown big, flips, and glides to its place next to your hero. */

@@ -12,6 +12,7 @@ import fr.onishintan.model.CurseZone;
 import fr.onishintan.model.Combatant;
 import fr.onishintan.model.Hero;
 import fr.onishintan.model.HeroClass;
+import fr.onishintan.model.Keyword;
 import fr.onishintan.model.MinionCard;
 import fr.onishintan.model.KatanaTier;
 import fr.onishintan.model.Oath;
@@ -19,6 +20,7 @@ import fr.onishintan.model.OathType;
 import fr.onishintan.model.Player;
 import fr.onishintan.model.RiteCard;
 import fr.onishintan.model.Shrine;
+import fr.onishintan.model.SpellCard;
 import fr.onishintan.model.TrapCard;
 import fr.onishintan.ui.MockCards;
 import fr.onishintan.ui.app.HeroChoice;
@@ -38,6 +40,12 @@ import java.util.function.Consumer;
  */
 public class MatchController implements CardPlayer {
     private final GameEngine engine;
+    /** Notes what an action did (damage, healing, deaths, traps) so the board can show it before redrawing. */
+    private final EffectRecorder recorder;
+    /** Before a spell or a Banzai takes effect, and the extra wait while a trap shows face up (GDD timing). */
+    private static final double EFFECT_PAUSE = 300, TRAP_PAUSE = 500;
+    /** How long effects show before the redraw; at the end of a turn they all fit in 0.75 s. */
+    private static final double EFFECT_SHOW = 700, TURN_SHOW = 750;
     private final BoardView board;
     /** Plays first and starts at the bottom of the screen. */
     private final Player first;
@@ -88,6 +96,7 @@ public class MatchController implements CardPlayer {
         // 2. The engine: shuffle and deal the opening hands, then the first player's turn 1 (Ki and a draw).
         engine = new GameEngine(first, second, new Random());
         engine.setCatalog(MockCards.ALL);   // the cards that effects create or summon (Sendaiku, Sakana uri, Inari, Oiwa)
+        recorder = new EffectRecorder(engine.getBus());
         engine.getBus().subscribe(GameEvent.Type.CARD_DRAWN, event -> cardsDrawnThisTurn++);
         engine.startMatch();   // the opening hands; turn 1 begins once both mulligans are done (startTurns)
         ai = difficulty == null ? null : new AIController(engine, second, difficulty, new Random());
@@ -304,14 +313,41 @@ public class MatchController implements CardPlayer {
      */
     @Override
     public boolean play(Card card, int slot, Combatant first, Combatant second) {
+        recorder.start();
+        boolean removal = card instanceof CurseCard held && engine.active().isHeldCurse(held);
         boolean played;
-        if (card instanceof CurseCard curse && engine.active().isHeldCurse(curse)) {
-            played = engine.removeCurse(curse);
+        if (removal) {
+            played = engine.removeCurse((CurseCard) card);   // a Curse the enemy gave you: dropping it pays its removal Ki
         } else {
             played = engine.playCard(card, slot, first, second);
         }
-        board.render();
-        return played;
+        List<GameEvent> events = recorder.stop();
+        if (!played) {
+            board.render();   // refused: the card goes back to the hand at once
+            return false;
+        }
+        if (!removal && !(card instanceof TrapCard)) {
+            board.showPlayed(card, slot);   // on the board before its effects show (a Trap has its own animation)
+        }
+        board.replay(events, pauseBefore(card, events), EFFECT_SHOW, () -> {});
+        return true;
+    }
+
+    /** How long the table waits before a played card's effects show: 0.3 s for a spell or a Banzai, 0.5 s more when a trap went off. */
+    private static double pauseBefore(Card card, List<GameEvent> events) {
+        double pause = 0;
+        boolean spell = card instanceof SpellCard && !(card instanceof TrapCard);
+        boolean banzai = card instanceof MinionCard minion && minion.hasKeyword(Keyword.BANZAI);
+        if (spell || banzai) {
+            pause = EFFECT_PAUSE;
+        }
+        for (GameEvent event : events) {
+            if (event.type() == GameEvent.Type.TRAP_TRIGGERED) {
+                pause += TRAP_PAUSE;   // the trap shows face up before its effect
+                break;
+            }
+        }
+        return pause;
     }
 
     /** What a hand card costs now: the engine's price for the active player (Yōi, Oath discounts). */
@@ -367,8 +403,10 @@ public class MatchController implements CardPlayer {
         if (ai == null) {
             board.holdEffects();   // banners and stamps from the end of the turn wait for the pass veil
         }
+        recorder.start();
         engine.endTurn();
-        afterTurnEnded();
+        // End- and start-of-turn effects show on the table (0.75 s at most) before the turn passes.
+        board.replay(recorder.stop(), 0, TURN_SHOW, this::afterTurnEnded);
     }
 
     /**
