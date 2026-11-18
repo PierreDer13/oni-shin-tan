@@ -375,6 +375,12 @@ public class MatchController implements CardPlayer {
         return engine.canPlay(card);
     }
 
+
+    @Override
+    public boolean powerUsed() {
+        return engine.isHeroPowerUsed();
+    }
+
     /** The engine's bonus on this card's damage or healing number, for the active player. */
     @Override
     public int bonus(Card card) {

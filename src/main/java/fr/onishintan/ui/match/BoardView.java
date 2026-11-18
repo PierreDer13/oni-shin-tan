@@ -146,7 +146,6 @@ public class BoardView extends Pane {
     private final ImageView targetMark = image("/images/fx/target.png");
     private static final double MARK_W = 90;
 
-    private boolean powerUsed;
     private Predicate<Combatant> onPower = target -> false;
     private Predicate<KatanaTier> onKatana = tier -> false;
     /** True after pressing a power that needs a target (Shuriken, Jikininki): the next click on a character aims it. */
@@ -629,7 +628,6 @@ public class BoardView extends Pane {
 
     /** Start of your turn: the hero power can be used again. */
     public void resetPower() {
-        powerUsed = false;
         render();
     }
 
@@ -727,7 +725,6 @@ public class BoardView extends Pane {
         endTurn.setImage(SWITCH_ON);
         endTurn.setDisable(false);
         selected = null;
-        powerUsed = false;
         aiming = false;
         held = null;
         render();
@@ -744,7 +741,6 @@ public class BoardView extends Pane {
         yourPortrait = enemyPortrait;
         enemyPortrait = s;
         selected = null;
-        powerUsed = false;
         aiming = false;
         held = null;
         render();
@@ -1196,11 +1192,11 @@ public void passTo(String name, Runnable onReady) {
 
     /** A hero power in its mock-up zone; yours can be pressed once per turn (pays the Ki), the opponent's is only shown. */
     private void power(Player p, double zoneY, boolean mine) {
-        boolean usable = mine && !powerUsed && you.canAfford(cheapestPower());
-        HeroPowerView v = new HeroPowerView(p.getHero().getHeroClass(), mine && powerUsed, usable, this::previewCost,
+        boolean usable = mine && !powerUsed() && you.canAfford(cheapestPower());
+        HeroPowerView v = new HeroPowerView(p.getHero().getHeroClass(), mine && powerUsed(), usable, this::previewCost,
                 this::pressPower);
         bigOnHover(v, () -> {
-            Node b = new HeroPowerView(p.getHero().getHeroClass(), mine && powerUsed, false, c -> {}, () -> {});
+            Node b = new HeroPowerView(p.getHero().getHeroClass(), mine && powerUsed(), false, c -> {}, () -> {});
             b.setScaleX(2.5);
             b.setScaleY(2.5);
             return b;
@@ -1215,9 +1211,7 @@ public void passTo(String name, Runnable onReady) {
     private void pressPower() {
         HeroClass heroClass = you.getHero().getHeroClass();
         if (heroClass == HeroClass.KANNUSHI) {
-            if (onPower.test(null)) {
-                powerUsed = true;
-            }
+            onPower.test(null);
             render();
         } else if (heroClass == HeroClass.SAMURAI) {
             chooseBlade();
@@ -1231,9 +1225,7 @@ public void passTo(String name, Runnable onReady) {
     /** Samurai: the blade picker over the table; the picked blade is equipped if the engine accepts it. */
     private void chooseBlade() {
         KatanaPicker picker = new KatanaPicker(you.getKi(), tier -> {
-            if (onKatana.test(tier)) {
-                powerUsed = true;
-            }
+            onKatana.test(tier);
             render();   // the blade appears on the rack, with the ATK badge
         }, () -> {});
         table.getChildren().add(picker);
@@ -1245,6 +1237,12 @@ public void passTo(String name, Runnable onReady) {
             return KatanaTier.BOKKEN.getKiCost();
         }
         return GameEngine.HERO_POWER_COST;
+    }
+
+
+    /** True once your hero power was used this turn: the engine's count, so Kuji-in's refresh shows at once. */
+    private boolean powerUsed() {
+        return player != null && player.powerUsed();
     }
 
     /** While aiming a hero power: each character it may hit glows violet and takes the power on click; anything else cancels. */
@@ -1286,7 +1284,6 @@ public void passTo(String name, Runnable onReady) {
             render();   // refused by the engine: nothing happens
             return;
         }
-        powerUsed = true;
         Fx.sparks(live, node);
         Fx.damageNumber(live, node, lifeBefore - life(target));
         if (target.isDead()) {

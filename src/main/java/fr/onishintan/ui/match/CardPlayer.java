@@ -27,4 +27,7 @@ public interface CardPlayer {
 
     /** The characters this attacker may hit now (the engine's rule: Shirodu first, no hidden Shinobi, Stealth…). */
     List<Combatant> attackTargets(Combatant attacker);
+
+    /** True once the active player's hero power was used this turn (Kuji-in gives it back). */
+    boolean powerUsed();
 }
