@@ -799,6 +799,9 @@ public void passTo(String name, Runnable onReady) {
             if (minion.hasKeyword(Keyword.SEPPUKU)) {
                 status.seppuku(x, y);
             }
+            if (minion.getArmour() > 0) {
+                status.armour(minion, x, y);
+            }
             if (minion.hasKeyword(Keyword.BANZAI)) {
                 status.banzai(minion, x, y);
             }
@@ -1282,8 +1285,16 @@ public void passTo(String name, Runnable onReady) {
         }
     }
 
-    /** What a hit can take away: HP, plus armour for a hero. */
-    private static int life(Combatant c) { return c.getHealth() + (c instanceof Hero h ? h.getArmour() : 0); }
+    /** What a hit can take away: HP plus armour (heroes, and minions given armour by Yoroi). */
+    private static int life(Combatant c) {
+        if (c instanceof Hero h) {
+            return c.getHealth() + h.getArmour();
+        }
+        if (c instanceof Minion m) {
+            return c.getHealth() + m.getArmour();
+        }
+        return c.getHealth();
+    }
 
     /** Hovering a node for half a second shows a big copy at (x, y); leaving or clicking hides it. */
     private void bigOnHover(Node n, Supplier<Node> big, double x, double y) {

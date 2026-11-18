@@ -329,7 +329,15 @@ public class MatchController implements CardPlayer {
         if (!removal && !(card instanceof TrapCard)) {
             board.showPlayed(card, slot);   // on the board before its effects show (a Trap has its own animation)
         }
-        board.replay(events, pauseBefore(card, events), EFFECT_SHOW, () -> {});
+        // Cards the play put in your hand (Kiji, Noppera-bō, Tamashii-gui…) fly in from your deck once the effects have shown.
+        int added = 0;
+        for (GameEvent event : events) {
+            if (event.type() == GameEvent.Type.CARD_ADDED && event.source() == engine.active()) {
+                added++;
+            }
+        }
+        int flying = added;
+        board.replay(events, pauseBefore(card, events), EFFECT_SHOW, () -> board.dealDrawnCards(flying));
         return true;
     }
 
