@@ -46,6 +46,7 @@ import javafx.animation.Interpolator;
 import javafx.animation.KeyFrame;
 import javafx.animation.KeyValue;
 import javafx.animation.PauseTransition;
+import javafx.animation.RotateTransition;
 import javafx.animation.ScaleTransition;
 import javafx.animation.Timeline;
 import javafx.animation.TranslateTransition;
@@ -73,6 +74,7 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
+import javafx.scene.shape.Ellipse;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.transform.Rotate;
 import javafx.scene.transform.Scale;
@@ -362,10 +364,7 @@ public class BoardView extends Pane {
         double holdMs = hold;
         PauseTransition pause = new PauseTransition(Duration.millis(pauseMs));
         pause.setOnFinished(e -> showFrom(events, 0, () -> {   // the effects one step after the other, then the hold
-            if (rising) {
-                smokeNewMinions();
-                rising = false;
-            }
+            arrivals();   // the minions that just came: smoke or petals
             PauseTransition wait = new PauseTransition(Duration.millis(holdMs));
             wait.setOnFinished(f -> {
                 render();
@@ -431,26 +430,71 @@ public class BoardView extends Pane {
         return STEP_MS;
     }
 
-    /** Black smoke rises over each of your minions that was not on screen before the play: they came back from the dead. */
-    private void smokeNewMinions() {
+    /**
+     * Your minions that were not on screen before the action make their entrance: black smoke for the dead brought back
+     * (Kuchiyose, Izanami), white smoke for an Ancestor, sakura petals for a Miko.
+     */
+    private void arrivals() {
         for (int slot = 0; slot < BoardSide.MAX; slot++) {
             Minion m = you.getSide().getAt(slot);
-            if (m != null && !nodes.containsKey(m)) {
-                ImageView smoke = image("/images/fx/black-smoke.png");   // 600 x 198
-                smoke.setFitWidth(180);
-                smoke.setPreserveRatio(true);
-                smoke.setMouseTransparent(true);
-                smoke.relocate(SLOT_X + 2 + slot * SLOT_STEP + MINION_W / 2 - 90, YOUR_Y + 40);
-                table.getChildren().add(smoke);   // on the table: the redraw clears `live`, the smoke keeps going over the new minion
-                TranslateTransition rise = new TranslateTransition(Duration.millis(1200), smoke);
-                rise.setByY(-40);
-                FadeTransition fade = new FadeTransition(Duration.millis(1200), smoke);
-                fade.setFromValue(1);
-                fade.setToValue(0);
-                fade.setOnFinished(e -> table.getChildren().remove(smoke));
-                rise.play();
-                fade.play();
+            if (m == null || nodes.containsKey(m)) {
+                continue;   // empty, or already on screen
             }
+            double x = SLOT_X + 2 + slot * SLOT_STEP;
+            String id = m.getSource().getId();
+            if (rising) {
+                smoke(x, false);
+            } else if (id.equals("ancestor")) {   // RiteCard.ancestorCard()
+                smoke(x, true);
+            } else if (id.equals(GameEngine.MIKO_ID)) {
+                petals(x);
+            }
+        }
+        rising = false;
+    }
+
+    /** Smoke rises over the slot at x and fades: black, or white (the same image brightened). On the table: the redraw clears `live`. */
+    private void smoke(double x, boolean white) {
+        ImageView smoke = image("/images/fx/black-smoke.png");   // 600 x 198
+        smoke.setFitWidth(180);
+        smoke.setPreserveRatio(true);
+        smoke.setMouseTransparent(true);
+        if (white) {
+            smoke.setEffect(new ColorAdjust(0, 0, 1, 0));
+        }
+        smoke.relocate(x + MINION_W / 2 - 90, YOUR_Y + 40);
+        table.getChildren().add(smoke);
+        TranslateTransition rise = new TranslateTransition(Duration.millis(1200), smoke);
+        rise.setByY(-40);
+        FadeTransition fade = new FadeTransition(Duration.millis(1200), smoke);
+        fade.setFromValue(1);
+        fade.setToValue(0);
+        fade.setOnFinished(e -> table.getChildren().remove(smoke));
+        rise.play();
+        fade.play();
+    }
+
+    /** The Miko arrives: sakura petals drift down over the slot at x, spinning and swaying, then fade. */
+    private void petals(double x) {
+        for (int i = 0; i < 10; i++) {
+            Ellipse petal = new Ellipse(6, 3.5);
+            petal.setFill(Color.web("#f6c1d0"));
+            petal.setMouseTransparent(true);
+            petal.relocate(x + Math.random() * MINION_W, YOUR_Y - 40 - Math.random() * 60);
+            table.getChildren().add(petal);
+            Duration time = Duration.millis(1400 + Math.random() * 600);
+            TranslateTransition fall = new TranslateTransition(time, petal);
+            fall.setByX(-30 + Math.random() * 60);
+            fall.setByY(180);
+            RotateTransition spin = new RotateTransition(time, petal);
+            spin.setByAngle(360);
+            FadeTransition fade = new FadeTransition(time, petal);
+            fade.setFromValue(1);
+            fade.setToValue(0);
+            fade.setOnFinished(e -> table.getChildren().remove(petal));
+            fall.play();
+            spin.play();
+            fade.play();
         }
     }
 
@@ -1242,8 +1286,7 @@ public void passTo(String name, Runnable onReady) {
     private void pressPower() {
         HeroClass heroClass = you.getHero().getHeroClass();
         if (heroClass == HeroClass.KANNUSHI) {
-            onPower.test(null);
-            render();
+            onPower.test(null);   // accepted: the match replays it (the Miko's petals), then redraws
         } else if (heroClass == HeroClass.SAMURAI) {
             chooseBlade();
         } else {
