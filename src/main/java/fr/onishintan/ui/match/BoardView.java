@@ -29,6 +29,7 @@ import fr.onishintan.model.KatanaTier;
 import fr.onishintan.model.Status;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -116,6 +117,7 @@ public class BoardView extends Pane {
     private boolean yoi;      // Yōi was just played: the costs in hand sparkle after the redraw
     private String signature = "";   // the card just played, for its own move before its effects (SignatureFx)
     private int signatureSlot;       // and its slot (Nue's shockwave starts there)
+    private final Map<Combatant, Integer> duelHp = new HashMap<>();   // Kettō: each duellist's HP just before the duel
     /** Opening hand: deals the bottom player's cards in from their deck. */
     public void dealHand() {
         dealt = true;
@@ -367,7 +369,7 @@ public class BoardView extends Pane {
         }
         double holdMs = hold;
         PauseTransition pause = new PauseTransition(Duration.millis(pauseMs));
-        pause.setOnFinished(e -> afterSignature(() -> showFrom(events, 0, () -> {   // the card's move, the effects step by step, the hold
+        pause.setOnFinished(e -> afterSignature(events, () -> showFrom(events, 0, () -> {   // the card's move, the effects step by step, the hold
             arrivals();   // the minions that just came: smoke or petals
             PauseTransition wait = new PauseTransition(Duration.millis(holdMs));
             wait.setOnFinished(f -> {
@@ -385,7 +387,7 @@ public class BoardView extends Pane {
 
 
     /** The card just played makes its own move first (Iaidō's draw, Nue's shockwave, Sakasama's flip…), then `then` runs. */
-    private void afterSignature(Runnable then) {
+    private void afterSignature(List<GameEvent> events, Runnable then) {
         double ms = 0;
         switch (signature) {
             case "iaido" -> ms = SignatureFx.iaido(live);
@@ -404,12 +406,49 @@ public class BoardView extends Pane {
                     ms = 400;
                 }
             }
+            case "raijin" -> ms = SignatureFx.slices(live, raijinCuts(events));
+            case "ketto" -> ms = duel();
             default -> { }   // no move of its own
         }
         signature = "";
         PauseTransition wait = new PauseTransition(Duration.millis(ms));
         wait.setOnFinished(e -> then.run());
         wait.play();
+    }
+
+    /** Raijin: one cut per point of damage on each character it hit, in a random order (12 in all). */
+    private List<Node> raijinCuts(List<GameEvent> events) {
+        List<Node> cuts = new ArrayList<>();
+        for (GameEvent e : events) {
+            Node target = nodes.get(e.target());
+            boolean raijinHit = e.type() == GameEvent.Type.DAMAGE && e.source() instanceof Minion m && m.getSource().getId().equals("raijin");
+            if (raijinHit && target != null) {
+                for (int i = 0; i < e.amount(); i++) {
+                    cuts.add(target);
+                }
+            }
+        }
+        Collections.shuffle(cuts);
+        return cuts;
+    }
+
+    /** Kettō: the two minions clash under white smoke and go back; then the winner shows the HP it lost (the loser's cut is the next step). */
+    private double duel() {
+        List<Combatant> pair = new ArrayList<>(duelHp.keySet());
+        if (pair.size() < 2 || nodes.get(pair.get(0)) == null || nodes.get(pair.get(1)) == null) {
+            return 0;
+        }
+        double ms = SignatureFx.duel(live, nodes.get(pair.get(0)), nodes.get(pair.get(1)));
+        for (Combatant c : pair) {
+            if (!c.isDead()) {
+                Node winner = nodes.get(c);
+                int lost = duelHp.get(c) - c.getHealth();
+                PauseTransition back = new PauseTransition(Duration.millis(ms));
+                back.setOnFinished(e -> Fx.damageNumber(live, winner, lost));
+                back.play();
+            }
+        }
+        return ms;
     }
 
     /** How long one step of effects plays before the next one starts, and how long a trap takes to flip, be read and start its cut. */
@@ -455,7 +494,12 @@ public class BoardView extends Pane {
                 Fx.damageNumber(live, node, event.amount());
             }
             case HEAL -> Fx.heal(live, node, event.amount());
-            case MINION_DIED -> Fx.deathCut(live, node);
+            case MINION_DIED -> {
+                if (event.target() instanceof Minion m && m.hasKeyword(Keyword.SEPPUKU)) {
+                    SignatureFx.seppuku(live, node);   // the blade drives in; its Seppuku effect is the next step
+                }
+                Fx.deathCut(live, node);
+            }
             case MINION_REMOVED -> SignatureFx.vanish(node);   // Kamikakushi: spirited away
             default -> {
                 return 0;   // nothing to show (a card added to the hand flies in after the redraw)
@@ -1166,6 +1210,11 @@ public void passTo(String name, Runnable onReady) {
         held = null;
         firstPick = null;
         int cost = costOf(card);   // read before the card leaves the hand
+        duelHp.clear();   // Kettō: both duellists' HP before the duel, to show what the winner loses
+        if (first != null && second != null) {
+            duelHp.put(first, first.getHealth());
+            duelHp.put(second, second.getHealth());
+        }
         if (player.play(card, slot, first, second)) {
             impact(cost, false);
         }
@@ -1391,7 +1440,12 @@ public void passTo(String name, Runnable onReady) {
             render();   // refused by the engine: nothing happens
             return;
         }
-        Fx.sparks(live, node);   // the match replays the damage and any death or trap, then redraws
+        Node hero = nodes.get(you.getHero());   // the match replays the damage and any death or trap, then redraws
+        if (you.getHero().getHeroClass() == HeroClass.ONI) {
+            SignatureFx.siphon(live, node, hero);   // Jikininki: a black beam drains the target into your hero
+        } else {
+            SignatureFx.shuriken(live, hero, node);   // a spinning star thrown from your hero
+        }
     }
 
     /** Plays an attack (GDD): lunge, slash, red damage on both, dead minions cut in half; the board redraws after. */
