@@ -8,7 +8,7 @@ import fr.onishintan.ui.screens.HomeView;
 import fr.onishintan.ui.screens.SettingsPanel;
 import fr.onishintan.ui.app.Images;
 import fr.onishintan.ui.app.Sound;
-
+import javafx.application.Platform;
 import fr.onishintan.model.Hero;
 import fr.onishintan.model.BoardSide;
 import fr.onishintan.model.BoardEntity;
@@ -1364,7 +1364,15 @@ public void passTo(String name, Runnable onReady) {
             preview.relocate(x, y);
             live.getChildren().add(preview);
         });
-        EventHandler<MouseEvent> hide = e -> { delay.stop(); live.getChildren().remove(preview); };
+        // Removed on the next pulse: MOUSE_EXITED also fires while render() clears the table,
+        // and removing a child in the middle of that clear() throws (it froze the AI's turn).
+        EventHandler<MouseEvent> hide = e -> {
+            delay.stop();
+            Node shown = preview;
+            if (shown != null) {
+                Platform.runLater(() -> live.getChildren().remove(shown));
+            }
+        };
         n.addEventHandler(MouseEvent.MOUSE_ENTERED, e -> delay.playFromStart());
         n.addEventHandler(MouseEvent.MOUSE_EXITED, hide);
         n.addEventHandler(MouseEvent.MOUSE_PRESSED, hide);
