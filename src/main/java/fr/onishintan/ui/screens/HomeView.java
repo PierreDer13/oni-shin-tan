@@ -4,6 +4,7 @@ import fr.onishintan.ui.fx.Anim;
 import fr.onishintan.ui.fx.Fx;
 import fr.onishintan.model.HeroClass;
 import fr.onishintan.ui.app.SceneRouter;
+import fr.onishintan.ui.app.Profile;
 import fr.onishintan.ui.decks.DecksView;
 import fr.onishintan.ui.decks.DeckPickView;
 import fr.onishintan.ui.app.Screen;
@@ -36,8 +37,6 @@ import javafx.scene.Group;
 public class HomeView extends Pane {
     public static final double W = 1600, H = 900;
     public static final int MAX_REI = 6000;
-    private static final String PLAYER_NAME = "Kayne";   // placeholders until the player profile is saved
-    private static final int PLAYER_REI = 2450;
     /** The BACK sign every screen uses to go back, and its height on screen. */
     private static final String BACK_SIGN = "/images/frames/back-button.png";
     private static final double BACK_H = 64;
@@ -82,7 +81,7 @@ public class HomeView extends Pane {
         for (int i = 0; i < classes.length; i++) banner(classes[i], 960 + i * 160, 20, 150);
         add("scroll", 175, 20, 170);
         add("scroll", 175, 20, 170);
-        profile(175, 20, PLAYER_NAME, PLAYER_REI);
+        profile(175, 20, Profile.name(), Profile.stats().rei());
         button("adventure", 480, 610, 300, Screen.CLASS_SELECT);
         clickable(add("button-pvp", 820, 610, 300), false, () -> grid.getChildren().add(new DeckPickView(router)));   // laid over the home screen
         // Bottom bar: Deck Builder shows every deck, Inventory and Profile go to their screen, Settings opens over the home screen.
