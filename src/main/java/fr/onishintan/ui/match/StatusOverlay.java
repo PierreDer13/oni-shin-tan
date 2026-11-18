@@ -29,6 +29,7 @@ import javafx.scene.paint.Color;
 import javafx.scene.transform.Scale;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.Pane;
+import javafx.scene.layout.StackPane;
 import javafx.util.Duration;
 
 /** Keyword and status effects drawn over board cards: Shinobi clouds, Torii and Shirodu gates, Passive flag, Seppuku, Tatakae seal, Banzai shout, Sleep zzz. */
@@ -40,6 +41,8 @@ final class StatusOverlay {
     private Group on;   // the card the effects being added belong to
     /** The Torii column: gap between two gates, and the most room the column may take below the first gate. */
     private static final double TORII_STEP = 30, TORII_ROOM = 90;
+    /** How wide a minion's armour plate is drawn. */
+    private static final double ARMOUR_W = 34;
 
     /** live: the board layer to draw on; shake: the small screen shake played when a gate lands. */
     StatusOverlay(Pane live, Runnable shake) {
@@ -73,6 +76,18 @@ final class StatusOverlay {
             add(c, x + (k == 0 ? -10 : 20), y + (k == 0 ? 20 : 95));
             sway(c, k == 0 ? 1 : -1, 10);
         }
+    }
+
+    /** Armour on a minion (Yoroi): the hero's armour plate with its number, just above the HP. It drops in the first time; later only the number changes. */
+    void armour(Minion m, double x, double y) {
+        ImageView plate = BoardView.image("/images/hud/armour.png");
+        plate.setFitWidth(ARMOUR_W);
+        plate.setPreserveRatio(true);
+        Label value = new Label(String.valueOf(m.getArmour()));
+        value.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 12; -fx-font-weight: bold; -fx-text-fill: #1f1b17;");
+        StackPane badge = new StackPane(plate, value);
+        add(badge, x + BoardView.MINION_W - ARMOUR_W - 2, y + 92);
+        drop(List.of("armour", m), badge);
     }
 
     /** Seppuku: a kneeling samurai, still, at the bottom middle of the card between its ATK and HP. */
@@ -228,6 +243,9 @@ final class StatusOverlay {
         }
         if (image.equals("shirodu")) {
             return m.hasKeyword(Keyword.SHIRODU);
+        }
+        if (image.equals("armour")) {
+            return m.getArmour() > 0;   // cut once the armour is gone
         }
         if (image.equals("banzai")) {
             return true;   // remembered while the minion lives, so its shout plays only once

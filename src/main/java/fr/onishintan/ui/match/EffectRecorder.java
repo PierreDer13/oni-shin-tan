@@ -12,7 +12,7 @@ import java.util.List;
  */
 final class EffectRecorder {
     private static final GameEvent.Type[] SHOWN = {
-            GameEvent.Type.DAMAGE, GameEvent.Type.HEAL, GameEvent.Type.MINION_DIED, GameEvent.Type.TRAP_TRIGGERED };
+            GameEvent.Type.DAMAGE, GameEvent.Type.HEAL, GameEvent.Type.MINION_DIED, GameEvent.Type.TRAP_TRIGGERED, GameEvent.Type.CARD_ADDED };
 
     private final List<GameEvent> events = new ArrayList<>();
     private boolean recording;
