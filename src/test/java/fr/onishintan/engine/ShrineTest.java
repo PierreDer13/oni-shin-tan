@@ -68,16 +68,18 @@ class ShrineTest {
     }
 
     @Test
-    void shrineExpiresAtTheEndOfItsOwnersLastTurn() {
+    void shrineLosesDurabilityAtTheStartOfItsOwnersTurn() {
         start();
         ShrineCard card = shrine(2);
         me.addToHand(card);
         engine.playCard(card, 0, null);
-        engine.endTurn();                                  // my turn 1 ends: 1 left
+        engine.endTurn();                                  // my turn 1 ends: no tick, 2 left
+        assertEquals(2, me.getSide().shrines().get(0).getTurnsLeft());
+        engine.endTurn();                                  // my turn 2 starts: 1 left
         assertEquals(1, me.getSide().shrines().get(0).getTurnsLeft());
-        engine.endTurn();                                  // enemy's turn: no tick for me
+        engine.endTurn();                                  // enemy's turn starts: no tick for me
         assertEquals(1, me.getSide().shrines().get(0).getTurnsLeft());
-        engine.endTurn();                                  // my turn 2 ends: gone
+        engine.endTurn();                                  // my turn 3 starts: gone
         assertTrue(me.getSide().shrines().isEmpty());
         assertTrue(me.getSide().isFree(0));
     }
@@ -91,6 +93,8 @@ class ShrineTest {
         me.addToHand(card);
         engine.playCard(card, 4, null);
         engine.endTurn();
+        assertFalse(seen.contains(GameEvent.Type.SHRINE_EXPIRED));   // still standing during the enemy's turn
+        engine.endTurn();                                            // my next turn starts: it expires
         assertTrue(seen.contains(GameEvent.Type.SHRINE_PLACED));
         assertTrue(seen.contains(GameEvent.Type.SHRINE_EXPIRED));
     }

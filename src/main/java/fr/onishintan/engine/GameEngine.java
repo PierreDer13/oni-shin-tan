@@ -154,8 +154,9 @@ public class GameEngine {
         bus.subscribe(GameEvent.Type.CARD_PLAYED, e -> useDiscount((Player) e.source(), (Card) e.target()));
         bus.subscribe(GameEvent.Type.TRAP_SET, e -> useDiscount((Player) e.source(), (Card) e.target()));
         bus.subscribe(GameEvent.Type.TURN_ENDED, familyEffects::onTurnEnded);   // Heiwa no Torii, Itsukushima: before the tick
-        bus.subscribe(GameEvent.Type.TURN_ENDED,
-             e -> tickShrines((Player) e.source()));
+        // A Shrine loses 1 durability at the start of its owner's turn (not the turn it is placed)
+        bus.subscribe(GameEvent.Type.TURN_STARTED,
+             e -> tickShrines((Player) e.source()));        
         bus.subscribe(GameEvent.Type.TURN_ENDED,
              e -> runHandCurses((Player) e.source()));
         bus.subscribe(GameEvent.Type.CARD_DRAWN,
