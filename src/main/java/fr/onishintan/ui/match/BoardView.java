@@ -32,7 +32,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.function.Predicate;
@@ -96,7 +96,7 @@ public class BoardView extends Pane {
     /** Izakaya props cut out of the table: file, x, y. */
     private static final String[] PROPS = { "cup-1 130 46", "dice-1 306 105", "pot 1274 13", "dice-2 1271 681", "cup-2 1376 602" };
     private Combatant selected;
-    private BiConsumer<Combatant, Combatant> onAttack = (a, t) -> {};
+    private BiFunction<Combatant, Combatant, List<GameEvent>> onAttack = (a, t) -> List.of();
     private final Map<Combatant, Node> nodes = new HashMap<>();
     /** Every character's HP at the last redraw: a higher HP at the next one plays the heal effect. */
     private Map<Combatant, Integer> healthSeen = new HashMap<>();
@@ -380,7 +380,7 @@ public class BoardView extends Pane {
     }
 
     /** How long one step of effects plays before the next one starts, and how long a trap takes to flip, be read and start its cut. */
-    private static final double STEP_MS = 450, TRAP_STEP_MS = 1600;
+    private static final double STEP_MS = 450, TRAP_STEP_MS = 900;
 
     /**
      * Shows the effects from index `from` one step after the other, then runs `then`. A step is a run of the same effect
@@ -663,7 +663,7 @@ public class BoardView extends Pane {
     }
 
     /** What happens when you pick an attacker and then a target (the match will call the engine here). */
-    public void setOnAttack(BiConsumer<Combatant, Combatant> onAttack) { this.onAttack = onAttack; }
+    public void setOnAttack(BiFunction<Combatant, Combatant, List<GameEvent>> onAttack) { this.onAttack = onAttack; }
 
     /** Dims, with a slow pulse, the part of your available Ki that a hovered card or power would cost (0 = none). */
     public void previewCost(int cost) { ki.preview(cost); }
@@ -1310,19 +1310,11 @@ public void passTo(String name, Runnable onReady) {
 
     /** Shuriken or Jikininki hits `target`: sparks and the red damage number on it, a dead minion is cut, then the board redraws. */
     private void powerHit(Combatant target, Node node) {
-        int lifeBefore = life(target);
         if (!onPower.test(target)) {
             render();   // refused by the engine: nothing happens
             return;
         }
-        Fx.sparks(live, node);
-        Fx.damageNumber(live, node, lifeBefore - life(target));
-        if (target.isDead()) {
-            Fx.deathCut(live, node);
-        }
-        PauseTransition wait = new PauseTransition(Duration.millis(900));
-        wait.setOnFinished(e -> render());
-        wait.play();
+        Fx.sparks(live, node);   // the match replays the damage and any death or trap, then redraws
     }
 
     /** Plays an attack (GDD): lunge, slash, red damage on both, dead minions cut in half; the board redraws after. */
@@ -1336,7 +1328,7 @@ public void passTo(String name, Runnable onReady) {
      */
     public void aiAttack(Combatant attacker, Combatant target, Runnable then) {
         if (nodes.get(attacker) == null || nodes.get(target) == null) {
-            onAttack.accept(attacker, target);   // not on screen (should not happen): attack without the animation
+            onAttack.apply(attacker, target);   // not on screen (should not happen): attack without the animation
             render();
             then.run();
             return;
@@ -1347,25 +1339,14 @@ public void passTo(String name, Runnable onReady) {
     private void fight(Combatant attacker, Combatant target, Runnable then) {
         Node a = nodes.get(attacker), t = nodes.get(target);
         if (a.getProperties().get("float") instanceof Animation f) { f.stop(); a.setTranslateY(0); }
-        int aHp = life(attacker), tHp = life(target);
         Fx.attack(a, t, () -> {
-            onAttack.accept(attacker, target);
+            List<GameEvent> events = onAttack.apply(attacker, target);   // what the attack did, recorded by the match
             status.broken(target);
             status.broken(attacker);
             crack(target, t);
             crack(attacker, a);
-            Fx.slash(live, t);
             impact(attacker instanceof Minion m ? m.getSource().getKiCost() : 0, true);
-            Fx.damageNumber(live, t, tHp - life(target));
-            Fx.damageNumber(live, a, aHp - life(attacker));
-            if (target.isDead()) Fx.deathCut(live, t);
-            if (attacker.isDead()) Fx.deathCut(live, a);
-            PauseTransition wait = new PauseTransition(Duration.millis(attacker instanceof Hero ? 1300 : 1100));
-            wait.setOnFinished(e -> {
-                render();
-                then.run();
-            });
-            wait.play();
+            replay(events, 0, 700, then);   // the hits, a trap, the deaths, one step after the other, then the redraw
         });
     }
 
