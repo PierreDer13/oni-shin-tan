@@ -44,6 +44,7 @@ import javafx.animation.Interpolator;
 import javafx.animation.KeyFrame;
 import javafx.animation.KeyValue;
 import javafx.animation.PauseTransition;
+import javafx.animation.ScaleTransition;
 import javafx.animation.Timeline;
 import javafx.animation.TranslateTransition;
 
@@ -119,6 +120,8 @@ public class BoardView extends Pane {
     }
     
     private Player kiOwner;   // who the Ki bar showed at the last redraw, and how much Ki they had
+    /** How many Oath stacks each player's counter showed last time, so a new one pops in once. */
+    private final Map<Player, Integer> stacksShown = new HashMap<>();
     private int kiBefore;
     private static final Image SWITCH_ON = new Image(BoardView.class.getResourceAsStream("/images/hud/end-turn.png")),
             SWITCH_OFF = new Image(BoardView.class.getResourceAsStream("/images/hud/end-turn-off.png"));
@@ -634,17 +637,35 @@ public class BoardView extends Pane {
         }
     }
 
-    /** Your Oath stacks, bottom left: 9 marks, the 3 / 6 / 9 reward marks bigger with a gold ring; earned marks are red. */
+    /** Your Oath stacks, bottom left: a tag, then 9 marks (the 3 / 6 / 9 reward marks bigger with a gold ring; earned marks are red). A newly earned mark pops in. */
     private void stackCounter() {
         if (!oaths.containsKey(you)) return;
         int n = stacksOf(you);
+        int before = stacksShown.getOrDefault(you, n);   // what this player's counter showed last time
+        stacksShown.put(you, n);
+        place(hud(new Label("誓約  OATH STACKS"), 0, 0, 150, 22, 13), 55, 808);
         for (int i = 1; i <= 9; i++) {
             Circle c = new Circle(i % 3 == 0 ? 11 : 7, i <= n ? Color.web("#c41e1e") : Color.rgb(0, 0, 0, 0.35));
             c.setStroke(i % 3 == 0 ? Color.GOLD : Color.web("#f3ede1"));
             c.setStrokeWidth(2);
             place(c, 40 + i * 30, 840);
+            if (i > before && i <= n) {
+                pop(c);   // just earned
+            }
         }
         place(hud(new Label("誓 " + n + " / 9"), 0, 0, 90, 30, 16), 340, 829);
+    }
+
+    /** A just-earned Oath mark: it appears big and glowing gold, then settles into its place. */
+    private static void pop(Circle mark) {
+        mark.setEffect(new DropShadow(18, Color.GOLD));
+        ScaleTransition settle = new ScaleTransition(Duration.millis(450), mark);
+        settle.setFromX(2.4);
+        settle.setFromY(2.4);
+        settle.setToX(1);
+        settle.setToY(1);
+        settle.setInterpolator(Interpolator.EASE_OUT);
+        settle.play();
     }
 
     /** The player's Oath stacks, read from the engine's Oath (0 before an Oath is sworn). */
