@@ -64,6 +64,22 @@ class CurseTest {
     }
 
     @Test
+    void curseCannotBeTraded() {
+        start(Deck.SIZE);
+        CurseCard mine = handCurse();
+        me.addToHand(mine);
+        assertFalse(GameEngine.isTradeable(mine));
+        assertFalse(engine.trade(mine));                   // yours to give: refused
+        assertTrue(me.getHand().contains(mine));
+        assertTrue(engine.playCard(mine, 0, null));
+        engine.endTurn();
+        enemy.gainTemporaryKi(10);
+        assertFalse(engine.trade(mine));                   // held by the enemy: refused too
+        assertTrue(enemy.getHand().contains(mine));
+        assertFalse(seen.contains(GameEvent.Type.CARD_TRADED));
+    }
+
+    @Test
     void holderPaysTheRemovalCost() {
         start(Deck.SIZE);
         CurseCard curse = handCurse();

@@ -339,11 +339,18 @@ public class GameEngine {
 
     /** Drag a card onto the deck: once per turn, cost Player.TRADE_COST. */
     public boolean trade(Card card) {
+        if (!isTradeable(card)) return false;
         Player p = state.active();
         boolean ok = turns.swapCard(card);
         if (ok) publish(GameEvent.of(GameEvent.Type.CARD_TRADED, p, card));
         return ok;
     }
+    
+    /** A Curse can never be traded: neither one of yours to give, nor one the enemy put in your hand. */
+    public static boolean isTradeable(Card card) {
+        return card != null && !(card instanceof CurseCard);
+    }
+
 
     
     // ---------- oaths (PvP only) ----------
