@@ -10,10 +10,12 @@ import fr.onishintan.ui.decks.DeckPickView;
 import fr.onishintan.ui.app.Screen;
 import fr.onishintan.ui.app.Sound;
 import fr.onishintan.ui.app.Images;
+import fr.onishintan.ui.app.Rei;
 import javafx.animation.Animation;
 import javafx.animation.Interpolator;
 import javafx.animation.TranslateTransition;
 import javafx.beans.InvalidationListener;
+import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.image.Image;
@@ -31,6 +33,8 @@ import javafx.scene.media.AudioClip;
 import javafx.scene.control.Label;
 import javafx.scene.control.Tooltip;
 import javafx.scene.Group;
+import javafx.scene.Scene;
+import javafx.scene.SnapshotParameters;
 
 /** The Home screen on a 1600 x 900 grid, scaled to the window. Layers, back to front:
  *  background, clouds, pines, sakura, waves, then banners, scroll and buttons. */
@@ -79,8 +83,6 @@ public class HomeView extends Pane {
                 // 5. top layer: banners, scroll, buttons
         String[] classes = { "samurai", "ninja", "kannushi", "oni" };
         for (int i = 0; i < classes.length; i++) banner(classes[i], 960 + i * 160, 20, 150);
-        add("scroll", 175, 20, 170);
-        add("scroll", 175, 20, 170);
         profile(175, 20, Profile.name(), Profile.stats().rei());
         button("adventure", 480, 610, 300, Screen.CLASS_SELECT);
         clickable(add("button-pvp", 820, 610, 300), false, () -> grid.getChildren().add(new DeckPickView(router)));   // laid over the home screen
@@ -153,19 +155,38 @@ public class HomeView extends Pane {
         n.sceneProperty().addListener((o, was, now) -> { if (now == null) t.stop(); });
     }
 
-    /** The player's name, then the Rei rank: 霊 as a title, the points labelled "Rei", out of 6000. Hover explains it. */
+    /** The profile scroll: the player's name, the Rei rank (霊, the points out of 6000) and its stone, drawn on the paper
+     *  so the writing waves with it like the banners. Hover explains the rank. */
     private void profile(double x, double y, String name, int rei) {
         int points = Math.max(0, Math.min(MAX_REI, rei));
+        Rei.Stone held = Rei.stoneOf(points);
+        ImageView stone = new ImageView(Images.get("/images/rei-stones/" + held.id() + ".png"));
+        stone.setFitWidth(50);
+        stone.setPreserveRatio(true);
         VBox text = new VBox(6,
                 label(name, 26),
                 label("霊", 40),
                 label(points + " Rei", 24),
-                label("/ " + MAX_REI, 14));
+                label("/ " + MAX_REI, 14),
+                stone,
+                label(held.name() + " " + held.kanji(), 18));
         text.setAlignment(Pos.TOP_CENTER);
+        VBox.setMargin(stone, new Insets(30, 0, 0, 0));   // the stone sits lower, apart from the Rei
         text.setPrefWidth(130);
-        text.relocate(x + 20, y + 90);
-        Tooltip.install(text, new Tooltip("Rei (霊): your rank, from 0 to " + MAX_REI + " points"));
-        grid.getChildren().add(text);
+        text.relocate(20, 90);
+        ImageView paper = new ImageView(Images.get("/images/home/scroll.png"));
+        paper.setFitWidth(170);
+        paper.setPreserveRatio(true);
+        Pane page = new Pane(paper, text);   // the paper with its writing, turned into one picture
+        page.setStyle("-fx-background-color: transparent;");   // no default light background behind the paper
+        new Scene(page, null);   // a scene of its own, so the labels get their look and size before the snapshot
+        SnapshotParameters sharp = new SnapshotParameters();
+        sharp.setFill(Color.TRANSPARENT);
+        sharp.setTransform(new Scale(2, 2));   // drawn twice as big, so it stays sharp in a big window
+        Group scroll = Fx.waving(page.snapshot(sharp, null), 170, 90);   // rod 90: 45 at twice the size
+        scroll.relocate(x, y);
+        Tooltip.install(scroll, new Tooltip("Rei (霊): your rank, from 0 to " + MAX_REI + " points. Your stone: " + held.name() + " " + held.kanji()));
+        grid.getChildren().add(scroll);
     }
 
     /** Dark ink text in the card font, centred and wrapping if too long. */

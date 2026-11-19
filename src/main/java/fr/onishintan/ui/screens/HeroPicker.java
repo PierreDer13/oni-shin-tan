@@ -71,7 +71,9 @@ public class HeroPicker extends StackPane {
 
     /** One hero: portrait, name and kanji, history. A click selects them (gold border); Confirm saves the choice. */
     private VBox hero(HeroClass heroClass, String[] hero) {
-        ImageView portrait = new ImageView(Images.get("/images/heroes/" + hero[0] + ".png", CARD_W, PORTRAIT_H));
+        ImageView portrait = new ImageView(Images.get("/images/heroes/" + hero[0] + ".png"));   // full size, so it stays sharp when the screen scales up
+        portrait.setFitWidth(CARD_W);
+        portrait.setFitHeight(PORTRAIT_H);
         Label name = SettingsPanel.label(hero[1] + "  " + hero[2], 22);
         Label history = SettingsPanel.label(hero[3], 15);
         history.setWrapText(true);
