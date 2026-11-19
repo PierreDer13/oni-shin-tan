@@ -87,16 +87,14 @@ public class MatchController implements CardPlayer {
     public MatchController(String boardName, Player first, Player second, AIController.Difficulty difficulty, Consumer<Boolean> onEnd) {
         HeroClass yours = first.getHero().getHeroClass();
         HeroClass theirs = second.getHero().getHeroClass();
-        // 1. The two players, each given their Gusoku armour.
+        // 1. The two players.
         this.first = first;
         this.second = second;
-        giveGusokuArmour(first);
-        giveGusokuArmour(second);
 
         // 2. The engine: shuffle and deal the opening hands, then the first player's turn 1 (Ki and a draw).
         engine = new GameEngine(first, second, new Random());
         engine.setCatalog(MockCards.ALL);   // the cards that effects create or summon (Sendaiku, Sakana uri, Inari, Oiwa)
-        recorder = new EffectRecorder(engine.getBus());
+        recorder = new EffectRecorder(engine);
         engine.getBus().subscribe(GameEvent.Type.CARD_DRAWN, event -> cardsDrawnThisTurn++);
         engine.startMatch();   // the opening hands; turn 1 begins once both mulligans are done (startTurns)
         ai = difficulty == null ? null : new AIController(engine, second, difficulty, new Random());
@@ -376,6 +374,11 @@ public class MatchController implements CardPlayer {
         return engine.isHeroPowerUsed();
     }
 
+    @Override
+    public int nextFatigue(Player p) {
+        return engine.nextFatigue(p);
+    }
+
     /** The engine's bonus on this card's damage or healing number, for the active player. */
     @Override
     public int bonus(Card card) {
@@ -498,9 +501,13 @@ public class MatchController implements CardPlayer {
             board.aiAttack(move.get().attacker(), move.get().target(), this::nextAiStep);
             return;
         }
+        if (move.get().kind() == Move.Kind.PLAY) {
+            board.showAiPlayed(move.get().card());   // its card, big on the right
+        }
+        recorder.start();
         ai.play(move.get());
-        board.render();
-        nextAiStep();
+        List<GameEvent> events = recorder.stop();
+        board.replay(events, EFFECT_SHOW, EFFECT_SHOW, this::nextAiStep);   // the card stays readable, then its effects one by one
     }
 
     /** Adventure: the engine ends the AI's turn and starts yours: the cards you draw fly in, End turn works again. */
@@ -568,12 +575,5 @@ public class MatchController implements CardPlayer {
     /** Starts the active player's clock again once they clicked the pass veil. */
     private void resumeClock() {
         engine.resumeClock();
-    }
-
-    /** Samurai passive Gusoku: start with 10 armour (GDD). Here until the engine applies hero passives. */
-    private static void giveGusokuArmour(Player player) {
-        if (player.getHero().getHeroClass() == HeroClass.SAMURAI) {
-            player.getHero().gainArmour(10);
-        }
     }
 }
