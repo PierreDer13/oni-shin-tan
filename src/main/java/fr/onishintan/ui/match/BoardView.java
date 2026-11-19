@@ -305,8 +305,23 @@ public class BoardView extends Pane {
         TrapView.reveal(table, trap);   // the table, not `live`: a redraw in the middle would erase it
     }
 
-    /** How wide a spell shows in the middle of the table while its effects play. */
-    private static final double PLAYED_W = 220;
+    /** The card just played, big on the right of the table: its width and top-left corner. */
+    private static final double PLAYED_W = 220, BIG_X = 1350, BIG_Y = 20;
+
+    /** The card just played, big on the right of the table, to read while its effects play (the redraw takes it away). */
+    private Node bigCard(Card card) {
+        CardView big = new CardView(card, PLAYED_W);
+        big.relocate(BIG_X, BIG_Y);
+        big.setMouseTransparent(true);
+        return big;
+    }
+
+    /** Adventure: the AI's card shows big on the right before its effects; its Traps stay hidden. */
+    public void showAiPlayed(Card card) {
+        if (!(card instanceof TrapCard)) {
+            live.getChildren().add(bigCard(card));
+        }
+    }
 
     /**
      * The card just played appears at once, before its effects: a minion in its slot (as a board minion), a Shrine in its slot,
@@ -327,8 +342,7 @@ public class BoardView extends Pane {
             played = new CardView(card, MINION_W);   // already gone (a trap killed it): its card shows in the slot
             played.relocate(SLOT_X + 2 + slot * SLOT_STEP, YOUR_Y);
         } else {
-            played = new CardView(card, PLAYED_W);
-            played.relocate(W / 2 - PLAYED_W / 2, H / 2 - PLAYED_W * CardView.H / CardView.W / 2);
+            played = bigCard(card);   // a spell shows big on the right
         }
         played.setMouseTransparent(true);
         // Placed: it comes down onto the table, from big to its size.
@@ -340,6 +354,9 @@ public class BoardView extends Pane {
         land.setInterpolator(Interpolator.EASE_IN);
         land.play();
         live.getChildren().add(played);
+        if (card instanceof MinionCard || card instanceof ShrineCard) {
+            live.getChildren().add(bigCard(card));   // and big on the right, to read while its effects play
+        }
         if (card instanceof MinionCard) {
             Minion minion = you.getSide().getAt(slot);
             if (minion != null && minion.hasKeyword(Keyword.BANZAI)) {
@@ -453,6 +470,35 @@ public class BoardView extends Pane {
 
     /** How long one step of effects plays before the next one starts, and how long a trap takes to flip, be read and start its cut. */
     private static final double STEP_MS = 450, TRAP_STEP_MS = 900;
+    /** How long an effect's banner shows before the effect itself plays. */
+    private static final double TRIGGER_MS = 1000;
+
+    /** An effect about to go off (Seppuku, a turn effect, a Shrine, Gaki): its card's name on a banner, then the effect. */
+    private double trigger(Object source) {
+        Card card = null;
+        String what = "Effect";
+        Color colour = Color.web("#c9a227");
+        if (source instanceof Minion m) {
+            card = m.getSource();
+            if (m.isDead()) {
+                what = "Seppuku";
+                colour = Color.CRIMSON;
+            }
+        } else if (source instanceof Shrine s) {
+            card = s.getSource();
+            what = "Shrine";
+            colour = Color.web("#9a86c4");
+        } else if (source instanceof Card c) {
+            card = c;
+            what = "Curse";
+            colour = Color.web("#6b2d8b");
+        }
+        if (card == null) {
+            return 0;   // an Oath: its reward already has its stamp and banner
+        }
+        EventBanner.show(table, card.getNameKanji(), card.getNameRomaji(), what, colour);
+        return TRIGGER_MS;
+    }
 
     /**
      * Shows the effects from index `from` one step after the other, then runs `then`. A step is a run of the same effect
@@ -484,6 +530,9 @@ public class BoardView extends Pane {
             revealTrap((TrapCard) event.target());
             return TRAP_STEP_MS;
         }
+        if (event.type() == GameEvent.Type.EFFECT_TRIGGERED) {
+            return trigger(event.source());
+        }
         Node node = nodes.get(event.target());
         if (node == null) {
             return 0;   // not on screen before the action (summoned by it): it simply appears with the redraw
@@ -501,6 +550,7 @@ public class BoardView extends Pane {
                 Fx.deathCut(live, node);
             }
             case MINION_REMOVED -> SignatureFx.vanish(node);   // Kamikakushi: spirited away
+            case FATIGUE -> EventBanner.show(table, "疲労", "Fatigue", event.amount() + " damage: the deck is empty", Color.web("#8b0000"));
             default -> {
                 return 0;   // nothing to show (a card added to the hand flies in after the redraw)
             }
@@ -930,7 +980,14 @@ public void passTo(String name, Runnable onReady) {
         }
         if (top != null) Tooltip.install(top, new Tooltip(n + " cards left"));
         double tx = bx - (layers - 1) * 1.5, ty = by - (layers - 1) * 1.5;
-        place(hud(new Label(String.valueOf(n)), 0, 0, 44, 30, 18), tx + MINION_W / 2 - 22, ty + cardH - 40);
+        Label count = hud(new Label(String.valueOf(n)), 0, 0, 44, 30, 18);
+        if (n == 0 && player != null) {
+            int fatigue = player.nextFatigue(p);
+            count.setText("-" + fatigue);   // empty deck: the damage of the next draw, in red
+            count.setStyle(count.getStyle() + " -fx-text-fill: #ff5a4a;");
+            Tooltip.install(count, new Tooltip("Empty deck: the next draw deals " + fatigue + " damage to the hero"));
+        }
+        place(count, tx + MINION_W / 2 - 22, ty + cardH - 40);
     }
 
     /** A card back w wide, with the cards' rounded corners. */
@@ -1468,10 +1525,37 @@ public void passTo(String name, Runnable onReady) {
     }
 
     private void fight(Combatant attacker, Combatant target, Runnable then) {
+        List<GameEvent> events = onAttack.apply(attacker, target);   // the engine first: a trap may move or cancel the attack
+        int attackAt = -1;
+        for (int i = 0; i < events.size(); i++) {
+            if (events.get(i).type() == GameEvent.Type.ATTACK) {
+                attackAt = i;
+                break;
+            }
+        }
+        if (attackAt < 0) {
+            replay(events, 0, 700, then);   // no attack (Otoshiana, or Shikomi andon killed the attacker): only its effects
+            return;
+        }
+        Combatant hit = (Combatant) events.get(attackAt).target();
+        if (hit != target) {
+            // Kawarimi: the trap and the log first (the redraw puts the log on screen), then the lunge at the log.
+            List<GameEvent> after = events.subList(attackAt + 1, events.size());
+            replay(events.subList(0, attackAt), 0, 0, () -> lunge(attacker, hit, after, then));
+            return;
+        }
+        lunge(attacker, target, events, then);
+    }
+
+    /** The lunge at `target`, then on impact the hits, deaths and anything else the attack did, step by step, then the redraw. */
+    private void lunge(Combatant attacker, Combatant target, List<GameEvent> events, Runnable then) {
         Node a = nodes.get(attacker), t = nodes.get(target);
+        if (a == null || t == null) {
+            replay(events, 0, 700, then);
+            return;
+        }
         if (a.getProperties().get("float") instanceof Animation f) { f.stop(); a.setTranslateY(0); }
         Fx.attack(a, t, () -> {
-            List<GameEvent> events = onAttack.apply(attacker, target);   // what the attack did, recorded by the match
             status.broken(target);
             status.broken(attacker);
             crack(target, t);

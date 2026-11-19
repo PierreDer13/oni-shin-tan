@@ -2,6 +2,7 @@ package fr.onishintan.ui.match;
 
 import fr.onishintan.model.Card;
 import fr.onishintan.model.Combatant;
+import fr.onishintan.model.Player;
 
 import java.util.List;
 
@@ -30,4 +31,7 @@ public interface CardPlayer {
 
     /** True once the active player's hero power was used this turn (Kuji-in gives it back). */
     boolean powerUsed();
+
+    /** The damage the next draw from p's empty deck deals to p's hero (1, then 2, then 3…). */
+    int nextFatigue(Player p);
 }
