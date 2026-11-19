@@ -43,10 +43,10 @@ public class ProfileView extends Pane {
         setStyle("-fx-background-color: black;");
         SaveManager.Stats stats = Profile.stats();
 
-        ImageView background = new ImageView(Images.get("/images/home/background.png"));
+        ImageView background = new ImageView(Images.get("/images/profile/archive-room.png"));   // the archive room
         background.setFitWidth(ScreenGrid.W);
         background.setFitHeight(ScreenGrid.H);
-        Rectangle veil = new Rectangle(ScreenGrid.W, ScreenGrid.H, Color.rgb(0, 0, 0, 0.55));
+        Rectangle veil = new Rectangle(ScreenGrid.W, ScreenGrid.H, Color.rgb(0, 0, 0, 0.35));
         Label title = text("プロフィール   PROFILE", 40);
         title.relocate(560, 30);
         grid.getChildren().addAll(background, veil, title, HomeView.back(() -> router.goTo(Screen.HOME)),
