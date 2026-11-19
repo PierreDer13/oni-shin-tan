@@ -452,6 +452,7 @@ public class GameEngine {
         }
         if (redirected != null && !redirected.isDead()) target = redirected;   // Kawarimi: the log takes the hit
         boolean ok = combat.resolve(attacker, target);
+        if (ok) familyEffects.afterAttack(attacker);                // Meiji Ōtorii
         if (ok) checkGameOver();
         return ok;
     }

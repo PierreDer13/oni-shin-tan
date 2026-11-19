@@ -138,6 +138,17 @@ final class FamilyEffects {
         return Math.min(amount, m.getArmour() + m.getHealth() - 1);
     }
 
+    /** Meiji Ōtorii: a minion next to it heals 3 after it attacks (still alive), as its card says. */
+    void afterAttack(Combatant attacker) {
+        if (!(attacker instanceof Minion m) || m.isDead()) return;
+        Player owner = engine.ownerOf(m);
+        if (owner == null) return;
+        List<Shrine> meiji = shrinesAround(owner, m).stream().filter(s -> "meiji-otorii".equals(s.getSource().getId())).toList();
+        if (meiji.isEmpty()) return;
+        engine.announce(meiji.get(0), owner);
+        engine.heal(m, SHRINE_HEAL * meiji.size() * factor(owner));
+    }
+
     /** End of the Shrine owner's turn, before the Shrines tick: Heiwa no Torii heals, Itsukushima gives Torii. */
     private void endTurn(Player p) {
         for (Shrine s : p.getSide().shrines()) {

@@ -203,14 +203,20 @@ class FamilyEffectTest {
     }
 
     @Test
-    void meijiNoLongerHealsAfterAttacking() {
+    void meijiHealsAfterAttacking() {
         Minion m = place(me, 1, card("m", 1, 10));
         Minion e = place(enemy, 0, card("e", 4, 20));
         m.onTurnStart();
         assertTrue(play(shrine("meiji-otorii", 2), 0, null));
+        List<GameEvent> heard = new ArrayList<>();
+        engine.addListener((ev, s) -> heard.add(ev));
         assertTrue(engine.attack(m, e));
-        assertEquals(6, m.getHealth(), "10 - 4, no heal (decided 18 Nov)");
+        assertEquals(9, m.getHealth(), "10 - 4 + 3");
         assertEquals(16, e.getHealth(), "1 + 3 ATK from Meiji");
+        List<GameEvent.Type> types = heard.stream().map(GameEvent::type).toList();
+        int fx = types.indexOf(GameEvent.Type.EFFECT_TRIGGERED);
+        assertTrue(fx >= 0 && fx < types.indexOf(GameEvent.Type.HEAL), "the Shrine is announced before its heal");
+        assertTrue(heard.get(fx).source() instanceof Shrine);
     }
 
     @Test
