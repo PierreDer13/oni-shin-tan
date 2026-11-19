@@ -62,6 +62,16 @@ public class SceneRouter {
         tracks.put(s, track);
     }
 
+    /** Plays a track over the current screen (the Adventure story pages), until another track or playScreenMusic. */
+    public void playMusic(String track) {
+        music.play(track);
+    }
+
+    /** Plays this screen's own track again (after a story page). */
+    public void playScreenMusic(Screen s) {
+        music.play(tracks.getOrDefault(s, DEFAULT_TRACK));
+    }
+
     /** Stand-in until the real screen exists: its name and a way back home. */
     private Parent placeholder(Screen s) {
         Button home = new Button("Home");

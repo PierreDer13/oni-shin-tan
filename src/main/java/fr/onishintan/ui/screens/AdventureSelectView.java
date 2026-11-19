@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.EnumSet;
 import java.util.Set;
 import javafx.util.Duration;
+import javafx.application.Platform;
 
 import javafx.animation.ScaleTransition;
 import javafx.animation.Animation;
@@ -61,6 +62,8 @@ public class AdventureSelectView extends Pane {
     private static final AdventureDecks DECKS = new AdventureDecks(MockCards.ALL);
     /** Each battle's music, in the same order as AdventureDecks.board(i): the town, the sea (the ship), Mount Fuji. */
     private static final String[] BOARD_MUSIC = { "town-map-music", "sea-map-music", "fuji-map-music" };
+    /** The music of the story pages. */
+    private static final String STORY_MUSIC = "battle-music";
     /** The deck list's size inside the frame. */
     private static final double LIST_W = 370, LIST_H = 485;
     /** How wide a bonus emblem shows on Choose Bonus, and in the row of bonuses picked. */
@@ -161,7 +164,9 @@ public class AdventureSelectView extends Pane {
         if (won == 3) reward(router);
         if (justWon) {   // back from a win: what happened after it, over the map (and over the reward)
             justWon = false;
-            grid.getChildren().add(new StoryPanel(StoryLines.TITLES[won - 1], StoryLines.after(heroClass, won - 1), List.of(StoryLines.picture(heroClass, won - 1, 3)), null));
+            Platform.runLater(() -> router.playMusic(STORY_MUSIC));   // later: the map's own music starts just after this screen is built
+            grid.getChildren().add(new StoryPanel(StoryLines.TITLES[won - 1], StoryLines.after(heroClass, won - 1), List.of(StoryLines.picture(heroClass, won - 1, 3)),
+                    () -> router.playScreenMusic(Screen.ADVENTURE_SELECT)));   // Continue: back to the map's music
         }
         getChildren().add(grid);
         setStyle("-fx-background-color: black;");
@@ -226,6 +231,7 @@ public class AdventureSelectView extends Pane {
             }
             // You against the AI, which gets harder battle by battle (Town EASY, Ocean NORMAL, Mount Fuji HARD).
             // The battle's story first, like a scene; Continue starts the fight.
+            router.playMusic(STORY_MUSIC);   // the story is told over the battle theme
             grid.getChildren().add(new StoryPanel(StoryLines.TITLES[i], StoryLines.before(heroClass, i), List.of(StoryLines.picture(heroClass, i, 1), StoryLines.picture(heroClass, i, 2)), () -> {
                 router.register(Screen.ADVENTURE_BATTLE, () -> {
                     Player you = DECKS.hero("You", heroClass);   // made here, so its HP can be read when the battle ends
