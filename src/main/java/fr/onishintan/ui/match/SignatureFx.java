@@ -21,10 +21,10 @@ import javafx.scene.Node;
 import javafx.scene.effect.ColorAdjust;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.image.ImageView;
+import javafx.scene.image.Image;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
-import javafx.scene.shape.Line;
 import javafx.scene.shape.Polygon;
 import javafx.scene.shape.Rectangle;
 import javafx.util.Duration;
@@ -115,6 +115,10 @@ final class SignatureFx {
     private static final double SLICE_GAP = 90;
     /** How long a shuriken or Jikininki's beam takes to reach its target (the damage waits for it: MatchController.POWER_PAUSE). */
     private static final Duration FLIGHT = Duration.millis(400);
+    /** Jikininki's demon hand: its width, its clenched picture, and how many drops of life it squeezes out. */
+    private static final double HAND_W = 180;
+    private static final Image CLOSED_HAND = new Image(SignatureFx.class.getResourceAsStream("/images/fx/jikininki-closed.png"));
+    private static final int DROPS = 8;
 
     /** Raijin: a slash on each target in turn, one after another. */
     static double slices(Pane layer, List<Node> targets) {
@@ -208,24 +212,52 @@ final class SignatureFx {
         thrown.play();
     }
 
-    /** Oni's Jikininki: a black beam flows from `from` (the target) into `to` (your hero), draining its life, then fades. */
+    /**
+     * Oni's Jikininki: a demon hand rises over `from` (the target) and clenches, squeezing its life out;
+     * drops of it fly into `to` (your hero). The damage shows at the clench (MatchController.POWER_PAUSE).
+     */
     static void siphon(Pane layer, Node from, Node to) {
         Bounds start = from.getBoundsInParent();
         Bounds end = to.getBoundsInParent();
-        Line beam = new Line(start.getCenterX(), start.getCenterY(), end.getCenterX(), end.getCenterY());
-        beam.setStroke(Color.web("#120a14"));
-        beam.setStrokeWidth(10);
-        beam.getStrokeDashArray().addAll(24.0, 12.0);
-        beam.setEffect(new DropShadow(18, Color.web("#7a1fa2")));
-        beam.setMouseTransparent(true);
-        beam.setOpacity(0);
-        layer.getChildren().add(beam);
-        Timeline flow = new Timeline(   // the dashes run toward the hero: a lower dash offset moves them to the line's end
-                new KeyFrame(Duration.millis(100), new KeyValue(beam.opacityProperty(), 1)),
-                new KeyFrame(Duration.millis(700), new KeyValue(beam.strokeDashOffsetProperty(), -144), new KeyValue(beam.opacityProperty(), 1)),
-                new KeyFrame(Duration.millis(900), new KeyValue(beam.opacityProperty(), 0)));
-        flow.setOnFinished(e -> layer.getChildren().remove(beam));
-        flow.play();
+        ImageView hand = BoardView.image("/images/fx/jikininki-open.png");
+        hand.setFitWidth(HAND_W);
+        hand.setPreserveRatio(true);
+        hand.setMouseTransparent(true);
+        hand.relocate(start.getCenterX() - HAND_W / 2, start.getCenterY() - HAND_W * 0.5);
+        hand.setOpacity(0);
+        hand.setTranslateY(40);   // rises into place
+        layer.getChildren().add(hand);
+        Timeline grab = new Timeline(
+                new KeyFrame(Duration.millis(250), new KeyValue(hand.opacityProperty(), 1), new KeyValue(hand.translateYProperty(), 0)),
+                new KeyFrame(Duration.millis(400), e -> hand.setImage(CLOSED_HAND)),   // the clench
+                new KeyFrame(Duration.millis(700), new KeyValue(hand.opacityProperty(), 1)),
+                new KeyFrame(Duration.millis(1000), new KeyValue(hand.opacityProperty(), 0)));
+        grab.setOnFinished(e -> layer.getChildren().remove(hand));
+        grab.play();
+        for (int i = 0; i < DROPS; i++) {
+            drop(layer, start, end, 400 + i * 50);   // the drops leave one after the other from the clench
+        }
+    }
+
+    /** One drop of stolen life: a red bead that flies from the target into your hero, after `delay` ms. */
+    private static void drop(Pane layer, Bounds from, Bounds to, double delay) {
+        double x = from.getCenterX() + (Math.random() - 0.5) * 60;
+        double y = from.getCenterY() + (Math.random() - 0.5) * 40;
+        Circle bead = new Circle(x, y, 6, Color.web("#c41e1e"));
+        bead.setEffect(new DropShadow(10, Color.web("#ff4a4a")));
+        bead.setMouseTransparent(true);
+        bead.setOpacity(0);
+        layer.getChildren().add(bead);
+        Timeline fly = new Timeline(
+                new KeyFrame(Duration.millis(delay), new KeyValue(bead.opacityProperty(), 0)),
+                new KeyFrame(Duration.millis(delay + 80), new KeyValue(bead.opacityProperty(), 1)),
+                new KeyFrame(Duration.millis(delay + 500),
+                        new KeyValue(bead.translateXProperty(), to.getCenterX() - x, Interpolator.EASE_IN),
+                        new KeyValue(bead.translateYProperty(), to.getCenterY() - y, Interpolator.EASE_IN),
+                        new KeyValue(bead.opacityProperty(), 0.9)),
+                new KeyFrame(Duration.millis(delay + 560), new KeyValue(bead.opacityProperty(), 0)));
+        fly.setOnFinished(e -> layer.getChildren().remove(bead));
+        fly.play();
     }
 
     /** Seppuku: a katana drives down into the dying minion, then fades. */
