@@ -47,6 +47,8 @@ public class CardView extends Group {
     private static final Color DAMAGED = Color.web("#c41e1e");
     /** Better than printed: a Ki cost lowered by Yōi or an Oath, ATK or HP above the card's own. */
     private static final Color GREEN = Color.web("#1f7a3a");
+    /** Keyword names on a card. */
+    private static final Color KEYWORD_RED = Color.web("#8b1a1a");
     /** From this width a card is a big copy (hover previews are 280 or 300): it shows its keyword notes beside it. */
     private static final double NOTES_FROM = 250;
     /** The numbers the engine's bonus applies to: "N damage", and the first number after heal / restore. */
@@ -96,7 +98,7 @@ public class CardView extends Group {
         int kw = 0;
         if (card instanceof MinionCard m) {
             for (Keyword k : m.getKeywords()) {
-                vertical(k.getDisplayName().toUpperCase(), 18, 150 + 24 * kw++, 32, 24, 210);
+                keywordLine(k, 32 + 28 * kw++);
                 desc = desc.replaceAll(k.getDisplayName() + "([.:]\\s*|$)", "");
             }
         }
@@ -106,7 +108,7 @@ public class CardView extends Group {
             stat(s[0], "攻撃 ATK", 27, statColour(s[0], base[0], false));
             stat(s[1], card instanceof WeaponCard ? "耐久 DUR" : "体力 HP", 402, statColour(s[1], base[1], damaged()));
         }
-        descLabel = text(desc, 22, 154 + 24 * kw, 32, 208 - 24 * kw, 210);   // description, top middle
+        descLabel = text(desc, 22, 154, 32 + 28 * kw, 208, 210 - 28 * kw);   // description, under the keyword lines
         descLabel.setFont(Font.font(SERIF, 22));
         if (card.getRarity() == Rarity.LEGENDARY)
             rarityTag("伝説 LEGENDARY", 190, "#8a6a1c, #f7e08a 30%, #fff6c8 50%, #d4ab4a 70%, #8a6a1c", "#3a2a05", Color.GOLD);
@@ -266,6 +268,19 @@ public class CardView extends Group {
             col.getChildren().add(l);
         }
         face.getChildren().add(col);
+    }
+
+    /** One keyword line above the description: its game-guide logo, then its name in bold dark red. */
+    private void keywordLine(Keyword k, double y) {
+        ImageView logo = new ImageView(Images.get("/images/logos/" + k.name().toLowerCase() + "-logo.png", 26, 26));   // same logo as the game guide
+        Label line = new Label(k.getDisplayName(), logo);
+        line.setFont(Font.font(SERIF, FontWeight.BOLD, 22));
+        line.setTextFill(KEYWORD_RED);
+        line.setGraphicTextGap(6);
+        line.setPrefWidth(208);
+        line.setAlignment(Pos.CENTER);
+        line.relocate(154, y + 2);
+        face.getChildren().add(line);
     }
 
     private void stat(int value, String caption, double x, Color color) {
