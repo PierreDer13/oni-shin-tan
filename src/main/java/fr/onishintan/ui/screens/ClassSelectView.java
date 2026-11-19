@@ -53,18 +53,22 @@ public class ClassSelectView extends Pane {
         title.setPrefWidth(W);
         title.relocate(0, 30);
         Label about = new Label();   // the hovered class's description, empty otherwise
-        about.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 20; -fx-font-weight: bold; -fx-text-fill: #1f1b17; -fx-alignment: center;");
-        about.setEffect(new DropShadow(10, Color.WHITE));
-        about.setPrefWidth(W);
-        about.relocate(0, 82);
+        about.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 17; -fx-font-weight: bold; -fx-text-fill: #f3ede1; -fx-alignment: center;"
+                + " -fx-background-color: rgba(20, 12, 8, 0.8); -fx-background-radius: 8; -fx-padding: 4 12 4 12;");   // cream on a dark strip, readable on the art
+        about.setEffect(new DropShadow(8, Color.BLACK));
+        about.setPrefWidth(1000);
+        about.relocate((W - 1000) / 2, 82);   // a strip in the middle, not the whole width
+        about.visibleProperty().bind(about.textProperty().isNotEmpty());   // the dark strip only while something is hovered
         ImageView back = HomeView.back(() -> router.goTo(Screen.HOME));
         grid.getChildren().addAll(bg, title, about, back);
         // The Shura no Michi switch: a click turns the hardcore run on or off; hovering it tells its rules.
         Label shura = new Label();
-        shura.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 28; -fx-font-weight: bold; -fx-alignment: center;");
-        shura.setEffect(new DropShadow(10, Color.WHITE));
-        shura.setPrefWidth(500);
-        shura.relocate(W / 2 - 250, 800);
+        shura.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 22; -fx-font-weight: bold; -fx-alignment: center;"
+                + " -fx-background-color: rgba(20, 12, 8, 0.85); -fx-background-radius: 12;"
+                + " -fx-border-color: #c9a227; -fx-border-width: 2; -fx-border-radius: 12; -fx-padding: 6 16 6 16;");   // a dark plaque, gold edge
+        shura.setEffect(new DropShadow(12, Color.BLACK));
+        shura.setPrefWidth(380);
+        shura.relocate(W / 2 - 190, 820);
         showMode(shura);
         HomeView.clickable(shura, false, () -> {
             if (mode == AdventureMode.NORMAL) {
@@ -94,10 +98,10 @@ public class ClassSelectView extends Pane {
     private void showMode(Label shura) {
         if (mode == AdventureMode.HARDCORE) {
             shura.setText("修羅の道  Shura no Michi: ON");
-            shura.setTextFill(Color.web("#c41e1e"));
+            shura.setTextFill(Color.web("#ff4a4a"));   // bright red: on
         } else {
             shura.setText("修羅の道  Shura no Michi: OFF");
-            shura.setTextFill(Color.web("#1f1b17"));
+            shura.setTextFill(Color.web("#f3ede1"));   // cream on the dark plaque
         }
     }
 }

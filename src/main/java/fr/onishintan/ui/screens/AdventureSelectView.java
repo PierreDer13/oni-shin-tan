@@ -134,9 +134,10 @@ public class AdventureSelectView extends Pane {
         if (mode.keepsWounds()) {   // Shura no Michi: the hero's HP for the next battle, e.g. 命 60 / 100
             Player you = DECKS.hero("You", heroClass);
             you.getHero().carryWounds(wounds);
-            Label life = text("命  " + you.getHero().getHealth() + " / " + you.getHero().getMaxHealth(), 26);
-            life.setStyle(life.getStyle() + " -fx-text-fill: #c41e1e;");
-            life.relocate(1230, 690);
+            Label life = text("♥  " + you.getHero().getHealth() + " / " + you.getHero().getMaxHealth(), 34);
+            life.setStyle(life.getStyle() + " -fx-text-fill: #e0303a; -fx-alignment: center;");
+            life.setPrefWidth(300);
+            life.relocate(W / 2 - 150, 20);   // top middle of the map
             grid.getChildren().add(life);
         }
         if (bonusPending()) {   // one choice after win 1, one after win 2
