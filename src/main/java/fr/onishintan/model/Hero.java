@@ -49,6 +49,12 @@ public class Hero extends Combatant {
     public void destroyWeapon() { this.weapon = null; }     // Iaidō, Jujutsu shihan
     public void gainArmour(int n) { if (n > 0) armour += n; } // Gusoku, Hatamoto
 
+    /** Shura no Michi: the hero starts this battle with the wounds of the last ones (never below 1 HP). */
+    public void carryWounds(int wounds) {
+        if (wounds <= 0) return;
+        health = Math.max(1, maxHealth - wounds);
+    }
+
     public HeroClass getHeroClass() { return heroClass; }
     public int getArmour() { return armour; }
     public Weapon getWeapon() { return weapon; }
