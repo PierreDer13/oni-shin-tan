@@ -88,6 +88,8 @@ public class AdventureSelectView extends Pane {
     private final int won;
     private final HeroClass heroClass;
     private final List<String> picked;
+    /** True on the way back from a won battle, so the map opens on that battle's after-story. */
+    private static boolean justWon;
 
     public AdventureSelectView(SceneRouter router, HeroClass heroClass, int won, List<String> picked) {
         this.picked = picked;
@@ -140,6 +142,10 @@ public class AdventureSelectView extends Pane {
         deckList();
         for (int i = 0; i < ADVENTURES.length; i++) panel(router, i);
         if (won == 3) reward(router);
+        if (justWon) {   // back from a win: what happened after it, over the map (and over the reward)
+            justWon = false;
+            grid.getChildren().add(new StoryPanel(StoryLines.TITLES[won - 1], StoryLines.after(heroClass, won - 1), List.of(StoryLines.picture(heroClass, won - 1, 3)), null));
+        }
         getChildren().add(grid);
         setStyle("-fx-background-color: black;");
     }
@@ -202,11 +208,17 @@ public class AdventureSelectView extends Pane {
                 return;
             }
             // You against the AI, which gets harder battle by battle (Town EASY, Ocean NORMAL, Mount Fuji HARD).
-            router.register(Screen.ADVENTURE_BATTLE, () -> OniShinTanApp.adventure(AdventureDecks.board(i), DECKS.hero("You", heroClass),
-                    DECKS.enemy(heroClass, i), AIController.Difficulty.forBattle(i), upgrades(),
-                    v -> open(router, heroClass, v ? won + 1 : 0, v ? picked : List.of())));
-            router.setMusic(Screen.ADVENTURE_BATTLE, BOARD_MUSIC[i]);   // the town, the sea or Mount Fuji theme
-            router.goTo(Screen.ADVENTURE_BATTLE);
+            // The battle's story first, like a scene; Continue starts the fight.
+            grid.getChildren().add(new StoryPanel(StoryLines.TITLES[i], StoryLines.before(heroClass, i), List.of(StoryLines.picture(heroClass, i, 1), StoryLines.picture(heroClass, i, 2)), () -> {
+                router.register(Screen.ADVENTURE_BATTLE, () -> OniShinTanApp.adventure(AdventureDecks.board(i), DECKS.hero("You", heroClass),
+                        DECKS.enemy(heroClass, i), AIController.Difficulty.forBattle(i), upgrades(),
+                        v -> {
+                            justWon = v;   // a win: its after-story shows on the map
+                            open(router, heroClass, v ? won + 1 : 0, v ? picked : List.of());
+                        }));
+                router.setMusic(Screen.ADVENTURE_BATTLE, BOARD_MUSIC[i]);   // the town, the sea or Mount Fuji theme
+                router.goTo(Screen.ADVENTURE_BATTLE);
+            }));
         });
         grid.getChildren().add(banner);
         if (i >= won) return;
