@@ -9,7 +9,6 @@ import javafx.animation.Interpolator;
 import javafx.animation.KeyFrame;
 import javafx.animation.KeyValue;
 import javafx.animation.SequentialTransition;
-import javafx.animation.PauseTransition;
 import javafx.animation.Timeline;
 import javafx.geometry.Pos;
 import javafx.scene.control.Label;
@@ -28,14 +27,14 @@ import javafx.util.Duration;
 
 /**
  * A story page over the Adventure map, played like a scene: the map goes dark, the title is stamped in with a thud,
- * then the story appears line by line under its pictures. A click while it plays shows the whole page;
+ * then the story's first line under its picture; each click shows the next line, and the pictures change as it goes;
  * Continue closes it and runs `then` (or only closes it when `then` is null).
  */
 final class StoryPanel extends StackPane {
-    /** How long a line takes to fade in, and the pause before each one. */
-    private static final double LINE_MS = 900, LINE_GAP_MS = 700;
+    /** How long a line or a picture takes to fade in. */
+    private static final double LINE_MS = 900;
     /** The picture's height, and the room kept for the lines under it. */
-    private static final double ART_H = 300, PAGE_H = 340;
+    private static final double ART_H = 380, PAGE_H = 300;
     /** The thud when the title is stamped in. */
     private static final AudioClip THUD = Sound.clip("door-close");
 
@@ -47,6 +46,8 @@ final class StoryPanel extends StackPane {
     private final Label go;
     private final String story;
     private final SequentialTransition show;
+    /** How many lines are shown so far. */
+    private int shown;
 
     StoryPanel(String title, String story, List<String> pictureNames, Runnable then) {
         this.story = story;
@@ -59,6 +60,10 @@ final class StoryPanel extends StackPane {
         }
         art.setFitHeight(ART_H);
         art.setPreserveRatio(true);
+        Rectangle corners = new Rectangle(ART_H * 1.5, ART_H);   // the pictures are 3:2 (1536 x 1024)
+        corners.setArcWidth(30);
+        corners.setArcHeight(30);
+        art.setClip(corners);   // slightly rounded corners
         page = new VBox(8);
         page.setAlignment(Pos.TOP_CENTER);
         page.setPrefHeight(PAGE_H);   // room for every line, so nothing moves while they appear
@@ -70,14 +75,17 @@ final class StoryPanel extends StackPane {
                 then.run();
             }
         });
-        VBox box = new VBox(30, heading, art, page, go);
+        VBox box = new VBox(24, heading, art, page, go);
         box.setAlignment(Pos.CENTER);
         getChildren().addAll(veil, box);
 
-        show = new SequentialTransition(darken(), stamp(), reveal());
-        show.setOnFinished(e -> go.setVisible(true));
+        lines();
+        show = new SequentialTransition(darken(), stamp());
+        show.setOnFinished(e -> {
+            next();   // the first line comes with the title
+            setOnMousePressed(click -> next());   // then one more line per click
+        });
         show.play();
-        setOnMousePressed(e -> skip());
     }
 
     /** 1. The map goes dark. */
@@ -101,25 +109,43 @@ final class StoryPanel extends StackPane {
         return stamp;
     }
 
-    /** 3. The story appears line by line, each sentence fading in after a pause; the pictures change as it goes. */
-    private SequentialTransition reveal() {
-        String[] sentences = story.split("(?<=[.!?])\\s+");
-        SequentialTransition reveal = new SequentialTransition();
-        for (int i = 0; i < sentences.length; i++) {
-            Label line = label(sentences[i], 22);
-            line.setWrapText(true);
-            line.setMaxWidth(950);
-            line.setTextAlignment(TextAlignment.CENTER);
-            line.setOpacity(0);
-            page.getChildren().add(line);
-            int picture = i * pictures.length / sentences.length;   // with 2 pictures: picture 1 for the first half, 2 for the rest
-            PauseTransition gap = new PauseTransition(Duration.millis(LINE_GAP_MS));
-            gap.setOnFinished(e -> showPicture(picture));
-            FadeTransition in = new FadeTransition(Duration.millis(LINE_MS), line);
-            in.setToValue(1);
-            reveal.getChildren().addAll(gap, in);
+    /** 3. The story's sentences, one line each, hidden until a click shows them. A | in the text starts the next picture. */
+    private void lines() {
+        String[] parts = story.split("\\s*\\|\\s*");
+        for (int k = 0; k < parts.length; k++) {
+            for (String sentence : parts[k].split("(?<=[.!?])\\s+")) {
+                Label line = label(sentence, 22);
+                line.setWrapText(true);
+                line.setMaxWidth(950);
+                line.setTextAlignment(TextAlignment.CENTER);
+                line.setOpacity(0);
+                line.setUserData(Math.min(k, pictures.length - 1));   // the picture shown with this line
+                page.getChildren().add(line);
+            }
         }
-        return reveal;
+    }
+
+    /** A click: the next line fades in, with its picture; once every line is shown, Continue appears. */
+    private void next() {
+        List<Node> lines = page.getChildren();
+        if (shown >= lines.size()) {
+            return;   // all shown: Continue closes the page
+        }
+        Object picture = lines.get(shown).getUserData();
+        if (shown > 0 && !picture.equals(lines.get(shown - 1).getUserData())) {
+            for (int i = 0; i < shown; i++) {
+                lines.get(i).setVisible(false);   // a new picture: the lines before it go, the new ones start at the top
+                lines.get(i).setManaged(false);
+            }
+        }
+        showPicture((Integer) picture);
+        FadeTransition in = new FadeTransition(Duration.millis(LINE_MS), lines.get(shown));
+        in.setToValue(1);
+        in.play();
+        shown++;
+        if (shown == lines.size()) {
+            go.setVisible(true);
+        }
     }
 
     /** Shows picture k of the page, fading it in, if it is painted and not already shown. */
@@ -132,23 +158,6 @@ final class StoryPanel extends StackPane {
         FadeTransition in = new FadeTransition(Duration.millis(LINE_MS), art);
         in.setToValue(1);
         in.play();
-    }
-
-    /** A click while the scene plays: the whole page at once, ready to continue. */
-    private void skip() {
-        if (go.isVisible()) {
-            return;   // already written
-        }
-        show.stop();
-        setOpacity(1);
-        heading.setScaleX(1);
-        heading.setScaleY(1);
-        heading.setOpacity(1);
-        for (Node line : page.getChildren()) {
-            line.setOpacity(1);
-        }
-        showPicture(pictures.length - 1);
-        go.setVisible(true);
     }
 
     /** Cream text in the card font with a soft shadow, like the rest of the Adventure map. */
