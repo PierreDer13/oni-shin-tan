@@ -4,6 +4,7 @@ import fr.onishintan.ui.cards.MinionView;
 import fr.onishintan.ui.cards.ShrineView;
 import fr.onishintan.ui.fx.EventBanner;
 import fr.onishintan.ui.fx.Fx;
+import fr.onishintan.ui.fx.HeroBurn;
 import fr.onishintan.ui.screens.HomeView;
 import fr.onishintan.ui.screens.SettingsPanel;
 import fr.onishintan.ui.app.Images;
@@ -116,6 +117,7 @@ public class BoardView extends Pane {
     private boolean rising;   // the card just played brings dead minions back (black smoke on them)
     private boolean yoi;      // Yōi was just played: the costs in hand sparkle after the redraw
     private String signature = "";   // the card just played, for its own move before its effects (SignatureFx)
+    private boolean burnt;           // the dead hero has already burned (only once, then the seal straight away)
     private int signatureSlot;       // and its slot (Nue's shockwave starts there)
     private final Map<Combatant, Integer> duelHp = new HashMap<>();   // Kettō: each duellist's HP just before the duel
     /** Opening hand: deals the bottom player's cards in from their deck. */
@@ -255,7 +257,7 @@ public class BoardView extends Pane {
         drawHand();
         enemyHand(enemy);
         healEffects();
-        if (enemy.getHero().isDead() || you.getHero().isDead()) gameOver(enemy.getHero().isDead());
+        if (enemy.getHero().isDead() || you.getHero().isDead()) endGame(enemy.getHero().isDead());
     }
 
     /**
@@ -721,6 +723,21 @@ public class BoardView extends Pane {
             slam.setOnFinished(event -> table.getChildren().remove(seal));
             slam.play();
         });
+    }
+
+    /** A hero has died: the first time, it burns into dust before the Victory / Defeat seal; after that, only the seal. */
+    private void endGame(boolean won) {
+        Hero dead = you.getHero();
+        if (won) {
+            dead = enemy.getHero();
+        }
+        Node node = nodes.get(dead);
+        if (burnt || node == null) {
+            gameOver(won);
+            return;
+        }
+        burnt = true;
+        HeroBurn.play(node, () -> gameOver(won));
     }
 
     /** Game over: a dark veil over the whole table blocks every click, with the 勝利 Victory or 敗北 Defeat seal in the middle. */
