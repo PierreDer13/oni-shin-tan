@@ -11,11 +11,13 @@ import fr.onishintan.ui.MockCards;
 import fr.onishintan.ai.AIController;
 import fr.onishintan.data.AdventureDecks;
 import fr.onishintan.adventure.Upgrade;
+import fr.onishintan.adventure.AdventureMode;
 import fr.onishintan.data.SaveManager;
 import fr.onishintan.ui.OniShinTanApp;
 
 import fr.onishintan.model.Card;
 import fr.onishintan.model.HeroClass;
+import fr.onishintan.model.Player;
 import fr.onishintan.model.Keyword;
 import fr.onishintan.model.MinionCard;
 import fr.onishintan.model.Rarity;
@@ -75,8 +77,8 @@ public class AdventureSelectView extends Pane {
                     "Banzai: return your 2 highest-cost dead minions to the board", "", 11, 11, Set.of(Keyword.BANZAI)));
 
     /** Shows the run map for this class after `won` victories. */
-    static void open(SceneRouter router, HeroClass c, int won, List<String> picked) {
-        router.register(Screen.ADVENTURE_SELECT, () -> new AdventureSelectView(router, c, won, picked));
+    static void open(SceneRouter router, HeroClass c, AdventureMode mode, int won, List<String> picked, int wounds) {
+        router.register(Screen.ADVENTURE_SELECT, () -> new AdventureSelectView(router, c, mode, won, picked, wounds));
         router.goTo(Screen.ADVENTURE_SELECT);
     }
 
@@ -88,13 +90,19 @@ public class AdventureSelectView extends Pane {
     private final int won;
     private final HeroClass heroClass;
     private final List<String> picked;
+    /** Normal, or Shura no Michi (hardcore). */
+    private final AdventureMode mode;
+    /** The HP the hero has lost so far in this run (kept only in Shura no Michi). */
+    private final int wounds;
     /** True on the way back from a won battle, so the map opens on that battle's after-story. */
     private static boolean justWon;
 
-    public AdventureSelectView(SceneRouter router, HeroClass heroClass, int won, List<String> picked) {
+    public AdventureSelectView(SceneRouter router, HeroClass heroClass, AdventureMode mode, int won, List<String> picked, int wounds) {
         this.picked = picked;
         this.heroClass = heroClass;
         this.won = won;
+        this.mode = mode;
+        this.wounds = wounds;
         Scale scale = new Scale();
         grid.getTransforms().add(scale);
         InvalidationListener fit = o -> {
@@ -123,6 +131,14 @@ public class AdventureSelectView extends Pane {
         }
         bonuses.relocate(1185, 180);
         grid.getChildren().add(bonuses);
+        if (mode.keepsWounds()) {   // Shura no Michi: the hero's HP for the next battle, e.g. 命 60 / 100
+            Player you = DECKS.hero("You", heroClass);
+            you.getHero().carryWounds(wounds);
+            Label life = text("命  " + you.getHero().getHealth() + " / " + you.getHero().getMaxHealth(), 26);
+            life.setStyle(life.getStyle() + " -fx-text-fill: #c41e1e;");
+            life.relocate(1230, 690);
+            grid.getChildren().add(life);
+        }
         if (bonusPending()) {   // one choice after win 1, one after win 2
             Label bonus = text("恩恵  CHOOSE BONUS", 26);
             bonus.relocate(1230, 740);
@@ -168,7 +184,7 @@ public class AdventureSelectView extends Pane {
             HomeView.clickable(choice, false, () -> {
                 List<String> now = new ArrayList<>(picked);
                 now.add(upgrade.getLabel());
-                open(router, heroClass, won, now);
+                open(router, heroClass, mode, won, now, wounds);
             });
             choices.getChildren().add(choice);
         }
@@ -210,12 +226,18 @@ public class AdventureSelectView extends Pane {
             // You against the AI, which gets harder battle by battle (Town EASY, Ocean NORMAL, Mount Fuji HARD).
             // The battle's story first, like a scene; Continue starts the fight.
             grid.getChildren().add(new StoryPanel(StoryLines.TITLES[i], StoryLines.before(heroClass, i), List.of(StoryLines.picture(heroClass, i, 1), StoryLines.picture(heroClass, i, 2)), () -> {
-                router.register(Screen.ADVENTURE_BATTLE, () -> OniShinTanApp.adventure(AdventureDecks.board(i), DECKS.hero("You", heroClass),
-                        DECKS.enemy(heroClass, i), AIController.Difficulty.forBattle(i), upgrades(),
-                        v -> {
-                            justWon = v;   // a win: its after-story shows on the map
-                            open(router, heroClass, v ? won + 1 : 0, v ? picked : List.of());
-                        }));
+                router.register(Screen.ADVENTURE_BATTLE, () -> {
+                    Player you = DECKS.hero("You", heroClass);   // made here, so its HP can be read when the battle ends
+                    if (mode.keepsWounds()) {
+                        you.getHero().carryWounds(wounds);   // Shura no Michi: the HP lost before stays lost
+                    }
+                    return OniShinTanApp.adventure(AdventureDecks.board(i), you, DECKS.enemy(heroClass, i),
+                            mode.difficulty(i), upgrades(),
+                            v -> {
+                                justWon = v;   // a win: its after-story shows on the map
+                                open(router, heroClass, mode, v ? won + 1 : 0, v ? picked : List.of(), woundsAfter(v, you));
+                            });
+                });
                 router.setMusic(Screen.ADVENTURE_BATTLE, BOARD_MUSIC[i]);   // the town, the sea or Mount Fuji theme
                 router.goTo(Screen.ADVENTURE_BATTLE);
             }));
@@ -251,7 +273,15 @@ public class AdventureSelectView extends Pane {
 
     /** True while a bonus is owed (one after the 1st win, one after the 2nd): the next battle waits until it is picked. */
     private boolean bonusPending() {
-        return picked.size() < Math.min(won, 2);
+        return picked.size() < Math.min(won, mode.getBonuses());   // 2 bonuses in a normal run, 1 in Shura no Michi
+    }
+
+    /** The HP the hero lost in the battle that just ended: carried to the next one in Shura no Michi, 0 otherwise or after a loss. */
+    private int woundsAfter(boolean victory, Player you) {
+        if (!victory || !mode.keepsWounds()) {
+            return 0;
+        }
+        return you.getHero().getMaxHealth() - you.getHero().getHealth();
     }
 
     /** The bonuses picked so far in this run, as the engine's Upgrades (the screen keeps their labels, e.g. "命 Inochi"). */
