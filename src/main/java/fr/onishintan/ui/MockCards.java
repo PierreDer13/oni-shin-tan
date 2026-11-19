@@ -58,7 +58,7 @@ public final class MockCards {
             onnagata|Onnagata|女形|NINJA|3|2|6|C|Shinobi. Banzai: set its ATK to an enemy minion's ATK
             yumihiki|Yumihiki|弓引き|NEUTRAL|2|4|3|C|Banzai: deal 4 damage
             jujutsu-shihan|Jujutsu shihan|師範|SAMURAI|6|6|7|C|Seppuku: give your hero Honjō Masamune
-            fuma-kotaro|Fūma Kotarō|風魔小太郎|NINJA|7|9|6|L|Shinobi. Yogake: when it reveals itself by attacking, each enemy minion attacks another random enemy minion
+            fuma-kotaro|Fūma Kotarō|風魔小太郎|NINJA|7|9|6|L|Shinobi. Yogake: when revealed by attacking, all enemy minions attack another random enemy minion.
             shogun|Shōgun|将軍|SAMURAI|9|12|12|L|Banzai: all friendly minions +4/+4
             tenno|Tennō|天皇|NEUTRAL|10|15|16|L|Passive: your other minions cost 1 less Ki
             kappa|Kappa|河童|ONI|3|5|7|C|Banzai: deal 4 damage to the enemy hero
@@ -78,7 +78,7 @@ public final class MockCards {
             ryu|Ryū|龍|NEUTRAL|9|12|12|L|Torii. Passive: +4 to all your damage, healing and armour effects
             inari-okami|Inari Ōkami|稲荷大神|KANNUSHI|8|10|11|L|Passive: end of turn, summon a Kitsune no tsukai
             amaterasu-omikami|Amaterasu Ōmikami|天照大神|NEUTRAL|10|17|17|M|Banzai: restore your hero to full HP
-            tsukuyomi|Tsukuyomi|月読|NINJA|8|12|10|L|Banzai: your other minions have Shinobi. Shinobi
+            tsukuyomi|Tsukuyomi|月読|NINJA|8|12|10|L|Banzai: give your other minions shinobi. Shinobi
             takemikazuchi|Takemikazuchi|建御雷|SAMURAI|8|10|9|L|Tatakae. Banzai: equip your hero with Futsu-no-mitama (10/2)
             okuninushi|Ōkuninushi|大国主|KANNUSHI|8|11|12|L|Banzai: heal all friendly characters for 10
             susanoo|Susanoo|須佐之男|KANNUSHI|7|11|9|L|Tatakae. Banzai: deal 6 damage to an enemy minion

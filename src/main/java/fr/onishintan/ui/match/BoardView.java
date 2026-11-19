@@ -469,7 +469,7 @@ public class BoardView extends Pane {
     }
 
     /** How long one step of effects plays before the next one starts, and how long a trap takes to flip, be read and start its cut. */
-    private static final double STEP_MS = 450, TRAP_STEP_MS = 900;
+    private static final double STEP_MS = 450, TRAP_STEP_MS = 900, LUNGE_MS = 700;
     /** How long an effect's banner shows before the effect itself plays. */
     private static final double TRIGGER_MS = 1000;
 
@@ -497,6 +497,14 @@ public class BoardView extends Pane {
             return 0;   // an Oath: its reward already has its stamp and banner
         }
         EventBanner.show(table, card.getNameKanji(), card.getNameRomaji(), what, colour);
+        Node node = nodes.get(source);
+        if (node != null && card.getId().equals("fuma-kotaro")) {
+            Bounds box = node.getBoundsInParent();
+            SignatureFx.puff(live, box.getCenterX(), box.getCenterY());   // Yogake: he vanishes into smoke
+        }
+        if (node != null && card.getId().equals("inari-okami")) {
+            SignatureFx.foxfire(live, node);   // calls a kitsune at the end of the turn
+        }
         return TRIGGER_MS;
     }
 
@@ -551,6 +559,13 @@ public class BoardView extends Pane {
             }
             case MINION_REMOVED -> SignatureFx.vanish(node);   // Kamikakushi: spirited away
             case FATIGUE -> EventBanner.show(table, "疲労", "Fatigue", event.amount() + " damage: the deck is empty", Color.web("#8b0000"));
+            case ATTACK -> {
+                Node attacker = nodes.get(event.source());
+                if (attacker != null) {
+                    Fx.attack(attacker, node, () -> { });   // Yogake: each enemy minion lunges at another one
+                }
+                return LUNGE_MS;
+            }
             default -> {
                 return 0;   // nothing to show (a card added to the hand flies in after the redraw)
             }
@@ -1544,7 +1559,9 @@ public void passTo(String name, Runnable onReady) {
             replay(events.subList(0, attackAt), 0, 0, () -> lunge(attacker, hit, after, then));
             return;
         }
-        lunge(attacker, target, events, then);
+        List<GameEvent> rest = new ArrayList<>(events);
+        rest.remove(attackAt);   // this attack lunges now; any other ATTACK (Yogake's forced fights) lunges in the replay
+        lunge(attacker, target, rest, then);
     }
 
     /** The lunge at `target`, then on impact the hits, deaths and anything else the attack did, step by step, then the redraw. */

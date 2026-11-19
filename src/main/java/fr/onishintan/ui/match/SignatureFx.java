@@ -136,20 +136,7 @@ final class SignatureFx {
         clash(a, (midX - boxA.getCenterX()) * 0.7, (midY - boxA.getCenterY()) * 0.7);
         clash(b, (midX - boxB.getCenterX()) * 0.7, (midY - boxB.getCenterY()) * 0.7);
 
-        ImageView smoke = BoardView.image("/images/fx/black-smoke.png");
-        smoke.setEffect(new ColorAdjust(0, 0, 1, 0));   // brightened to white
-        smoke.setFitWidth(240);
-        smoke.setPreserveRatio(true);
-        smoke.setMouseTransparent(true);
-        smoke.setOpacity(0);
-        smoke.relocate(midX - 120, midY - 140);   // above the two minions
-        layer.getChildren().add(smoke);
-        Timeline puff = new Timeline(
-                new KeyFrame(Duration.millis(250), new KeyValue(smoke.opacityProperty(), 0)),
-                new KeyFrame(Duration.millis(400), new KeyValue(smoke.opacityProperty(), 1)),
-                new KeyFrame(Duration.millis(900), new KeyValue(smoke.opacityProperty(), 0), new KeyValue(smoke.translateYProperty(), -40)));
-        puff.setOnFinished(e -> layer.getChildren().remove(smoke));
-        puff.play();
+        puff(layer, midX, midY);   // above the two minions
         return 950;
     }
 
@@ -159,6 +146,42 @@ final class SignatureFx {
                 new KeyFrame(Duration.millis(250), new KeyValue(minion.translateXProperty(), dx), new KeyValue(minion.translateYProperty(), dy)),
                 new KeyFrame(Duration.millis(650), new KeyValue(minion.translateXProperty(), dx), new KeyValue(minion.translateYProperty(), dy)),
                 new KeyFrame(Duration.millis(900), new KeyValue(minion.translateXProperty(), 0), new KeyValue(minion.translateYProperty(), 0))).play();
+    }
+
+
+    /** A white smoke bursts above (x, y) and drifts up (Kettō's clash, Fūma Kotarō revealing himself). */
+    static void puff(Pane layer, double x, double y) {
+        ImageView smoke = BoardView.image("/images/fx/black-smoke.png");
+        smoke.setEffect(new ColorAdjust(0, 0, 1, 0));   // brightened to white
+        smoke.setFitWidth(240);
+        smoke.setPreserveRatio(true);
+        smoke.setMouseTransparent(true);
+        smoke.setOpacity(0);
+        smoke.relocate(x - 120, y - 140);
+        layer.getChildren().add(smoke);
+        Timeline rise = new Timeline(
+                new KeyFrame(Duration.millis(250), new KeyValue(smoke.opacityProperty(), 0)),
+                new KeyFrame(Duration.millis(400), new KeyValue(smoke.opacityProperty(), 1)),
+                new KeyFrame(Duration.millis(900), new KeyValue(smoke.opacityProperty(), 0), new KeyValue(smoke.translateYProperty(), -40)));
+        rise.setOnFinished(e -> layer.getChildren().remove(smoke));
+        rise.play();
+    }
+
+    /** Inari Ōkami: a blue foxfire flares on the minion as it calls a kitsune. */
+    static void foxfire(Pane layer, Node minion) {
+        Bounds box = minion.getBoundsInParent();
+        Circle fire = new Circle(box.getCenterX(), box.getCenterY(), 30, Color.web("#7fd4ff", 0.7));
+        fire.setEffect(new DropShadow(30, Color.web("#3aa0ff")));
+        fire.setMouseTransparent(true);
+        layer.getChildren().add(fire);
+        ScaleTransition grow = new ScaleTransition(Duration.millis(600), fire);
+        grow.setToX(3);
+        grow.setToY(3);
+        FadeTransition fade = new FadeTransition(Duration.millis(600), fire);
+        fade.setToValue(0);
+        ParallelTransition all = new ParallelTransition(grow, fade);
+        all.setOnFinished(e -> layer.getChildren().remove(fire));
+        all.play();
     }
 
     /** Ninja's Shuriken: a steel star spins from `from` (your hero) to `to`, sparks where it hits. */
