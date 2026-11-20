@@ -28,7 +28,7 @@ public class HeroPowerView extends StackPane {
             HeroClass.ONI, new String[] { "Jikininki", "食人鬼", "Drain 4 HP to heal your hero" },
             HeroClass.OROCHI, new String[] { "Yatsu-kubi", "八つ首", "8 bites of 1 damage at random" });
 
-    public HeroPowerView(HeroClass hero, boolean used, boolean usable, IntConsumer previewCost, Runnable onUse) {
+    public HeroPowerView(HeroClass hero, String effect, boolean used, boolean usable, IntConsumer previewCost, Runnable onUse) {
         double k = SIZE / 160;
         ImageView frame = BoardView.image("/images/hud/hero-power.png");
         frame.setFitWidth(SIZE);
@@ -37,7 +37,11 @@ public class HeroPowerView extends StackPane {
         cost.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: " + 26 * k + "; -fx-font-weight: bold; -fx-text-fill: #1f1b17;");
         cost.setTranslateY(-SIZE * 0.28);
         String[] info = POWER.get(hero);   // English name, Japanese name, effect
-        VBox text = new VBox(1, text(info[0], 15 * k), text(info[1], 12 * k), text(info[2], 9.5 * k));
+        String effectText = info[2];
+        if (effect != null) {
+            effectText = effect;   // a power whose strength changes (Yatsu-kubi)
+        }
+        VBox text = new VBox(1, text(info[0], 15 * k), text(info[1], 12 * k), text(effectText, 9.5 * k));
         text.setAlignment(Pos.CENTER);
         text.setMaxWidth(SIZE * 0.7);
         text.setTranslateY(SIZE * 0.12);

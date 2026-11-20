@@ -219,6 +219,9 @@ public final class AIController {
             target = bestTarget(card, targets);
         }
         double score = 10 + engine.costOf(me, card) * 3 + targetBonus(card, target);
+        if (difficulty == Difficulty.EXTREME && card instanceof MinionCard m && m.getKeywords().contains(Keyword.BANZAI)) {
+            score += 30;   // EXTREME never holds a Banzai back: it plays it as soon as it can
+        }
         return new Scored(Move.play(card, slot, target, second), score);
     }
 

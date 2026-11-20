@@ -567,6 +567,14 @@ public class GameEngine {
 
     /** Yamata no Orochi's power, 八つ首 Yatsu-kubi (Eight Heads): 1 damage to a random enemy character, 8 times. */
     public static final int YATSU_KUBI_HITS = 8;
+    /** Every this many HP Orochi has lost, each Yatsu-kubi hit does 1 more damage. */
+    public static final int YATSU_KUBI_RAGE_STEP = 50;
+
+    /** How much each Yatsu-kubi hit does now: 1, +1 for every 50 HP Orochi has lost (the UI shows it on the power). */
+    public static int yatsuKubiDamage(Player p) {
+        int lost = p.getHero().getMaxHealth() - p.getHero().getHealth();
+        return 1 + lost / YATSU_KUBI_RAGE_STEP;
+    }
 
     /**
      * Ninja Shuriken (6 damage), Kannushi Miko (3/3 in the leftmost free slot),
@@ -615,13 +623,14 @@ public class GameEngine {
         return true;
     }
 
-    /** Yatsu-kubi: 8 hits of 1 on random enemy characters, dealt as one hit per character (like Raijin). */
+    /** Yatsu-kubi: 8 hits on random enemy characters (1 damage each, +1 per 50 HP he has lost), dealt as one hit per character (like Raijin). */
     private void yatsuKubi(Player p) {
         Player enemy = state.opponentOf(p);
         List<Combatant> targets = new ArrayList<>(enemy.getSide().getMinions());
         targets.add(enemy.getHero());
         Map<Combatant, Integer> hits = new IdentityHashMap<>();
-        for (int i = 0; i < YATSU_KUBI_HITS; i++) hits.merge(targets.get(rng.nextInt(targets.size())), 1, Integer::sum);
+        int damage = yatsuKubiDamage(p);   // angrier as he is wounded
+        for (int i = 0; i < YATSU_KUBI_HITS; i++) hits.merge(targets.get(rng.nextInt(targets.size())), damage, Integer::sum);
         for (Combatant c : targets) {
             if (hits.containsKey(c) && !state.isOver()) dealDamage(p.getHero(), c, hits.get(c));
         }

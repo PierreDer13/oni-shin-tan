@@ -83,6 +83,8 @@ public final class AdventureDecks {
 
     /** Yamata no Orochi's HP. */
     public static final int OROCHI_HEALTH = 200;
+    /** Yamata no Orochi's Ki: 2 on his first turn, up to 20. */
+    public static final int OROCHI_START_KI = 2, OROCHI_MAX_KI = 20;
 
     /**
      * Yamata no Orochi's 100 cards (1 to 10 Ki), from the 4 classes and the neutrals: no kami, no Amaterasu,
@@ -90,14 +92,14 @@ public final class AdventureDecks {
      * Curve: 1 Ki 8, 2 Ki 12, 3 Ki 14, 4 Ki 14, 5 Ki 13, 6 Ki 13, 7 Ki 15, 8 Ki 7, 9 Ki 2, 10 Ki 2.
      */
     public static final String OROCHI_DECK = """
-            genin 2, miko 2, saru 2, kodama 1, kiji 1,
-            komuso 2, noppera-bo 2, ashigaru 2, tanuki 2, tsuru 1, kyabetsu-noka 1, kemuri-dama 1, taisha-zukuri 1,
-            kappa 2, rokurokubi 2, hakahori 2, ueta-rikishi 2, kitsune-no-bakashiya 2, kitsune-no-tsukai 1, katana-kaji 1, yoroi 1, kamikakushi 1,
-            tengu 3, hatamoto 2, yamabushi 2, jushoku 2, taiko-uchi 1, ketto 2, harae 1, yoi 1,
-            ronin 3, jorogumo 3, onmyoji 2, tora 2, sakasama 1, tamashii-gui 1, kakuremino 1,
-            jonin 3, oiwa 3, jujutsu-shihan 3, kiseki 2, senbon-torii 2,
-            nue 3, daimyo 2, raijin 2, fujin 2, shike 2, fuma-kotaro 1, susanoo 1, kuchiyose 2,
-            shinigami 3, yokozuna 1, inari-okami 1, kagura 2,
+            genin 2, miko 2,
+            komuso 2, noppera-bo 2, kemuri-dama 1, taisha-zukuri 1,
+            kappa 3, rokurokubi 2, ueta-rikishi 2, kitsune-no-bakashiya 1, yoroi 1, kamikakushi 1,
+            tengu 3, hatamoto 2, yamabushi 2, jushoku 2, taiko-uchi 1, ketto 2, harae 1,
+            ronin 3, jorogumo 3, onmyoji 3, tora 3, sakasama 3, tamashii-gui 3, kakuremino 2,
+            jonin 3, oiwa 3, jujutsu-shihan 3, kiseki 3, senbon-torii 3,
+            nue 3, daimyo 3, raijin 3, fujin 3, shike 3, kuchiyose 3, fuma-kotaro 1, susanoo 1,
+            shinigami 3, kagura 3, yokozuna 1, inari-okami 1,
             shogun 1, ryu 1,
             tenno 1, enma 1""";
 
@@ -154,7 +156,9 @@ public final class AdventureDecks {
 
     /** Yamata no Orochi: class OROCHI, 200 HP, its 100-card deck. */
     public Player orochi() {
-        return new Player("Yamata no Orochi", new Hero(HeroClass.OROCHI, OROCHI_HEALTH), new Deck(orochiDeck()));
+        Player orochi = new Player("Yamata no Orochi", new Hero(HeroClass.OROCHI, OROCHI_HEALTH), new Deck(orochiDeck()));
+        orochi.setKiRules(OROCHI_START_KI, OROCHI_MAX_KI);
+        return orochi;
     }
 
     /** "id n, id n, ..." to the cards, each copy the same Card from the catalog. Unknown id: an exception naming it. */
