@@ -1517,6 +1517,36 @@ public void passTo(String name, Runnable onReady) {
             return b;
         }, 900, 330);
         place(v, 948 + (158 - HeroPowerView.SIZE) / 2, zoneY + (113 - HeroPowerView.SIZE) / 2);
+        if (p.getHero().getHeroClass() == HeroClass.KANNUSHI) {
+            mikoCounter(p, zoneY);
+        }
+    }
+
+    /** One slot of the Miko counter, and the gap between two. */
+    private static final double MIKO_SLOT_W = 20, MIKO_SLOT_GAP = 5;
+
+    /**
+     * The Kannushi's Miko counter under its hero power: one slot per Miko of the next +1/+1 (GameEngine.MIKO_BONUS_EVERY),
+     * filled for each Miko called since the last bonus; at the bonus they all empty again.
+     */
+    private void mikoCounter(Player p, double zoneY) {
+        int filled = p.getMikoCalls() % GameEngine.MIKO_BONUS_EVERY;
+        HBox row = new HBox(MIKO_SLOT_GAP);
+        for (int i = 0; i < GameEngine.MIKO_BONUS_EVERY; i++) {
+            String state = "empty";
+            if (i < filled) {
+                state = "full";
+            }
+            ImageView slot = image("/images/fx/miko-counter-" + state + ".png");
+            slot.setFitWidth(MIKO_SLOT_W);
+            slot.setPreserveRatio(true);
+            Circle ring = new Circle(MIKO_SLOT_W / 2, Color.TRANSPARENT);
+            ring.setStroke(Color.web("#1f1b17"));
+            ring.setStrokeWidth(2.5);   // a thick dark edge, so the small slots stay readable
+            row.getChildren().add(new StackPane(slot, ring));
+        }
+        double width = GameEngine.MIKO_BONUS_EVERY * (MIKO_SLOT_W + MIKO_SLOT_GAP) - MIKO_SLOT_GAP;
+        place(row, 948 + (158 - width) / 2, zoneY + (113 + HeroPowerView.SIZE) / 2 + 4);   // just under the hero power
     }
 
     /**
