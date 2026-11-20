@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
 import fr.onishintan.engine.GameEvent.Type;
 import fr.onishintan.model.*;
 
-/** The 17 plain class spells (GDD spell table, MockCards ids), their targets, and Ryū's +4. */
+/** The 17 plain class spells (GDD spell table, cards.json ids), their targets, and Ryū's +4. */
 class SpellTest {
 
     private Player me;        // Samurai, plays first

@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
 
 import fr.onishintan.model.*;
 
-/** The family effects of MockCards by id: the 6 Traps, the 6 Shrine auras, the 6 Curses, Gokitō's draw and Rite stacking. */
+/** The family effects of cards.json by id: the 6 Traps, the 6 Shrine auras, the 6 Curses, Gokitō's draw and Rite stacking. */
 class FamilyEffectTest {
 
     private Player me;        // Kannushi, plays first

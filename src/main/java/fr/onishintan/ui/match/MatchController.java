@@ -22,7 +22,7 @@ import fr.onishintan.model.RiteCard;
 import fr.onishintan.model.Shrine;
 import fr.onishintan.model.SpellCard;
 import fr.onishintan.model.TrapCard;
-import fr.onishintan.ui.MockCards;
+import fr.onishintan.data.CardRepository;
 import fr.onishintan.ui.app.HeroChoice;
 import javafx.animation.PauseTransition;
 import javafx.scene.paint.Color;
@@ -69,9 +69,9 @@ public class MatchController implements CardPlayer {
     private static final int AI_MAX_MOVES = 40;
     private int aiMoves;
 
-    /** A hotseat match with test decks from MockCards (the Adventure uses this); at the end, onEnd gets whether the first player won. */
+    /** A hotseat match with test decks from CardRepository (the Adventure uses this); at the end, onEnd gets whether the first player won. */
     public MatchController(String boardName, HeroClass yours, HeroClass theirs, Consumer<Boolean> onEnd) {
-        this(boardName, MockCards.player("Kayne", yours, 0), MockCards.player(theirs.name(), theirs, 0), onEnd);
+        this(boardName, CardRepository.player("Kayne", yours, 0), CardRepository.player(theirs.name(), theirs, 0), onEnd);
     }
 
     /** A hotseat match between these two players (PvP: the decks they chose); at the end, onEnd gets whether the first player won. */
@@ -93,7 +93,7 @@ public class MatchController implements CardPlayer {
 
         // 2. The engine: shuffle and deal the opening hands, then the first player's turn 1 (Ki and a draw).
         engine = new GameEngine(first, second, new Random());
-        engine.setCatalog(MockCards.ALL);   // the cards that effects create or summon (Sendaiku, Sakana uri, Inari, Oiwa)
+        engine.setCatalog(CardRepository.all());   // the cards that effects create or summon (Sendaiku, Sakana uri, Inari, Oiwa)
         recorder = new EffectRecorder(engine);
         engine.getBus().subscribe(GameEvent.Type.CARD_DRAWN, event -> cardsDrawnThisTurn++);
         engine.startMatch();   // the opening hands; turn 1 begins once both mulligans are done (startTurns)

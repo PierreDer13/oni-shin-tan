@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 
 import fr.onishintan.model.*;
 
-/** The minion effects of MockCards by id: Banzai and their targets, Seppuku, passives, auras, Rokurokubi, Yogake. */
+/** The minion effects of cards.json by id: Banzai and their targets, Seppuku, passives, auras, Rokurokubi, Yogake. */
 class MinionEffectTest {
 
     private Player me;        // Samurai, plays first

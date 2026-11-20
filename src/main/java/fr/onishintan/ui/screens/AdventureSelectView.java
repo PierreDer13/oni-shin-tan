@@ -7,7 +7,7 @@ import fr.onishintan.ui.app.SceneRouter;
 import fr.onishintan.ui.app.Screen;
 import fr.onishintan.ui.app.ScrollTheme;
 import fr.onishintan.ui.app.Images;
-import fr.onishintan.ui.MockCards;
+import fr.onishintan.data.CardRepository;
 import fr.onishintan.ai.AIController;
 import fr.onishintan.data.AdventureDecks;
 import fr.onishintan.adventure.Upgrade;
@@ -59,7 +59,7 @@ public class AdventureSelectView extends Pane {
     private static final String[] ADVENTURES = { "machi", "taifu", "fuji" };
     private static final double[] LEFT = { 8, 428, 822 }, RIGHT = { 418, 812, 1172 };   // each panel's edges in the image
     /** The decks of the run and its opponents, battle by battle (Pierre's data/AdventureDecks: boards and opponents too). */
-    private static final AdventureDecks DECKS = new AdventureDecks(MockCards.ALL);
+    private static final AdventureDecks DECKS = new AdventureDecks(CardRepository.all());
     /** Each battle's music, in the same order as AdventureDecks.board(i): the town, the sea (the ship), Mount Fuji. */
     private static final String[] BOARD_MUSIC = { "town-map-music", "sea-map-music", "fuji-map-music" };
     /** The music of the story pages. */

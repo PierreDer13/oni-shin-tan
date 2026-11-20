@@ -20,7 +20,7 @@ import fr.onishintan.model.Rarity;
 import fr.onishintan.model.Shrine;
 
 /**
- * The effects of the card families of MockCards, by card id: the 6 Ninja Traps, the 6 Kannushi
+ * The effects of the card families of cards.json, by card id: the 6 Ninja Traps, the 6 Kannushi
  * Shrine auras (doubled by Divinity 9), the 6 Oni Curses and the Banzai that the Rite of Gokitō
  * leaves on later Ancestors (the Rite stacking itself is in GameEngine.performRite).
  */
