@@ -11,6 +11,7 @@ import fr.onishintan.ui.OniShinTanApp;
 import fr.onishintan.ui.app.Images;
 import fr.onishintan.ui.app.SceneRouter;
 import fr.onishintan.ui.app.Screen;
+import fr.onishintan.ui.decks.DeckPickView;
 import fr.onishintan.ui.decks.DeckStore;
 import fr.onishintan.ui.decks.SavedDeck;
 import fr.onishintan.ui.fx.Fx;
@@ -127,14 +128,12 @@ public class OrochiView extends Pane {
 
     /** The decks the player can fight him with: every legal saved deck, one click each. */
     private void chooseDeck() {
-        FlowPane decks = new FlowPane(30, 20);
+        FlowPane decks = new FlowPane(40, 40);   // the deck holders, as in PvP
         decks.setAlignment(Pos.CENTER);
-        decks.setPrefWrapLength(W - 300);
+        decks.setPrefWrapLength(W - 200);
         for (SavedDeck deck : DeckStore.all()) {
             if (deck.isLegal()) {
-                Label choice = text(deck.getName() + "  ·  " + deck.getHeroClass().getDisplayName(), 24);
-                HomeView.clickable(choice, false, () -> beforeFight(deck));
-                decks.getChildren().add(choice);
+                decks.getChildren().add(DeckPickView.choice(deck, () -> beforeFight(deck)));
             }
         }
         Label cancel = text("戻る  Back", 22);

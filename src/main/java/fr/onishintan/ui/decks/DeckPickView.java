@@ -58,7 +58,7 @@ public class DeckPickView extends Pane {
         choices.setPrefWidth(W - 200);
         choices.relocate(100, 170);
         for (SavedDeck deck : decksToOffer()) {
-            choices.getChildren().add(choice(deck));
+            choices.getChildren().add(choice(deck, () -> choose(deck)));
         }
         grid.getChildren().add(choices);
     }
@@ -105,8 +105,8 @@ public class DeckPickView extends Pane {
         return decks;
     }
 
-    /** One deck to choose: its holder seen from the front, its name, then its class and size. Clicking it chooses it. */
-    private VBox choice(SavedDeck deck) {
+    /** One deck to choose: its holder seen from the front, its name, then its class and size. Clicking it runs onPick (PvP, Orochi). */
+    public static VBox choice(SavedDeck deck, Runnable onPick) {
         ImageView holder = DeckHolderView.front(deck.getHeroClass(), HOLDER_W);
         Label name = DecksView.text(deck.getName(), 20, DecksView.PAPER);
         String size = deck.getHeroClass().getDisplayName() + " · " + deck.getCards().size() + " cards";
@@ -115,7 +115,7 @@ public class DeckPickView extends Pane {
         VBox choice = new VBox(6, holder, name, details);
         choice.setAlignment(Pos.TOP_CENTER);
         choice.setPrefWidth(HOLDER_W + 20);
-        HomeView.clickable(choice, false, () -> choose(deck));
+        HomeView.clickable(choice, false, onPick);
         return choice;
     }
 
