@@ -10,6 +10,7 @@ import fr.onishintan.ui.app.Profile;
 import fr.onishintan.ui.app.Screen;
 import fr.onishintan.ui.match.BoardView;
 import fr.onishintan.ui.match.MatchController;
+import fr.onishintan.ui.screens.OrochiView;
 import fr.onishintan.ui.screens.ClassSelectView;
 import fr.onishintan.ui.screens.HomeView;
 import fr.onishintan.ui.screens.InventoryView;
@@ -30,6 +31,7 @@ public class OniShinTanApp extends Application {
         // Music per screen; Home, the Deck Builder and the Inventory keep the main theme ("music").
         router.setMusic(Screen.CLASS_SELECT, "adventure-music");
         router.setMusic(Screen.ADVENTURE_SELECT, "adventure-music");
+        router.setMusic(Screen.OROCHI, OrochiView.STORM);   // the storm, on repeat, on his page and in his fight
         router.setMusic(Screen.MATCH, "battle-music");
         router.register(Screen.HOME, () -> new HomeView(router));
         router.register(Screen.CLASS_SELECT, () -> new ClassSelectView(router));

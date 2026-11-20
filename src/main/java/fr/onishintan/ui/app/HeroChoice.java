@@ -12,7 +12,8 @@ public final class HeroChoice {
             HeroClass.SAMURAI, "yasuke",
             HeroClass.NINJA, "hattori-hanzo",
             HeroClass.KANNUSHI, "kada-no-azumamaro",
-            HeroClass.ONI, "shuten-doji"));
+            HeroClass.ONI, "shuten-doji",
+            HeroClass.OROCHI, "yamata-no-orochi-the-8-headed-dragon"));
     private static final SaveManager SAVES = new SaveManager();
 
     static {

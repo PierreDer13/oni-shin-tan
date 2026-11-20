@@ -25,7 +25,8 @@ public class HeroPowerView extends StackPane {
             HeroClass.NINJA, new String[] { "Shuriken", "手裏剣", "Deal 6 damage to any character" },
             HeroClass.SAMURAI, new String[] { "Katana", "刀", "Equip a weapon: more Ki, stronger blade" },
             HeroClass.KANNUSHI, new String[] { "Miko", "巫女", "Summon a 3/3 Miko" },
-            HeroClass.ONI, new String[] { "Jikininki", "食人鬼", "Drain 4 HP to heal your hero" });
+            HeroClass.ONI, new String[] { "Jikininki", "食人鬼", "Drain 4 HP to heal your hero" },
+            HeroClass.OROCHI, new String[] { "Yatsu-kubi", "八つ首", "8 bites of 1 damage at random" });
 
     public HeroPowerView(HeroClass hero, boolean used, boolean usable, IntConsumer previewCost, Runnable onUse) {
         double k = SIZE / 160;
