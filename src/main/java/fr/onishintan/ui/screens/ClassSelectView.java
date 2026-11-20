@@ -1,4 +1,5 @@
 package fr.onishintan.ui.screens;
+import fr.onishintan.ui.app.Images;
 import fr.onishintan.ui.fx.Fx;
 import fr.onishintan.ui.app.SceneRouter;
 import fr.onishintan.ui.app.Screen;
@@ -54,7 +55,7 @@ public class ClassSelectView extends Pane {
         };
         widthProperty().addListener(fit);
         heightProperty().addListener(fit);
-        ImageView bg = new ImageView(new Image(getClass().getResourceAsStream("/images/class-select.png")));
+        ImageView bg = new ImageView(Images.get("/images/class-select.png"));
         bg.setFitWidth(W);
         Label title = new Label("流派を選べ   CHOOSE YOUR CLASS");
         title.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 40; -fx-font-weight: bold; -fx-text-fill: #1f1b17; -fx-alignment: center;");
@@ -104,7 +105,7 @@ public class ClassSelectView extends Pane {
         grid.getChildren().add(hardcore);
         for (int i = 0; i < CLASSES.length; i++) {
             HeroClass c = CLASSES[i];
-            Group banner = Fx.waving(new Image(getClass().getResourceAsStream("/images/banners/class-" + c.name().toLowerCase() + ".png")), 250, 60);
+            Group banner = Fx.waving(Images.get("/images/banners/class-" + c.name().toLowerCase() + ".png"), 250, 60);
             banner.relocate((212 + i * 416) * 1600 / 1672 - 125, 110);
             HomeView.clickable(banner, true, () -> AdventureSelectView.open(router, c, mode, 0, List.of(), 0));
             banner.addEventHandler(MouseEvent.MOUSE_ENTERED, e -> about.setText(ABOUT.get(c)));

@@ -56,7 +56,7 @@ final class StoryPanel extends StackPane {
         heading.setTextFill(Color.web("#c41e1e"));
         pictures = new Image[pictureNames.size()];
         for (int i = 0; i < pictures.length; i++) {
-            pictures[i] = Images.get("/images/story/" + pictureNames.get(i) + ".png");   // null while not painted yet
+            pictures[i] = Images.get("/images/story/" + pictureNames.get(i) + ".png", 1140, 760);   // twice the size shown, decoded once; null while not painted yet
         }
         art.setFitHeight(ART_H);
         art.setPreserveRatio(true);

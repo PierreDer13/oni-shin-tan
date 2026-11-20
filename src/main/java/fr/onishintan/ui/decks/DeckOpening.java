@@ -1,5 +1,6 @@
 package fr.onishintan.ui.decks;
 
+import fr.onishintan.ui.app.Images;
 import fr.onishintan.model.HeroClass;
 import fr.onishintan.ui.app.ScreenGrid;
 
@@ -193,7 +194,7 @@ final class DeckOpening {
 
     /** The deck-stack picture (a pile of card backs), STACK_W wide. */
     private static ImageView stackImage() {
-        Image image = new Image(DeckOpening.class.getResourceAsStream("/images/deck-builder/deck-stack.png"));
+        Image image = Images.get("/images/deck-builder/deck-stack.png");
         ImageView stack = new ImageView(image);
         stack.setFitWidth(STACK_W);
         stack.setPreserveRatio(true);

@@ -1,5 +1,6 @@
 package fr.onishintan.ui.match;
 
+import fr.onishintan.ui.app.Images;
 import fr.onishintan.model.Player;
 
 import java.util.ArrayList;
@@ -28,7 +29,7 @@ import javafx.util.Duration;
  *  A flame spent since the last redraw shrinks into its base, fades and lets out a little smoke. */
 public class KiBarView extends Pane {
     public static final double X = 84, BOTTOM = 701, SIZE = 40, STEP = 38;
-    private static final Image FLAME = new Image(KiBarView.class.getResourceAsStream("/images/hud/ki-flame.png"));
+    private static final Image FLAME = Images.get("/images/hud/ki-flame.png");
     private static final double FH = SIZE * FLAME.getHeight() / FLAME.getWidth();   // a flame's height on screen
 
     private final List<ImageView> lit = new ArrayList<>();

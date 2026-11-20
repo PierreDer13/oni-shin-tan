@@ -94,7 +94,7 @@ public class HomeView extends Pane {
 
     /** Puts /images/home/<name>.png on the grid at (x, y), w wide (height follows the image), and returns it. */
     private ImageView add(String name, double x, double y, double w) {
-        ImageView v = new ImageView(new Image(getClass().getResourceAsStream("/images/home/" + name + ".png")));
+        ImageView v = new ImageView(Images.get("/images/home/" + name + ".png"));
         v.setFitWidth(w);
         v.setPreserveRatio(true);
         v.relocate(x, y);
@@ -108,7 +108,7 @@ public class HomeView extends Pane {
     }
 
     private void banner(String heroClass, double x, double y, double w) {
-        Group g = Fx.waving(new Image(getClass().getResourceAsStream("/images/home/banner-" + heroClass + ".png")), w, 45);
+        Group g = Fx.waving(Images.get("/images/home/banner-" + heroClass + ".png"), w, 45);
         g.relocate(x, y);
         grid.getChildren().add(g);
         clickable(g, true, () -> grid.getChildren().add(new HeroPicker(HeroClass.valueOf(heroClass.toUpperCase()))));   // pick this class's hero

@@ -1,4 +1,5 @@
 package fr.onishintan.ui.match;
+import fr.onishintan.ui.app.Images;
 import fr.onishintan.ui.screens.HomeView;
 
 import fr.onishintan.model.HeroClass;
@@ -28,7 +29,7 @@ import javafx.util.Duration;
 
 /** Oaths on scrolls (GDD, Oaths): the choice at the start of a match, the stamped scroll to reread, the small one by the hero. */
 public final class OathView extends StackPane {
-    private static final Image SCROLL = new Image(OathView.class.getResourceAsStream("/images/hud/oath-scroll.png"));
+    private static final Image SCROLL = Images.get("/images/hud/oath-scroll.png");
     private static final String INK = "#1f1b17", RED = "#c41e1e", BRUSH = "Kaushan Script", JP = "Yuji Syuku";
     static {   // the brush fonts of the scrolls (OFL, Google Fonts)
         Font.loadFont(OathView.class.getResourceAsStream("/fonts/KaushanScript-Regular.ttf"), 12);
@@ -175,7 +176,7 @@ public final class OathView extends StackPane {
 
     /** A HUD image from /images/hud/, w wide. */
     private static ImageView image(String name, double w) {
-        ImageView v = new ImageView(new Image(OathView.class.getResourceAsStream("/images/hud/" + name + ".png")));
+        ImageView v = new ImageView(Images.get("/images/hud/" + name + ".png"));
         v.setFitWidth(w);
         v.setPreserveRatio(true);
         return v;

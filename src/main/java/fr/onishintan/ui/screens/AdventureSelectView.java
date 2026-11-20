@@ -114,7 +114,7 @@ public class AdventureSelectView extends Pane {
         };
         widthProperty().addListener(fit);
         heightProperty().addListener(fit);
-        ImageView page = new ImageView(new Image(getClass().getResourceAsStream("/images/adventure-page.png")));
+        ImageView page = new ImageView(Images.get("/images/adventure-page.png"));
         page.setFitWidth(W);
         page.setPreserveRatio(true);
         Label title = text("札  " + heroClass.name() + " DECK", 30);
@@ -220,7 +220,7 @@ public class AdventureSelectView extends Pane {
     /** Battle i: its banner over its panel. Won = red 完了 stamp, next = click to fight, later = shaded. */
     private void panel(SceneRouter router, int i) {
         double x0 = LEFT[i] * K, x1 = RIGHT[i] * K;
-        Group banner = Fx.waving(new Image(getClass().getResourceAsStream("/images/banners/adventure-" + ADVENTURES[i] + ".png")), 250, 60);
+        Group banner = Fx.waving(Images.get("/images/banners/adventure-" + ADVENTURES[i] + ".png"), 250, 60);
         banner.relocate((x0 + x1) / 2 - 125, 70);
         if (i > won) banner.setEffect(new ColorAdjust(0, -0.6, -0.5, 0));
         if (i == won) HomeView.clickable(banner, true, () -> {
