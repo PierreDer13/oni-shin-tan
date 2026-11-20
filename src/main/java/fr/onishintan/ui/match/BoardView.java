@@ -138,6 +138,8 @@ public class BoardView extends Pane {
     }
     
     private Player kiOwner;   // who the Ki bar showed at the last redraw, and how much Ki they had
+    /** Where the opponent's Ki shows: just right of its hero power. */
+    private static final double ENEMY_KI_X = 1116, ENEMY_KI_Y = 150;
     /** How many Oath stacks each player's counter showed last time, so a new one pops in once. */
     private final Map<Player, Integer> stacksShown = new HashMap<>();
     private int kiBefore;
@@ -250,6 +252,10 @@ public class BoardView extends Pane {
         hero(you.getHero(), yourPortrait, 637, true);
         power(enemy, 112, false);
         power(you, 639, true);
+        Label enemyKi = new Label("気 " + enemy.getKi() + " / " + enemy.getMaxKi());   // the opponent's Ki, next to its hero power
+        enemyKi.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 22; -fx-font-weight: bold; -fx-text-fill: #f3ede1;");
+        enemyKi.setEffect(new DropShadow(6, Color.BLACK));
+        place(enemyKi, ENEMY_KI_X, ENEMY_KI_Y);
         row(enemy, ENEMY_Y);
         row(you, YOUR_Y);
         place(ki = new KiBarView(you, you == kiOwner ? kiBefore : you.getKi()), 0, 0);
@@ -315,20 +321,47 @@ public class BoardView extends Pane {
 
     /** The card just played, big on the right of the table: its width and top-left corner. */
     private static final double PLAYED_W = 220, BIG_X = 1350, BIG_Y = 20;
+    /** Where the AI's card shows big: on the left of the table. */
+    private static final double ENEMY_BIG_X = 30, ENEMY_BIG_Y = 296;   // left, centred: (900 - the card's 308 px) / 2
+    /** How long each AI card shows on the left, and when the spot is free for the next one (System.currentTimeMillis). */
+    private static final long ENEMY_CARD_MS = 1000;
+    private long enemyCardFree;
 
-    /** The card just played, big on the right of the table, to read while its effects play (the redraw takes it away). */
-    private Node bigCard(Card card) {
+    /** The card just played, big at `x` on the table (right for yours, left for the AI's), to read while its effects play (the redraw takes it away). */
+    private Node bigCard(Card card, double x) {
         CardView big = new CardView(card, PLAYED_W);
-        big.relocate(BIG_X, BIG_Y);
+        big.relocate(x, BIG_Y);
         big.setMouseTransparent(true);
         return big;
     }
 
-    /** Adventure: the AI's card shows big on the right before its effects; its Traps stay hidden. */
+    /**
+     * Adventure, right after the AI has played: its card shows big on the left, and a minion appears in its slot at once,
+     * so its Banzai, smoke and damage play on it (like yours in showPlayed). Its Traps stay hidden.
+     */
     public void showAiPlayed(Card card) {
         heavyLanding(card);
-        if (!(card instanceof TrapCard)) {
-            live.getChildren().add(bigCard(card));
+        if (card instanceof TrapCard) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        long start = Math.max(now, enemyCardFree);   // after the AI's previous card, if it is still showing
+        enemyCardFree = start + ENEMY_CARD_MS;
+        Node big = bigCard(card, ENEMY_BIG_X);
+        big.setLayoutY(ENEMY_BIG_Y);
+        big.setVisible(false);
+        table.getChildren().add(big);   // on the table: a redraw does not cut the queue short
+        new Timeline(
+                new KeyFrame(Duration.millis(start - now), e -> big.setVisible(true)),
+                new KeyFrame(Duration.millis(start - now + ENEMY_CARD_MS), e -> table.getChildren().remove(big))).play();
+        for (int slot = 0; slot < BoardSide.MAX; slot++) {
+            Minion m = enemy.getSide().getAt(slot);
+            if (m != null && m.getSource() == card && !nodes.containsKey(m)) {
+                Node played = new MinionView(m, MINION_W);
+                played.relocate(SLOT_X + 2 + slot * SLOT_STEP, ENEMY_Y);
+                nodes.put(m, played);   // its effects show on it, and it is not redrawn as a newcomer
+                live.getChildren().add(played);
+            }
         }
     }
 
@@ -351,7 +384,7 @@ public class BoardView extends Pane {
             played = new CardView(card, MINION_W);   // already gone (a trap killed it): its card shows in the slot
             played.relocate(SLOT_X + 2 + slot * SLOT_STEP, YOUR_Y);
         } else {
-            played = bigCard(card);   // a spell shows big on the right
+            played = bigCard(card, BIG_X);   // a spell shows big on the right
         }
         played.setMouseTransparent(true);
         // Placed: it comes down onto the table, from big to its size.
@@ -364,7 +397,7 @@ public class BoardView extends Pane {
         land.play();
         live.getChildren().add(played);
         if (card instanceof MinionCard || card instanceof ShrineCard) {
-            live.getChildren().add(bigCard(card));   // and big on the right, to read while its effects play
+            live.getChildren().add(bigCard(card, BIG_X));   // and big on the right, to read while its effects play
         }
         if (card instanceof MinionCard) {
             Minion minion = you.getSide().getAt(slot);

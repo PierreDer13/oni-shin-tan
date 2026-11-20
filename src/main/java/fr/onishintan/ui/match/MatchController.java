@@ -501,11 +501,11 @@ public class MatchController implements CardPlayer {
             board.aiAttack(move.get().attacker(), move.get().target(), this::nextAiStep);
             return;
         }
-        if (move.get().kind() == Move.Kind.PLAY) {
-            board.showAiPlayed(move.get().card());   // its card, big on the right
-        }
         recorder.start();
         ai.play(move.get());
+        if (move.get().kind() == Move.Kind.PLAY) {
+            board.showAiPlayed(move.get().card());   // its card big on the left and its minion in its slot, before the effects
+        }
         List<GameEvent> events = recorder.stop();
         board.replay(events, EFFECT_SHOW, EFFECT_SHOW, this::nextAiStep);   // the card stays readable, then its effects one by one
     }
