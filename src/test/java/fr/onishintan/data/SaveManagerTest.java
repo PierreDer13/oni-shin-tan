@@ -13,7 +13,10 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import fr.onishintan.adventure.AdventureMode;
 import fr.onishintan.data.SaveManager.DeckData;
+import fr.onishintan.data.SaveManager.SavedRun;
+import fr.onishintan.data.SaveManager.Window;
 import fr.onishintan.data.SaveManager.Stats;
 import fr.onishintan.data.SaveManager.Volumes;
 import fr.onishintan.model.HeroClass;
@@ -133,5 +136,107 @@ class SaveManagerTest {
         assertEquals(0, stats.rei());
         assertEquals(0, stats.winsOf(HeroClass.NINJA));
         assertEquals(2, stats.lossesOf(HeroClass.ONI));
+    }
+
+    // ---------- run in progress ----------
+
+    @Test
+    void noRunSavedMeansEmpty() {
+        assertTrue(new SaveManager(dir).loadRun().isEmpty());
+    }
+
+    @Test
+    void runRoundTripsAndClears() {
+        SaveManager save = new SaveManager(dir);
+        SavedRun run = new SavedRun(HeroClass.ONI, AdventureMode.HARDCORE, 2, List.of("inochi", "kiai"), 7);
+        assertTrue(save.saveRun(run));
+        assertEquals(run, new SaveManager(dir).loadRun().orElseThrow());
+
+        assertTrue(save.clearRun());
+        assertTrue(save.loadRun().isEmpty());
+        assertTrue(save.clearRun());                     // nothing to clear is fine
+    }
+
+    @Test
+    void runWithoutBonusesRoundTrips() {
+        SaveManager save = new SaveManager(dir);
+        SavedRun run = new SavedRun(HeroClass.NINJA, AdventureMode.NORMAL, 0, List.of(), 0);
+        save.saveRun(run);
+        assertEquals(run, save.loadRun().orElseThrow());
+    }
+
+    @Test
+    void brokenRunFileGivesNoRun() throws IOException {
+        Files.writeString(dir.resolve(SaveManager.RUN_FILE), "class=DRAGON\nmode=NORMAL\nwon=1\n");
+        assertTrue(new SaveManager(dir).loadRun().isEmpty());
+        Files.writeString(dir.resolve(SaveManager.RUN_FILE), "class=ONI\nmode=EASY\n");
+        assertTrue(new SaveManager(dir).loadRun().isEmpty());
+    }
+
+    @Test
+    void brokenRunNumbersCountZero() throws IOException {
+        Files.writeString(dir.resolve(SaveManager.RUN_FILE), "class=SAMURAI\nmode=NORMAL\nwon=abc\nwounds=-5\n");
+        SavedRun run = new SaveManager(dir).loadRun().orElseThrow();
+        assertEquals(0, run.won());
+        assertEquals(0, run.wounds());
+        assertEquals(List.of(), run.picked());
+    }
+
+    // ---------- Adventures finished, Orochi ----------
+
+    @Test
+    void orochiNeedsTheEightAdventures() {
+        SaveManager save = new SaveManager(dir);
+        assertFalse(save.orochiUnlocked());
+        for (HeroClass c : SaveManager.ADVENTURE_CLASSES) {
+            for (AdventureMode m : AdventureMode.values()) {
+                assertFalse(save.orochiUnlocked(), "unlocked too early, before " + c + " " + m);
+                assertFalse(save.isCompleted(c, m));
+                assertTrue(save.markCompleted(c, m));
+                assertTrue(save.isCompleted(c, m));
+            }
+        }
+        assertTrue(new SaveManager(dir).orochiUnlocked());
+    }
+
+    @Test
+    void markingTwiceStaysCompleted() {
+        SaveManager save = new SaveManager(dir);
+        save.markCompleted(HeroClass.KANNUSHI, AdventureMode.NORMAL);
+        save.markCompleted(HeroClass.KANNUSHI, AdventureMode.NORMAL);
+        assertTrue(save.isCompleted(HeroClass.KANNUSHI, AdventureMode.NORMAL));
+        assertFalse(save.isCompleted(HeroClass.KANNUSHI, AdventureMode.HARDCORE));
+        assertFalse(save.markCompleted(null, AdventureMode.NORMAL));
+    }
+
+    @Test
+    void orochiKillsCount() {
+        SaveManager save = new SaveManager(dir);
+        assertEquals(0, save.loadOrochiKills());
+        save.addOrochiKill();
+        save.addOrochiKill();
+        assertEquals(2, new SaveManager(dir).loadOrochiKills());
+    }
+
+    // ---------- window ----------
+
+    @Test
+    void windowDefaultsThenRoundTripsWithoutTouchingVolumes() {
+        SaveManager save = new SaveManager(dir);
+        assertEquals(Window.defaults(), save.loadWindow());
+
+        save.saveVolumes(new Volumes(0.5, 0.25));
+        assertTrue(save.saveWindow(new Window(1600, 900, true)));
+        assertEquals(new Window(1600, 900, true), new SaveManager(dir).loadWindow());
+        assertEquals(new Volumes(0.5, 0.25), save.loadVolumes());
+    }
+
+    @Test
+    void brokenOrTinyWindowIsFixed() throws IOException {
+        Files.writeString(dir.resolve(SaveManager.SETTINGS_FILE), "window.width=abc\nwindow.height=10\nwindow.fullscreen=yes\n");
+        Window w = new SaveManager(dir).loadWindow();
+        assertEquals(SaveManager.DEFAULT_WIDTH, w.width());
+        assertEquals(SaveManager.MIN_HEIGHT, w.height());
+        assertFalse(w.fullscreen());
     }
 }
