@@ -27,12 +27,16 @@ public class ClassSelectView extends Pane {
     private static final HeroClass[] CLASSES = { HeroClass.SAMURAI, HeroClass.NINJA, HeroClass.KANNUSHI, HeroClass.ONI };
     /** The run the banners start: normal, or Shura no Michi when the switch is on. */
     private AdventureMode mode = AdventureMode.NORMAL;
-    /** Hover text for each class (GDD, Hero classes): its pace, then its passive and hero power. */
+    /** Hover text for each class's Adventure: its story, its three foes in order, and the kami it wins (StoryLines, AdventureDecks). */
     private static final Map<HeroClass, String> ABOUT = Map.of(
-            HeroClass.SAMURAI, "侍 Samurai: minion-heavy tempo and board control. Starts with armour; Katana equips a blade.",
-            HeroClass.NINJA, "忍者 Ninja: swift play, minions and spells balanced. Survives one lethal hit; Shuriken deals 6.",
-            HeroClass.KANNUSHI, "神主 Kannushi: spells, small minions and buffs. Heals every turn; summons a 3/3 Miko.",
-            HeroClass.ONI, "鬼 Oni: slow, large minions. Curses the enemy deck with Korori; Jikininki drains 4 HP.");
+            HeroClass.SAMURAI, "侍 Samurai: a masterless rōnin hunts the traitor who burned his lord's castle. "
+                    + "Face the Kannushi, the Oni, then the Ninja on Mount Fuji. Reward: Takemikazuchi, god of thunder.",
+            HeroClass.NINJA, "忍者 Ninja: steal back the Scroll of the Hidden Moon before the new moon rises. "
+                    + "Face the Oni, the Kannushi, then the shōgun's Samurai. Reward: Tsukuyomi, god of the moon.",
+            HeroClass.KANNUSHI, "神主 Kannushi: the shrine bell has cracked and the kami have fallen silent. "
+                    + "Face the Samurai, the Ninja, then the Oni on Mount Fuji. Reward: Ōkuninushi, kami of the land.",
+            HeroClass.ONI, "鬼 Oni: break the paper charms that have bound your kin for three hundred years. "
+                    + "Face the Ninja, the Samurai, then the Kannushi on Mount Fuji. Reward: Izanami, queen of the underworld.");
 
     public ClassSelectView(SceneRouter router) {
         Pane grid = new Pane();
