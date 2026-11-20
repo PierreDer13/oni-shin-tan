@@ -58,7 +58,7 @@ public final class MockCards {
             onnagata|Onnagata|女形|NINJA|3|2|6|C|Shinobi. Banzai: set its ATK to an enemy minion's ATK
             yumihiki|Yumihiki|弓引き|NEUTRAL|2|4|3|C|Banzai: deal 4 damage
             jujutsu-shihan|Jujutsu shihan|師範|SAMURAI|6|6|7|C|Seppuku: give your hero Honjō Masamune
-            fuma-kotaro|Fūma Kotarō|風魔小太郎|NINJA|7|9|6|L|Shinobi. Yogake: when revealed by attacking, all enemy minions attack another random enemy minion.
+            fuma-kotaro|Fūma Kotarō|風魔小太郎|NINJA|7|9|6|L|Shinobi. Yogake: when revealed, enemy minions attack each other at random.
             shogun|Shōgun|将軍|SAMURAI|9|12|12|L|Banzai: all friendly minions +4/+4
             tenno|Tennō|天皇|NEUTRAL|10|15|16|L|Passive: your other minions cost 1 less Ki
             kappa|Kappa|河童|ONI|3|5|7|C|Banzai: deal 4 damage to the enemy hero
