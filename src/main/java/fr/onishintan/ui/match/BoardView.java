@@ -1505,13 +1505,22 @@ public void passTo(String name, Runnable onReady) {
         t.play();
     }
 
+    /** The hero power's text when its strength changes: Yatsu-kubi's current damage per bite; null for the others. */
+    private static String powerEffect(Player p) {
+        if (p.getHero().getHeroClass() != HeroClass.OROCHI) {
+            return null;
+        }
+        return "8 bites of " + GameEngine.yatsuKubiDamage(p) + " damage at random";   // angrier as he is wounded
+    }
+
     /** A hero power in its mock-up zone; yours can be pressed once per turn (pays the Ki), the opponent's is only shown. */
     private void power(Player p, double zoneY, boolean mine) {
         boolean usable = mine && !powerUsed() && you.canAfford(cheapestPower());
-        HeroPowerView v = new HeroPowerView(p.getHero().getHeroClass(), mine && powerUsed(), usable, this::previewCost,
+        String effect = powerEffect(p);
+        HeroPowerView v = new HeroPowerView(p.getHero().getHeroClass(), effect, mine && powerUsed(), usable, this::previewCost,
                 this::pressPower);
         bigOnHover(v, () -> {
-            Node b = new HeroPowerView(p.getHero().getHeroClass(), mine && powerUsed(), false, c -> {}, () -> {});
+            Node b = new HeroPowerView(p.getHero().getHeroClass(), effect, mine && powerUsed(), false, c -> {}, () -> {});
             b.setScaleX(2.5);
             b.setScaleY(2.5);
             return b;

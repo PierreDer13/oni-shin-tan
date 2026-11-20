@@ -27,6 +27,7 @@ public class Player {
     private final BoardSide side = new BoardSide();
     private int ki;
     private int maxKi;
+    private int kiCap = KI_CAP;   // the most Ki this player can reach (Yamata no Orochi: more)
     private Oath oath;          // null in Adventure, or before the Oath is sworn
     private int mikoCalls;      // Kannushi hero power uses this match: every 3rd one, all Miko +1/+1    
     private final List<TrapCard> traps = new ArrayList<>();   // face down, no limit (GDD)
@@ -86,8 +87,14 @@ public class Player {
 
     /** Start of turn: max Ki +1 (cap 12), then Ki refilled. */
     public void refillKi() {
-        maxKi = Math.min(KI_CAP, maxKi + 1);
+        maxKi = Math.min(kiCap, maxKi + 1);
         ki = maxKi;
+    }
+
+    /** A boss's own Ki: `start` on his first turn instead of 1, and up to `cap` instead of KI_CAP. */
+    public void setKiRules(int start, int cap) {
+        maxKi = start - 1;   // the first refillKi() brings it to `start`
+        kiCap = cap;
     }
 
     public boolean canAfford(int cost) {
