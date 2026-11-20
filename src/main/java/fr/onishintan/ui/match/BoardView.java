@@ -1713,10 +1713,10 @@ public void passTo(String name, Runnable onReady) {
         n.addEventHandler(MouseEvent.MOUSE_PRESSED, hide);
     }
 
-    /** A board card's big copy: on the left for the three right-hand slots, on the right otherwise. */
+    /** A board card's big copy, as printed on its card (its original stats): on the left for the three right-hand slots, on the right otherwise. */
     private void readable(MinionView v, Minion m, double x, double y, boolean left) {
         double w = 280, h = w * CardView.H / CardView.W;
-        bigOnHover(v, () -> new MinionView(m, w), left ? x - 20 - w : x + MINION_W + 20, Math.max(10, Math.min(H - h - 10, y + 80 - h / 2)));
+        bigOnHover(v, () -> new CardView(m.getSource(), w), left ? x - 20 - w : x + MINION_W + 20, Math.max(10, Math.min(H - h - 10, y + 80 - h / 2)));   // the card as printed, not its current state
     }
 
     /** A slow float for a character that can attack: rises 6 px and back, about every 3 seconds; stops when removed. */
