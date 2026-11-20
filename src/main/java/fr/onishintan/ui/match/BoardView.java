@@ -143,8 +143,8 @@ public class BoardView extends Pane {
     /** How many Oath stacks each player's counter showed last time, so a new one pops in once. */
     private final Map<Player, Integer> stacksShown = new HashMap<>();
     private int kiBefore;
-    private static final Image SWITCH_ON = new Image(BoardView.class.getResourceAsStream("/images/hud/end-turn.png")),
-            SWITCH_OFF = new Image(BoardView.class.getResourceAsStream("/images/hud/end-turn-off.png"));
+    private static final Image SWITCH_ON = Images.get("/images/hud/end-turn.png"),
+            SWITCH_OFF = Images.get("/images/hud/end-turn-off.png");
     private final ImageView endTurn = new ImageView(SWITCH_ON);
     private Runnable onEndTurn = () -> {};
     private Runnable onReswear = () -> {};

@@ -1,5 +1,6 @@
 package fr.onishintan.ui.decks;
 
+import fr.onishintan.ui.app.Images;
 import fr.onishintan.model.HeroClass;
 import fr.onishintan.ui.app.SceneRouter;
 import fr.onishintan.ui.app.Screen;
@@ -67,7 +68,7 @@ public class DecksView extends Pane {
         ScreenGrid.fitToWindow(this, grid);
 
         // The wooden shelves the decks stand on, stretched to the 1600 x 900 grid (the image is 1672 x 941, the same shape).
-        ImageView shelves = new ImageView(new Image(getClass().getResourceAsStream("/images/deck-builder/shelves.png")));
+        ImageView shelves = new ImageView(Images.get("/images/deck-builder/shelves.png"));
         shelves.setFitWidth(W);
         shelves.setFitHeight(H);
         grid.getChildren().add(shelves);

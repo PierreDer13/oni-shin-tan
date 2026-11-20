@@ -1,5 +1,6 @@
 package fr.onishintan.ui.match;
 
+import fr.onishintan.ui.app.Images;
 import fr.onishintan.model.BoardSide;
 import fr.onishintan.ui.fx.Fx;
 
@@ -115,12 +116,12 @@ final class SignatureFx {
     /** How long a shuriken or Jikininki's beam takes to reach its target (the damage waits for it: MatchController.POWER_PAUSE). */
     private static final Duration FLIGHT = Duration.millis(400);
     /** Ninja's Shuriken: the star, how many are thrown, their width, and the time between two throws. */
-    private static final Image STAR = new Image(SignatureFx.class.getResourceAsStream("/images/fx/shuriken-star.png"));
+    private static final Image STAR = Images.get("/images/fx/shuriken-star.png");
     private static final int STARS = 5;
     private static final double STAR_W = 30, STAR_GAP = 25;
     /** Jikininki's demon hand: its width, its clenched picture, and how many drops of life it squeezes out. */
     private static final double HAND_W = 180;
-    private static final Image CLOSED_HAND = new Image(SignatureFx.class.getResourceAsStream("/images/fx/jikininki-closed.png"));
+    private static final Image CLOSED_HAND = Images.get("/images/fx/jikininki-closed.png");
     private static final int DROPS = 8;
 
     /** Raijin: a slash on each target in turn, one after another. */
