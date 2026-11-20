@@ -92,8 +92,12 @@ public class CardView extends Group {
         vertical(kanji, Math.min(56, 200 / kanji.length()), 370, 30, 135, 210);           // Japanese name, top right
         String name = card.getNameRomaji();
         Text probe = new Text(name);
-        probe.setFont(Font.font(SERIF, FontWeight.BOLD, 24));
-        text(name, Math.min(24, 24 * 84 / probe.getLayoutBounds().getWidth()), 222, 240, 86, 34); // English name, in the gap
+        probe.setFont(Font.font(SERIF, FontWeight.BOLD, 30));
+        double nameSize = Math.min(30, 30 * 118 / probe.getLayoutBounds().getWidth());   // as big as fits on one line, up to 30
+        if (nameSize < 20) {
+            nameSize = 20;   // a long name wraps on two lines instead of getting tiny
+        }
+        text(name, nameSize, 205, 228, 120, 58);   // English name, centred on the gap in the line
         String desc = card.getEffectText();
         int kw = 0;
         if (card instanceof MinionCard m) {
