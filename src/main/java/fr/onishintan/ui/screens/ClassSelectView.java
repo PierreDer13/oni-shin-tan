@@ -103,6 +103,14 @@ public class ClassSelectView extends Pane {
         hardcore.relocate(W / 2 - 250, 868);   // under the switch
         hardcore.visibleProperty().bind(hardcoreBorder.visibleProperty());   // only shown while Shura no Michi is on, like the red vignette
         grid.getChildren().add(hardcore);
+        Label orochi = new Label(">");   // turns the page to Yamata no Orochi
+        orochi.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 28; -fx-font-weight: bold; -fx-text-fill: #f3ede1;"
+                + " -fx-background-color: rgba(20, 12, 8, 0.85); -fx-background-radius: 12; -fx-padding: 0 10 2 10;"
+                + " -fx-border-color: #c9a227; -fx-border-width: 2; -fx-border-radius: 12;");
+        orochi.relocate(W - 46, H / 2 - 22);
+        orochi.setViewOrder(-1);   // drawn over the class banners, which are added after it
+        HomeView.clickable(orochi, false, () -> OrochiView.open(router));
+        grid.getChildren().add(orochi);
         for (int i = 0; i < CLASSES.length; i++) {
             HeroClass c = CLASSES[i];
             Group banner = Fx.waving(Images.get("/images/banners/class-" + c.name().toLowerCase() + ".png"), 250, 60);

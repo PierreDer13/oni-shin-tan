@@ -30,6 +30,7 @@ public class OniShinTanApp extends Application {
         // Music per screen; Home, the Deck Builder and the Inventory keep the main theme ("music").
         router.setMusic(Screen.CLASS_SELECT, "adventure-music");
         router.setMusic(Screen.ADVENTURE_SELECT, "adventure-music");
+        router.setMusic(Screen.OROCHI, "adventure-music");
         router.setMusic(Screen.MATCH, "battle-music");
         router.register(Screen.HOME, () -> new HomeView(router));
         router.register(Screen.CLASS_SELECT, () -> new ClassSelectView(router));

@@ -97,6 +97,20 @@ final class StoryLines {
                             + "The mountain opens, and from the gates of the underworld rises Izanami herself. "
                             + "Your kin are free, and their queen has chosen you." });
 
+    /** Yamata no Orochi's story (OrochiView): before the fight, after a victory, after a defeat; each | starts the next picture. */
+    static final String OROCHI_BEFORE = "Every god you served has bowed to you: the thunder, the moon, the land, the dead, and even the sun herself. "
+            + "But in the far province of Izumo, the river has turned red. Seven daughters of an old couple have already been taken, one each year. "
+            + "| Tonight the eighth, Kushinada-hime, waits on the riverbank for the beast to come. "
+            + "The villagers have brewed eight barrels of the strongest sake and set them along the water, as Susanoo did long ago. "
+            + "| The rain stops. The mountains on the far shore begin to move. "
+            + "| Eight valleys, eight hills, eight heads with eyes red as winter cherries rise from the mist. "
+            + "Yamata no Orochi has woken, and he is hungry. No god will stand beside you this time.";
+    static final String OROCHI_WIN = "The last head crashes into the river and the water runs clear again. "
+            + "| Inside the serpent's tail, your blade strikes something hard: the sword Kusanagi, sleeping in the beast's body. "
+            + "| Kushinada-hime is safe, and Izumo celebrates until dawn. But the old ones say that Orochi is never truly dead. "
+            + "Each time the river runs red, he rises again. You will be ready.";
+    static final String OROCHI_LOSS = "The river swallows the night. Somewhere in the mist, eight heads laugh. Izumo waits for another hero.";
+
     private StoryLines() {
         // Only the texts: nobody creates a StoryLines.
     }
