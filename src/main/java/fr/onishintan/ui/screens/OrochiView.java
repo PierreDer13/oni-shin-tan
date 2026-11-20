@@ -118,10 +118,10 @@ public class OrochiView extends Pane {
         boolean won = lastFightWon;
         lastFightWon = null;
         if (won) {
-            grid.getChildren().add(new StoryPanel("討伐  Slain", StoryLines.OROCHI_WIN, WIN_PICTURES,
+            grid.getChildren().add(new StoryPanel("討伐  Slain", StoryLines.OROCHI_WIN, WIN_PICTURES, "orochi-win",
                     () -> router.playScreenMusic(Screen.OROCHI)));
         } else {
-            grid.getChildren().add(new StoryPanel("敗北  Defeat", StoryLines.OROCHI_LOSS, LOSS_PICTURES, null));
+            grid.getChildren().add(new StoryPanel("敗北  Defeat", StoryLines.OROCHI_LOSS, LOSS_PICTURES, "orochi-loss", null));
         }
     }
 
@@ -147,7 +147,7 @@ public class OrochiView extends Pane {
 
     /** His story first, over the storm; Continue starts the fight with this deck. */
     private void beforeFight(SavedDeck deck) {
-        grid.getChildren().add(new StoryPanel("八岐大蛇  Yamata no Orochi", StoryLines.OROCHI_BEFORE, BEFORE_PICTURES, () -> fight(deck)));
+        grid.getChildren().add(new StoryPanel("八岐大蛇  Yamata no Orochi", StoryLines.OROCHI_BEFORE, BEFORE_PICTURES, "orochi-before", () -> fight(deck)));
     }
 
     /** The fight: your deck against him on the dragon board, EXTREME AI, no bonus; a win adds one to the count. */
