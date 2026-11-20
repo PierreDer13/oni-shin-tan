@@ -1,5 +1,6 @@
 package fr.onishintan.ui;
 
+import fr.onishintan.data.SaveManager;
 import fr.onishintan.ai.AIController;
 import fr.onishintan.adventure.Upgrade;
 import fr.onishintan.model.HeroClass;
@@ -37,7 +38,12 @@ public class OniShinTanApp extends Application {
         router.goTo(Screen.HOME);
         stage.setTitle("Oni Shin Tan");
         stage.getIcons().add(new Image(OniShinTanApp.class.getResourceAsStream("/images/logos/game-icon.png")));   // window and taskbar icon
+        SaveManager.Window window = new SaveManager().loadWindow();   // the size and fullscreen chosen last time in Settings
+        stage.setWidth(window.width());
+        stage.setHeight(window.height());
+        stage.setFullScreen(window.fullscreen());
         stage.show();
+        stage.centerOnScreen();
     }
 
     /** A hotseat match: you play first, at the bottom; at the end, onEnd gets whether you won. */

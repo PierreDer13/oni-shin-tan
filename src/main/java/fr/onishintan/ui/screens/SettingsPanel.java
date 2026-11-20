@@ -1,5 +1,6 @@
 package fr.onishintan.ui.screens;
 
+import fr.onishintan.data.SaveManager;
 import fr.onishintan.ui.app.AudioSettings;
 import fr.onishintan.ui.app.ScreenGrid;
 import fr.onishintan.ui.app.Sound;
@@ -84,7 +85,10 @@ public class SettingsPanel extends StackPane {
         for (int[] size : SIZES) {
             row.getChildren().add(button(size[0] + "×" + size[1], () -> resizeWindow(size[0], size[1])));
         }
-        row.getChildren().add(button("Fullscreen", () -> stage().setFullScreen(true)));
+        row.getChildren().add(button("Fullscreen", () -> {
+            stage().setFullScreen(true);
+            new SaveManager().saveWindow(new SaveManager.Window(stage().getWidth(), stage().getHeight(), true));   // fullscreen at the next start too
+        }));
         return row;
     }
 
@@ -95,6 +99,7 @@ public class SettingsPanel extends StackPane {
         stage.setWidth(width);
         stage.setHeight(height);
         stage.centerOnScreen();
+        new SaveManager().saveWindow(new SaveManager.Window(width, height, false));   // the same size at the next start
     }
 
     /** The game's window. */

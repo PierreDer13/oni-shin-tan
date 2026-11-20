@@ -30,6 +30,9 @@ import fr.onishintan.engine.GameEvent;
 import fr.onishintan.model.KatanaTier;
 import fr.onishintan.model.Status;
 
+import java.util.HashSet;
+import java.util.Set;
+import javafx.scene.effect.Effect;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -122,6 +125,14 @@ public class BoardView extends Pane {
     private static final int HEAVY_KI = 6;
     /** The sound of any hit (sounds/hit.wav). */
     private static final AudioClip HIT = Sound.clip("hit");
+    /** The minions Shike has silenced: drawn grey for the rest of the match. */
+    private final Set<Minion> silenced = new HashSet<>();
+    /** A silenced minion's look: colours drained, a little darker, over its other effect (its yellow outline). */
+    private static ColorAdjust grey(Effect over) {
+        ColorAdjust drained = new ColorAdjust(0, -1, -0.15, 0);
+        drained.setInput(over);
+        return drained;
+    }
     private String signature = "";   // the card just played, for its own move before its effects (SignatureFx)
     private boolean burnt;           // the dead hero has already burned (only once, then the seal straight away)
     private int signatureSlot;       // and its slot (Nue's shockwave starts there)
@@ -599,6 +610,10 @@ public class BoardView extends Pane {
                 Fx.deathCut(live, node);
             }
             case MINION_REMOVED -> SignatureFx.vanish(node);   // Kamikakushi: spirited away
+            case SILENCED -> {
+                silenced.add((Minion) event.target());   // Shike: grey for the rest of the match
+                node.setEffect(grey(node.getEffect()));
+            }
             case FATIGUE -> EventBanner.show(table, "疲労", "Fatigue", event.amount() + " damage: the deck is empty", Color.web("#8b0000"));
             case ATTACK -> {
                 Node attacker = nodes.get(event.source());
@@ -1123,6 +1138,9 @@ public void passTo(String name, Runnable onReady) {
 
             MinionView view = new MinionView(minion, MINION_W);
             clickable(view, minion, p == you);
+            if (silenced.contains(minion)) {
+                view.setEffect(grey(view.getEffect()));   // silenced by Shike: no keywords, no effects
+            }
 
             // The big preview opens on the left for the right-hand slots, so it stays on screen.
             boolean rightHandSlot = slot >= 4;
