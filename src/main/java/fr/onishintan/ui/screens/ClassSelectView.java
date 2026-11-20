@@ -5,6 +5,8 @@ import fr.onishintan.ui.app.SceneRouter;
 import fr.onishintan.ui.app.Screen;
 
 import java.util.Map;
+import java.util.EnumMap;
+import fr.onishintan.data.SaveManager;
 import java.util.List;
 
 import fr.onishintan.model.HeroClass;
@@ -34,6 +36,8 @@ public class ClassSelectView extends Pane {
     private AdventureMode mode = AdventureMode.NORMAL;
     /** The red frame shown around the screen while Shura no Michi is on. */
     private final Rectangle hardcoreBorder = new Rectangle(W, H);
+    /** The 完了 stamp of each class, shown when it is finished in the chosen mode. */
+    private final Map<HeroClass, Label> stamps = new EnumMap<>(HeroClass.class);
     /** Hover text for each class's Adventure: its story, its three foes in order, and the kami it wins (StoryLines, AdventureDecks). */
     private static final Map<HeroClass, String> ABOUT = Map.of(
             HeroClass.SAMURAI, "侍 Samurai: a masterless rōnin hunts the traitor who burned his lord's castle. "
@@ -119,7 +123,16 @@ public class ClassSelectView extends Pane {
             banner.addEventHandler(MouseEvent.MOUSE_ENTERED, e -> about.setText(ABOUT.get(c)));
             banner.addEventHandler(MouseEvent.MOUSE_EXITED, e -> about.setText(""));
             grid.getChildren().add(banner);
+            Label stamp = new Label("完了");   // finished in this mode
+            stamp.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 80; -fx-font-weight: bold; -fx-text-fill: #c41e1e;");
+            stamp.setEffect(new DropShadow(8, Color.BLACK));
+            stamp.setRotate(-12);
+            stamp.setMouseTransparent(true);
+            stamp.relocate((212 + i * 416) * 1600 / 1672 - 85, 560);
+            stamps.put(c, stamp);
+            grid.getChildren().add(stamp);
         }
+        showStamps();
         getChildren().add(grid);
         setStyle("-fx-background-color: black;");
     }
@@ -134,5 +147,14 @@ public class ClassSelectView extends Pane {
             shura.setTextFill(Color.web("#f3ede1"));   // cream on the dark plaque
         }
         hardcoreBorder.setVisible(mode == AdventureMode.HARDCORE);   // the red frame only in Shura no Michi
+        showStamps();
+    }
+
+    /** The red 完了 stamp on each class finished in the mode the switch shows (SaveManager); the Adventure stays replayable. */
+    private void showStamps() {
+        SaveManager saves = new SaveManager();
+        for (Map.Entry<HeroClass, Label> entry : stamps.entrySet()) {
+            entry.getValue().setVisible(saves.isCompleted(entry.getKey(), mode));
+        }
     }
 }
