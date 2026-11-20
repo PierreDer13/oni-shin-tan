@@ -1,5 +1,6 @@
 package fr.onishintan.data;
 
+import fr.onishintan.adventure.AdventureMode;
 import fr.onishintan.model.HeroClass;
 
 import java.io.IOException;
@@ -17,6 +18,7 @@ import java.util.EnumMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
 
@@ -34,6 +36,17 @@ public class SaveManager {
     public static final String SETTINGS_FILE = "settings.properties";
     public static final String COLLECTION_FILE = "collection.properties";
     public static final String PROFILE_FILE = "profile.properties";
+    public static final String RUN_FILE = "run.properties";
+    public static final String PROGRESS_FILE = "progress.properties";
+
+    /** The 4 playable classes: their Adventures, in NORMAL and HARDCORE, unlock Yamata no Orochi (8 in all). */
+    public static final List<HeroClass> ADVENTURE_CLASSES =
+            List.of(HeroClass.SAMURAI, HeroClass.NINJA, HeroClass.KANNUSHI, HeroClass.ONI);
+
+    public static final double DEFAULT_WIDTH = 1280;
+    public static final double DEFAULT_HEIGHT = 720;
+    public static final double MIN_WIDTH = 800;
+    public static final double MIN_HEIGHT = 450;
 
     /** Volumes used when nothing is saved yet (the same as AudioSettings). */
     public static final double DEFAULT_MUSIC = 0.35;
@@ -111,6 +124,29 @@ public class SaveManager {
         }
     }
 
+    /**
+     * The Adventure in progress, saved after each battle and each bonus, cleared at the end or after a defeat.
+     * won = battles won so far, picked = ids of the bonuses taken, wounds = HP lost (hardcore keeps them).
+     */
+    public record SavedRun(HeroClass heroClass, AdventureMode mode, int won, List<String> picked, int wounds) {
+        public SavedRun {
+            if (heroClass == null || mode == null) throw new IllegalArgumentException("A run needs a class and a mode");
+            won = Math.max(0, won);
+            wounds = Math.max(0, wounds);
+            picked = picked == null ? List.of() : List.copyOf(picked);
+        }
+    }
+
+    /** The game window: its size (at least MIN_WIDTH x MIN_HEIGHT) and whether it is fullscreen. */
+    public record Window(double width, double height, boolean fullscreen) {
+        public Window {
+            width = Double.isFinite(width) ? Math.max(MIN_WIDTH, width) : DEFAULT_WIDTH;
+            height = Double.isFinite(height) ? Math.max(MIN_HEIGHT, height) : DEFAULT_HEIGHT;
+        }
+
+        public static Window defaults() { return new Window(DEFAULT_WIDTH, DEFAULT_HEIGHT, false); }
+    }
+
     private final Path dir;
 
     /** Saves in ~/.onishintan. */
@@ -173,6 +209,101 @@ public class SaveManager {
         p.setProperty("music", String.valueOf(volumes.music()));
         p.setProperty("effects", String.valueOf(volumes.effects()));
         return write(SETTINGS_FILE, p, "Oni Shin Tan - settings");
+    }
+
+    /** The saved window, or Window.defaults() (1280 x 720, not fullscreen). */
+    public Window loadWindow() {
+        Properties p = read(SETTINGS_FILE);
+        return new Window(doubleOf(p.getProperty("window.width"), DEFAULT_WIDTH),
+                doubleOf(p.getProperty("window.height"), DEFAULT_HEIGHT),
+                Boolean.parseBoolean(p.getProperty("window.fullscreen", "false").trim()));
+    }
+
+    /** Saves the window; the volumes stay as they are. */
+    public boolean saveWindow(Window w) {
+        Window window = w == null ? Window.defaults() : w;
+        Properties p = read(SETTINGS_FILE);
+        p.setProperty("window.width", String.valueOf(window.width()));
+        p.setProperty("window.height", String.valueOf(window.height()));
+        p.setProperty("window.fullscreen", String.valueOf(window.fullscreen()));
+        return write(SETTINGS_FILE, p, "Oni Shin Tan - settings");
+    }
+
+    // ---------- Adventure in progress ----------
+
+    /** The run to resume, or empty: none saved, or a broken file (unknown class or mode). */
+    public Optional<SavedRun> loadRun() {
+        Properties p = read(RUN_FILE);
+        HeroClass heroClass = classOf(p.getProperty("class"));
+        AdventureMode mode = modeOf(p.getProperty("mode"));
+        if (heroClass == null || mode == null) return Optional.empty();
+        return Optional.of(new SavedRun(heroClass, mode, intOf(p.getProperty("won"), 0),
+                idsOf(p.getProperty("picked")), intOf(p.getProperty("wounds"), 0)));
+    }
+
+    /** Replaces the saved run (after each battle and each bonus). */
+    public boolean saveRun(SavedRun run) {
+        if (run == null) return clearRun();
+        Properties p = new Properties();
+        p.setProperty("class", run.heroClass().name());
+        p.setProperty("mode", run.mode().name());
+        p.setProperty("won", String.valueOf(run.won()));
+        p.setProperty("picked", String.join(",", run.picked()));
+        p.setProperty("wounds", String.valueOf(run.wounds()));
+        return write(RUN_FILE, p, "Oni Shin Tan - Adventure in progress");
+    }
+
+    /** Forgets the run (Adventure finished or lost); true if there is none saved anymore. */
+    public boolean clearRun() {
+        try {
+            Files.deleteIfExists(dir.resolve(RUN_FILE));
+            return true;
+        } catch (IOException e) {
+            System.err.println("Could not clear the run: " + e.getMessage());
+            return false;
+        }
+    }
+
+    // ---------- Adventures finished, Yamata no Orochi ----------
+
+    /** Records an Adventure won with that class in that mode; true if it is saved, already there included. */
+    public boolean markCompleted(HeroClass heroClass, AdventureMode mode) {
+        if (heroClass == null || mode == null) return false;
+        Properties p = read(PROGRESS_FILE);
+        p.setProperty(completedKey(heroClass, mode), "true");
+        return write(PROGRESS_FILE, p, "Oni Shin Tan - progress");
+    }
+
+    public boolean isCompleted(HeroClass heroClass, AdventureMode mode) {
+        if (heroClass == null || mode == null) return false;
+        return Boolean.parseBoolean(read(PROGRESS_FILE).getProperty(completedKey(heroClass, mode), "false").trim());
+    }
+
+    /** Yamata no Orochi is open once the 4 classes have finished their Adventure in NORMAL and in HARDCORE. */
+    public boolean orochiUnlocked() {
+        Properties p = read(PROGRESS_FILE);
+        for (HeroClass c : ADVENTURE_CLASSES) {
+            for (AdventureMode m : AdventureMode.values()) {
+                if (!Boolean.parseBoolean(p.getProperty(completedKey(c, m), "false").trim())) return false;
+            }
+        }
+        return true;
+    }
+
+    /** How many times Yamata no Orochi was beaten. */
+    public int loadOrochiKills() {
+        return intOf(read(PROGRESS_FILE).getProperty("orochi.kills"), 0);
+    }
+
+    /** One more win against Yamata no Orochi. */
+    public boolean addOrochiKill() {
+        Properties p = read(PROGRESS_FILE);
+        p.setProperty("orochi.kills", String.valueOf(intOf(p.getProperty("orochi.kills"), 0) + 1));
+        return write(PROGRESS_FILE, p, "Oni Shin Tan - progress");
+    }
+
+    private static String completedKey(HeroClass c, AdventureMode m) {
+        return "completed." + c.name() + "." + m.name();
     }
 
     // ---------- collection (Adventure rewards) ----------
@@ -288,6 +419,15 @@ public class SaveManager {
         if (text == null) return null;
         try {
             return HeroClass.valueOf(text.trim());
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    private static AdventureMode modeOf(String text) {
+        if (text == null) return null;
+        try {
+            return AdventureMode.valueOf(text.trim());
         } catch (IllegalArgumentException e) {
             return null;
         }
