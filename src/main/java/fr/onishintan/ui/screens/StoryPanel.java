@@ -17,6 +17,7 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.layout.Pane;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.media.AudioClip;
@@ -77,6 +78,7 @@ final class StoryPanel extends StackPane {
         page = new VBox(8);
         page.setAlignment(Pos.TOP_CENTER);
         page.setPrefHeight(PAGE_H);   // room for every line, so nothing moves while they appear
+        page.setMinHeight(PAGE_H);
         go = label("進む  CONTINUE", 30);
         go.setVisible(false);   // shown once the page is written
         HomeView.clickable(go, false, () -> {
@@ -127,7 +129,9 @@ final class StoryPanel extends StackPane {
             for (String sentence : parts[k].split("(?<=[.!?])\\s+")) {
                 Label line = label(sentence, 22);
                 line.setWrapText(true);
+                line.setPrefWidth(950);   // a fixed width, so a long line wraps instead of being cut with "..."
                 line.setMaxWidth(950);
+                line.setMinHeight(Region.USE_PREF_SIZE);   // never squeezed shorter than its wrapped lines
                 line.setTextAlignment(TextAlignment.CENTER);
                 line.setOpacity(0);
                 line.setUserData(Math.min(k, pictures.length - 1));   // the picture shown with this line
