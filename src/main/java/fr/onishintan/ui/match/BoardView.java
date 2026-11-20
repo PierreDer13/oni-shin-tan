@@ -500,13 +500,19 @@ public class BoardView extends Pane {
         return cuts;
     }
 
-    /** Kettō: the two minions clash under white smoke and go back; then the winner shows the HP it lost (the loser's cut is the next step). */
+    /** Kettō: the two minions clash inside a cloud of smoke that clears on the survivor; then the winner shows the HP it lost. */
     private double duel() {
         List<Combatant> pair = new ArrayList<>(duelHp.keySet());
         if (pair.size() < 2 || nodes.get(pair.get(0)) == null || nodes.get(pair.get(1)) == null) {
             return 0;
         }
-        double ms = SignatureFx.duel(live, nodes.get(pair.get(0)), nodes.get(pair.get(1)));
+        Node loser = null;
+        for (Combatant c : pair) {
+            if (c.isDead()) {
+                loser = nodes.get(c);   // vanishes inside the smoke
+            }
+        }
+        double ms = SignatureFx.duel(live, nodes.get(pair.get(0)), nodes.get(pair.get(1)), loser);
         for (Combatant c : pair) {
             if (!c.isDead()) {
                 Node winner = nodes.get(c);
