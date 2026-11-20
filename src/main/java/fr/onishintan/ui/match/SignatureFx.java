@@ -25,7 +25,6 @@ import javafx.scene.image.Image;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
-import javafx.scene.shape.Polygon;
 import javafx.scene.shape.Rectangle;
 import javafx.util.Duration;
 
@@ -115,6 +114,10 @@ final class SignatureFx {
     private static final double SLICE_GAP = 90;
     /** How long a shuriken or Jikininki's beam takes to reach its target (the damage waits for it: MatchController.POWER_PAUSE). */
     private static final Duration FLIGHT = Duration.millis(400);
+    /** Ninja's Shuriken: the star, how many are thrown, their width, and the time between two throws. */
+    private static final Image STAR = new Image(SignatureFx.class.getResourceAsStream("/images/fx/shuriken-star.png"));
+    private static final int STARS = 5;
+    private static final double STAR_W = 30, STAR_GAP = 25;
     /** Jikininki's demon hand: its width, its clenched picture, and how many drops of life it squeezes out. */
     private static final double HAND_W = 180;
     private static final Image CLOSED_HAND = new Image(SignatureFx.class.getResourceAsStream("/images/fx/jikininki-closed.png"));
@@ -188,28 +191,33 @@ final class SignatureFx {
         all.play();
     }
 
-    /** Ninja's Shuriken: a steel star spins from `from` (your hero) to `to`, sparks where it hits. */
+    /** Ninja's Shuriken: a volley of small stars (fx/shuriken-star.png) spins from `from` (your hero) into `to`, sparks where each hits. */
     static void shuriken(Pane layer, Node from, Node to) {
         Bounds start = from.getBoundsInParent();
         Bounds end = to.getBoundsInParent();
-        Polygon star = new Polygon(0, -14, 4, -4, 14, 0, 4, 4, 0, 14, -4, 4, -14, 0, -4, -4);
-        star.setFill(Color.web("#c9ced6"));
-        star.setStroke(Color.web("#3a3f47"));
-        star.setMouseTransparent(true);
-        star.setLayoutX(start.getCenterX());
-        star.setLayoutY(start.getCenterY());
-        layer.getChildren().add(star);
-        TranslateTransition fly = new TranslateTransition(FLIGHT, star);
-        fly.setToX(end.getCenterX() - start.getCenterX());
-        fly.setToY(end.getCenterY() - start.getCenterY());
-        RotateTransition spin = new RotateTransition(FLIGHT, star);
-        spin.setByAngle(1080);
-        ParallelTransition thrown = new ParallelTransition(fly, spin);
-        thrown.setOnFinished(e -> {
-            layer.getChildren().remove(star);
-            Fx.sparks(layer, to);
-        });
-        thrown.play();
+        for (int i = 0; i < STARS; i++) {
+            ImageView star = new ImageView(STAR);
+            star.setFitWidth(STAR_W);
+            star.setPreserveRatio(true);
+            star.setMouseTransparent(true);
+            star.relocate(start.getCenterX() - STAR_W / 2, start.getCenterY() - STAR_W / 2);
+            TranslateTransition fly = new TranslateTransition(FLIGHT, star);
+            fly.setToX(end.getCenterX() - start.getCenterX() + (Math.random() - 0.5) * 50);   // a little spread on the target
+            fly.setToY(end.getCenterY() - start.getCenterY() + (Math.random() - 0.5) * 50);
+            RotateTransition spin = new RotateTransition(FLIGHT, star);
+            spin.setByAngle(1080);
+            ParallelTransition thrown = new ParallelTransition(fly, spin);
+            thrown.setOnFinished(e -> {
+                layer.getChildren().remove(star);
+                Fx.sparks(layer, to);
+            });
+            PauseTransition wait = new PauseTransition(Duration.millis(i * STAR_GAP));   // thrown one after the other
+            wait.setOnFinished(e -> {
+                layer.getChildren().add(star);
+                thrown.play();
+            });
+            wait.play();
+        }
     }
 
     /**

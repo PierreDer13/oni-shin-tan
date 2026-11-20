@@ -17,6 +17,10 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
+import javafx.scene.paint.CycleMethod;
+import javafx.scene.paint.RadialGradient;
+import javafx.scene.paint.Stop;
+import javafx.scene.shape.Rectangle;
 import javafx.scene.transform.Scale;
 import javafx.scene.input.MouseEvent;
 
@@ -27,6 +31,8 @@ public class ClassSelectView extends Pane {
     private static final HeroClass[] CLASSES = { HeroClass.SAMURAI, HeroClass.NINJA, HeroClass.KANNUSHI, HeroClass.ONI };
     /** The run the banners start: normal, or Shura no Michi when the switch is on. */
     private AdventureMode mode = AdventureMode.NORMAL;
+    /** The red frame shown around the screen while Shura no Michi is on. */
+    private final Rectangle hardcoreBorder = new Rectangle(W, H);
     /** Hover text for each class's Adventure: its story, its three foes in order, and the kami it wins (StoryLines, AdventureDecks). */
     private static final Map<HeroClass, String> ABOUT = Map.of(
             HeroClass.SAMURAI, "侍 Samurai: a masterless rōnin hunts the traitor who burned his lord's castle. "
@@ -64,6 +70,11 @@ public class ClassSelectView extends Pane {
         about.visibleProperty().bind(about.textProperty().isNotEmpty());   // the dark strip only while something is hovered
         ImageView back = HomeView.back(() -> router.goTo(Screen.HOME));
         grid.getChildren().addAll(bg, title, about, back);
+        hardcoreBorder.setFill(new RadialGradient(0, 0, 0.5, 0.5, 0.75, true, CycleMethod.NO_CYCLE,   // a dull red vignette, for Shura no Michi
+                new Stop(0.45, Color.rgb(90, 12, 12, 0)),        // the middle stays clear
+                new Stop(1, Color.rgb(90, 12, 12, 0.65))));      // the edges darken into a muted blood red
+        hardcoreBorder.setMouseTransparent(true);
+        grid.getChildren().add(hardcoreBorder);
         // The Shura no Michi switch: a click turns the hardcore run on or off; hovering it tells its rules.
         Label shura = new Label();
         shura.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 22; -fx-font-weight: bold; -fx-alignment: center;"
@@ -89,6 +100,7 @@ public class ClassSelectView extends Pane {
         hardcore.setEffect(new DropShadow(6, Color.BLACK));
         hardcore.setPrefWidth(500);
         hardcore.relocate(W / 2 - 250, 868);   // under the switch
+        hardcore.visibleProperty().bind(hardcoreBorder.visibleProperty());   // only shown while Shura no Michi is on, like the red vignette
         grid.getChildren().add(hardcore);
         for (int i = 0; i < CLASSES.length; i++) {
             HeroClass c = CLASSES[i];
@@ -112,5 +124,6 @@ public class ClassSelectView extends Pane {
             shura.setText("修羅の道  Shura no Michi: OFF");
             shura.setTextFill(Color.web("#f3ede1"));   // cream on the dark plaque
         }
+        hardcoreBorder.setVisible(mode == AdventureMode.HARDCORE);   // the red frame only in Shura no Michi
     }
 }
