@@ -107,7 +107,7 @@ public class ClassSelectView extends Pane {
             HeroClass c = CLASSES[i];
             Group banner = Fx.waving(Images.get("/images/banners/class-" + c.name().toLowerCase() + ".png"), 250, 60);
             banner.relocate((212 + i * 416) * 1600 / 1672 - 125, 110);
-            HomeView.clickable(banner, true, () -> AdventureSelectView.open(router, c, mode, 0, List.of(), 0));
+            HomeView.clickable(banner, true, () -> AdventureSelectView.resume(router, c, mode));
             banner.addEventHandler(MouseEvent.MOUSE_ENTERED, e -> about.setText(ABOUT.get(c)));
             banner.addEventHandler(MouseEvent.MOUSE_EXITED, e -> about.setText(""));
             grid.getChildren().add(banner);

@@ -25,6 +25,7 @@ import fr.onishintan.model.Rarity;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.EnumSet;
 import java.util.Set;
 import javafx.util.Duration;
@@ -69,6 +70,8 @@ public class AdventureSelectView extends Pane {
     /** How wide a bonus emblem shows on Choose Bonus, and in the row of bonuses picked. */
     private static final double BONUS_W = 240, PICKED_W = 40;
     /** Each class's reward for finishing its Adventure (GDD, Yokai and kami). */
+    /** The sun goddess: the prize for finishing Shura no Michi with every class. */
+    private static final String AMATERASU = "amaterasu-omikami";
     private static final Map<HeroClass, Card> KAMI = Map.of(
             HeroClass.NINJA, new MinionCard("tsukuyomi", "Tsukuyomi", "月読", "つくよみ", 8, Rarity.LEGENDARY, HeroClass.NINJA,
                     "Banzai: your other minions have Shinobi. Shinobi", "", 12, 10, Set.of(Keyword.SHINOBI, Keyword.BANZAI)),
@@ -80,6 +83,45 @@ public class AdventureSelectView extends Pane {
                     "Banzai: return your 2 highest-cost dead minions to the board", "", 11, 11, Set.of(Keyword.BANZAI)));
 
     /** Shows the run map for this class after `won` victories. */
+    /** Opens this class's run: where the saved run stopped if it is this class and mode, otherwise from the start. */
+    static void resume(SceneRouter router, HeroClass c, AdventureMode mode) {
+        Optional<SaveManager.SavedRun> saved = new SaveManager().loadRun().filter(r -> r.heroClass() == c && r.mode() == mode);
+        if (saved.isPresent()) {
+            open(router, c, mode, saved.get().won(), saved.get().picked(), saved.get().wounds());
+        } else {
+            open(router, c, mode, 0, List.of(), 0);
+        }
+    }
+
+    /**
+     * Saves where the run is (after each battle and each bonus, as the map opens again). Finished: it is marked done
+     * for this class and mode, and there is nothing left to resume. Lost (back to 0): its saved run is forgotten.
+     */
+    private void remember() {
+        SaveManager saves = new SaveManager();
+        if (won >= AdventureDecks.BATTLES) {
+            saves.markCompleted(heroClass, mode);
+            saves.clearRun();
+        } else if (won == 0) {
+            saves.loadRun().filter(r -> r.heroClass() == heroClass && r.mode() == mode).ifPresent(r -> saves.clearRun());
+        } else {
+            saves.saveRun(new SaveManager.SavedRun(heroClass, mode, won, picked, wounds));
+        }
+    }
+
+    /** True once every class has finished Shura no Michi and Amaterasu is not claimed yet. */
+    private boolean sunEarned(SaveManager saves) {
+        if (mode != AdventureMode.HARDCORE || saves.isUnlocked(AMATERASU)) {
+            return false;
+        }
+        for (HeroClass c : KAMI.keySet()) {
+            if (!saves.isCompleted(c, AdventureMode.HARDCORE)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     static void open(SceneRouter router, HeroClass c, AdventureMode mode, int won, List<String> picked, int wounds) {
         router.register(Screen.ADVENTURE_SELECT, () -> new AdventureSelectView(router, c, mode, won, picked, wounds));
         router.goTo(Screen.ADVENTURE_SELECT);
@@ -106,6 +148,7 @@ public class AdventureSelectView extends Pane {
         this.won = won;
         this.mode = mode;
         this.wounds = wounds;
+        remember();
         Scale scale = new Scale();
         grid.getTransforms().add(scale);
         InvalidationListener fit = o -> {
@@ -160,7 +203,7 @@ public class AdventureSelectView extends Pane {
         deckScroll.relocate(1185, 230);   // under the deck title and the bonuses picked
         deckList();
         for (int i = 0; i < ADVENTURES.length; i++) panel(router, i);
-        if (won == 3) reward(router);
+        if (won == 3) reward(router, KAMI.get(heroClass));
         if (justWon) {   // back from a win: what happened after it, over the map (and over the reward)
             justWon = false;
             Platform.runLater(() -> router.playMusic(STORY_MUSIC));   // later: the map's own music starts just after this screen is built
@@ -198,9 +241,12 @@ public class AdventureSelectView extends Pane {
         grid.getChildren().add(new StackPane(new Rectangle(W, H, Color.rgb(0, 0, 0, 0.8)), box));
     }
 
-    /** Finishing the run: the class's kami grows into view (GDD, Reward); Claim goes back Home. */
-    private void reward(SceneRouter router) {
-        CardView card = new CardView(KAMI.get(heroClass), 300);
+    /**
+     * Finishing the run: the prize grows into view (GDD, Reward) and Claim adds it to the collection for good.
+     * Once every class has finished Shura no Michi, Amaterasu comes as a second prize; then Claim goes back Home.
+     */
+    private void reward(SceneRouter router, Card prize) {
+        CardView card = new CardView(prize, 300);
         ScaleTransition grow = new ScaleTransition(Duration.millis(700), card);
         grow.setFromX(0);
         grow.setFromY(0);
@@ -209,7 +255,12 @@ public class AdventureSelectView extends Pane {
         grow.play();
         Label claim = text("受領  CLAIM", 30);
         HomeView.clickable(claim, false, () -> {
-            new SaveManager().unlock(KAMI.get(heroClass).getId());   // the kami joins your collection for good
+            SaveManager saves = new SaveManager();
+            saves.unlock(prize.getId());   // the prize joins your collection for good
+            if (!prize.getId().equals(AMATERASU) && sunEarned(saves)) {
+                reward(router, CardRepository.byId(AMATERASU));   // every Shura no Michi finished: Amaterasu as well
+                return;
+            }
             router.goTo(Screen.HOME);
         });
         VBox box = new VBox(24, text("報酬  REWARD", 40), card, claim);
