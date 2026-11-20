@@ -9,6 +9,12 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 import fr.onishintan.model.Card;
+import fr.onishintan.model.CurseCard;
+import fr.onishintan.model.RiteCard;
+import fr.onishintan.model.ShrineCard;
+import fr.onishintan.model.TrapCard;
+import fr.onishintan.adventure.AdventureMode;
+import fr.onishintan.ai.AIController.Difficulty;
 import fr.onishintan.model.Deck;
 import fr.onishintan.model.HeroClass;
 import fr.onishintan.model.Player;
@@ -110,5 +116,52 @@ class AdventureDecksTest {
 
     private static double averageKi(List<Card> cards) {
         return cards.stream().mapToInt(Card::getKiCost).average().orElse(0);
+    }
+
+    // ---------- Yamata no Orochi ----------
+
+    @Test
+    void orochiDeckHasHundredKnownCardsWithTheAnnouncedCurve() {
+        List<Card> deck = adventure.orochiDeck();
+        assertEquals(100, deck.size());
+        int[] curve = new int[11];
+        for (Card c : deck) {
+            assertNotNull(CardRepository.byId(c.getId()), "unknown id " + c.getId());
+            assertTrue(c.getKiCost() >= 1 && c.getKiCost() <= 10, c.getId() + " costs " + c.getKiCost());
+            curve[c.getKiCost()]++;
+        }
+        assertArrayEquals(new int[] { 0, 8, 12, 14, 14, 13, 13, 15, 7, 2, 2 }, curve);
+    }
+
+    @Test
+    void orochiDeckHasNoKamiNoAmaterasuNoFamilyCard() {
+        for (Card c : adventure.orochiDeck()) {
+            assertFalse(CardRepository.isReward(c.getId()), c.getId() + " is a reward card");
+            assertFalse(c instanceof TrapCard || c instanceof ShrineCard || c instanceof CurseCard || c instanceof RiteCard,
+                    c.getId() + " is a family card");
+            assertNotEquals(Rarity.MYTHIC, c.getRarity(), c.getId() + " is a mythic");
+        }
+    }
+
+    @Test
+    void orochiIsHisOwnClassWithTwoHundredHpAndHundredCards() {
+        Player orochi = adventure.orochi();
+        assertEquals(HeroClass.OROCHI, orochi.getHero().getHeroClass());
+        assertEquals(AdventureDecks.OROCHI_HEALTH, orochi.getHero().getHealth());
+        assertEquals(200, orochi.getHero().getMaxHealth());
+        assertEquals(100, orochi.getDeck().size());
+        assertFalse(orochi.getDeck().isLegal(HeroClass.OROCHI));   // 100 cards: never validated, and it does not block the Deck
+    }
+
+    @Test
+    void orochiIsNoAdventureClass() {
+        assertThrows(IllegalArgumentException.class, () -> AdventureDecks.opponents(HeroClass.OROCHI));
+        assertThrows(IllegalArgumentException.class, () -> adventure.playerDeck(HeroClass.OROCHI));
+        assertFalse(SaveManager.ADVENTURE_CLASSES.contains(HeroClass.OROCHI));
+        for (AdventureMode m : AdventureMode.values()) {
+            for (int battle = 0; battle < AdventureDecks.BATTLES; battle++) {
+                assertNotEquals(Difficulty.EXTREME, m.difficulty(battle));
+            }
+        }
     }
 }
