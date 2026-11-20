@@ -12,9 +12,11 @@ import java.util.List;
 import fr.onishintan.model.HeroClass;
 import fr.onishintan.adventure.AdventureMode;
 
+import javafx.geometry.Pos;
 import javafx.beans.InvalidationListener;
 import javafx.scene.Group;
 import javafx.scene.control.Label;
+import javafx.scene.effect.BlurType;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
@@ -33,11 +35,12 @@ public class ClassSelectView extends Pane {
     public static final double W = 1600, H = 900;
     private static final HeroClass[] CLASSES = { HeroClass.SAMURAI, HeroClass.NINJA, HeroClass.KANNUSHI, HeroClass.ONI };
     /** The run the banners start: normal, or Shura no Michi when the switch is on. */
-    private AdventureMode mode = AdventureMode.NORMAL;
+    private static AdventureMode mode = AdventureMode.NORMAL;   // kept while the game runs: back on this page, the switch is as you left it
     /** The red frame shown around the screen while Shura no Michi is on. */
     private final Rectangle hardcoreBorder = new Rectangle(W, H);
-    /** The 完了 stamp of each class, shown when it is finished in the chosen mode. */
-    private final Map<HeroClass, Label> stamps = new EnumMap<>(HeroClass.class);
+    /** Each class's stamps: 完了 when it is finished in normal, 修羅 when it is finished in Shura no Michi. */
+    private final Map<HeroClass, Label> normalStamps = new EnumMap<>(HeroClass.class);
+    private final Map<HeroClass, Label> hardcoreStamps = new EnumMap<>(HeroClass.class);
     /** Hover text for each class's Adventure: its story, its three foes in order, and the kami it wins (StoryLines, AdventureDecks). */
     private static final Map<HeroClass, String> ABOUT = Map.of(
             HeroClass.SAMURAI, "侍 Samurai: a masterless rōnin hunts the traitor who burned his lord's castle. "
@@ -123,14 +126,9 @@ public class ClassSelectView extends Pane {
             banner.addEventHandler(MouseEvent.MOUSE_ENTERED, e -> about.setText(ABOUT.get(c)));
             banner.addEventHandler(MouseEvent.MOUSE_EXITED, e -> about.setText(""));
             grid.getChildren().add(banner);
-            Label stamp = new Label("完了");   // finished in this mode
-            stamp.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 80; -fx-font-weight: bold; -fx-text-fill: #c41e1e;");
-            stamp.setEffect(new DropShadow(8, Color.BLACK));
-            stamp.setRotate(-12);
-            stamp.setMouseTransparent(true);
-            stamp.relocate((212 + i * 416) * 1600 / 1672 - 85, 560);
-            stamps.put(c, stamp);
-            grid.getChildren().add(stamp);
+            double x = (212 + i * 416) * 1600 / 1672;   // the banner's centre
+            normalStamps.put(c, stamp(grid, "完了", "#ff1e1e", x, 340));
+            hardcoreStamps.put(c, stamp(grid, "修羅", "#d40000", x, 440));
         }
         showStamps();
         getChildren().add(grid);
@@ -150,11 +148,35 @@ public class ClassSelectView extends Pane {
         showStamps();
     }
 
-    /** The red 完了 stamp on each class finished in the mode the switch shows (SaveManager); the Adventure stays replayable. */
+    /** How wide a stamp's box is, centred on its banner (the banners are 250 wide). */
+    private static final double STAMP_W = 250;
+
+    /**
+     * One stamp in the middle of a banner (x = its centre), tilted like a seal, hidden until showStamps() shows it.
+     * Bright red with a cream outline, so it stands out over the dark and red banners.
+     */
+    private static Label stamp(Pane grid, String word, String colour, double x, double y) {
+        Label stamp = new Label(word);
+        stamp.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 70; -fx-font-weight: bold; -fx-text-fill: " + colour + ";");
+        DropShadow outline = new DropShadow(BlurType.GAUSSIAN, Color.web("#f3ede1"), 5, 0.9, 0, 0);   // a thin cream edge
+        outline.setInput(new DropShadow(14, Color.BLACK));
+        stamp.setEffect(outline);
+        stamp.setRotate(-12);
+        stamp.setMouseTransparent(true);
+        stamp.setVisible(false);
+        stamp.setPrefWidth(STAMP_W);
+        stamp.setAlignment(Pos.CENTER);
+        stamp.relocate(x - STAMP_W / 2, y);   // centred on the banner
+        grid.getChildren().add(stamp);
+        return stamp;
+    }
+
+    /** Each class's stamps (SaveManager): 完了 for a normal clear, 修羅 for a Shura no Michi clear, whatever the switch shows. */
     private void showStamps() {
         SaveManager saves = new SaveManager();
-        for (Map.Entry<HeroClass, Label> entry : stamps.entrySet()) {
-            entry.getValue().setVisible(saves.isCompleted(entry.getKey(), mode));
+        for (HeroClass c : normalStamps.keySet()) {
+            normalStamps.get(c).setVisible(saves.isCompleted(c, AdventureMode.NORMAL));
+            hardcoreStamps.get(c).setVisible(saves.isCompleted(c, AdventureMode.HARDCORE));
         }
     }
 }
