@@ -19,7 +19,7 @@ import fr.onishintan.model.Player;
  *
  * An enemy deck = its class core (30 cards) + the battle's 10 neutral cards: small minions in the town,
  * mid-curve minions on the sea, the neutral legendaries on Mount Fuji, so each battle is harder.
- * The cards come from the catalog given to the constructor (MockCards.ALL until cards.json exists).
+ * The cards come from the catalog given to the constructor (CardRepository.all(), read from cards.json).
  * The kami rewards and Amaterasu are never in these decks.
  */
 public final class AdventureDecks {
@@ -83,7 +83,7 @@ public final class AdventureDecks {
 
     private final Map<String, Card> catalog = new HashMap<>();
 
-    /** The cards the decks are built from, found by id (MockCards.ALL for now). */
+    /** The cards the decks are built from, found by id (CardRepository.all()). */
     public AdventureDecks(Collection<? extends Card> cards) {
         for (Card c : cards) catalog.put(c.getId(), c);
     }

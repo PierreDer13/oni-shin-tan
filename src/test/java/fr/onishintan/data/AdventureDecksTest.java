@@ -13,7 +13,6 @@ import fr.onishintan.model.Deck;
 import fr.onishintan.model.HeroClass;
 import fr.onishintan.model.Player;
 import fr.onishintan.model.Rarity;
-import fr.onishintan.ui.MockCards;
 
 /** The Adventure decks are legal 40-card decks built from the real card list, and the runs follow the GDD order. */
 class AdventureDecksTest {
@@ -22,7 +21,7 @@ class AdventureDecksTest {
     /** The run rewards and the mythic: earned in the Adventure, never in its decks. */
     private static final Set<String> REWARDS = Set.of("tsukuyomi", "takemikazuchi", "okuninushi", "izanami", "amaterasu-omikami");
 
-    private final AdventureDecks adventure = new AdventureDecks(MockCards.ALL);
+    private final AdventureDecks adventure = new AdventureDecks(CardRepository.all());
 
     @Test
     void playerDecksAreLegal() {

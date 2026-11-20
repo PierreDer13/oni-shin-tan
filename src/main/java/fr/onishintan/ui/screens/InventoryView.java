@@ -1,7 +1,7 @@
 package fr.onishintan.ui.screens;
 
 import fr.onishintan.model.Card;
-import fr.onishintan.ui.MockCards;
+import fr.onishintan.data.CardRepository;
 import fr.onishintan.ui.app.SceneRouter;
 import fr.onishintan.ui.app.Screen;
 import fr.onishintan.ui.app.ScreenGrid;
@@ -83,10 +83,10 @@ public class InventoryView extends Pane {
 
     /**
      * Every card, sorted by class, then Ki, then name.
-     * Placeholder: the test cards from MockCards, until the player's own collection is saved.
+     * Placeholder: every card the player owns (CardRepository.collectible(): rewards only once claimed).
      */
     private static List<Card> sortedCards() {
-        List<Card> cards = new ArrayList<>(MockCards.ALL);
+        List<Card> cards = new ArrayList<>(CardRepository.collectible());
         Comparator<Card> byClass = Comparator.comparing(Card::getHeroClass);
         Comparator<Card> byKi = Comparator.comparingInt(Card::getKiCost);
         Comparator<Card> byName = Comparator.comparing(Card::getNameRomaji);

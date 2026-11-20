@@ -13,7 +13,7 @@ import fr.onishintan.model.MinionCard;
 import fr.onishintan.model.Player;
 
 /**
- * The 17 plain class spells (GDD spell table, ids from MockCards): what each one is aimed at,
+ * The 17 plain class spells (GDD spell table, ids from cards.json): what each one is aimed at,
  * when it can be cast, and its effect, registered in CardEffects under Trigger.BANZAI.
  */
 final class SpellEffects {

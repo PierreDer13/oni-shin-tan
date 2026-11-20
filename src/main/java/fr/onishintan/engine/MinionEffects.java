@@ -24,7 +24,7 @@ import fr.onishintan.model.Status;
 import fr.onishintan.model.WeaponCard;
 
 /**
- * The effects of the minions of MockCards (Card Curve), by card id: Banzai (with the target the UI
+ * The effects of the minions of cards.json (Card Curve), by card id: Banzai (with the target the UI
  * must ask for), Seppuku, end-of-turn passives, auras (Ronin, Jōnin), Tennō's cost cut, Hakahori,
  * Rokurokubi, Fūma Kotarō's Yogake, Jorōgumo's sleep and Shike's silence.
  */
