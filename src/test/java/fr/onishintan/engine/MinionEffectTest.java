@@ -103,6 +103,18 @@ class MinionEffectTest {
     }
 
     @Test
+    void shikePublishesSilencedWithTheOwnerAndTheMinion() {
+        Minion hatamoto = place(enemy, 0, card("hatamoto", 5, 7, Keyword.SHIRODU));
+        List<GameEvent> heard = new ArrayList<>();
+        engine.getBus().subscribe(GameEvent.Type.SILENCED, heard::add);
+        assertTrue(play(card("shike", 10, 12), 0, hatamoto));
+
+        assertEquals(1, heard.size());
+        assertSame(enemy, heard.get(0).source());
+        assertSame(hatamoto, heard.get(0).target());
+    }
+
+    @Test
     void attackChangingBanzais() {
         Minion e = place(enemy, 0, card("e", 7, 10));
         assertTrue(play(card("maiko", 3, 5), 0, e));
