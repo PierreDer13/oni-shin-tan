@@ -9,6 +9,7 @@ import fr.onishintan.ui.screens.HomeView;
 import fr.onishintan.ui.screens.SettingsPanel;
 import fr.onishintan.ui.app.Images;
 import fr.onishintan.ui.app.Sound;
+import javafx.scene.media.AudioClip;
 import javafx.application.Platform;
 import fr.onishintan.model.Hero;
 import fr.onishintan.model.BoardSide;
@@ -116,6 +117,11 @@ public class BoardView extends Pane {
     private boolean dealt;   // the hand stays hidden until the opening deal
     private boolean rising;   // the card just played brings dead minions back (black smoke on them)
     private boolean yoi;      // Yōi was just played: the costs in hand sparkle after the redraw
+    /** The thud of a big minion landing, and the cost from which a minion is big. */
+    private static final AudioClip HEAVY_THUD = Sound.clip("heavy-minion");
+    private static final int HEAVY_KI = 6;
+    /** The sound of any hit (sounds/hit.wav). */
+    private static final AudioClip HIT = Sound.clip("hit");
     private String signature = "";   // the card just played, for its own move before its effects (SignatureFx)
     private boolean burnt;           // the dead hero has already burned (only once, then the seal straight away)
     private int signatureSlot;       // and its slot (Nue's shockwave starts there)
@@ -320,6 +326,7 @@ public class BoardView extends Pane {
 
     /** Adventure: the AI's card shows big on the right before its effects; its Traps stay hidden. */
     public void showAiPlayed(Card card) {
+        heavyLanding(card);
         if (!(card instanceof TrapCard)) {
             live.getChildren().add(bigCard(card));
         }
@@ -549,6 +556,7 @@ public class BoardView extends Pane {
         }
         switch (event.type()) {
             case DAMAGE -> {
+                Sound.play(HIT);   // every hit: attacks, minion effects, hero powers, spells
                 Fx.slash(live, node);
                 Fx.damageNumber(live, node, event.amount());
             }
@@ -1309,6 +1317,7 @@ public void passTo(String name, Runnable onReady) {
         }
         if (player.play(card, slot, first, second)) {
             impact(cost, false);
+            heavyLanding(card);
         }
     }
 
@@ -1419,6 +1428,13 @@ public void passTo(String name, Runnable onReady) {
         r.setEffect(new GaussianBlur(10));
         r.setMouseTransparent(true);
         live.getChildren().add(r);
+    }
+
+    /** A minion of HEAVY_KI or more lands with a heavy thud (sounds/heavy-minion.wav), yours or the AI's. */
+    private static void heavyLanding(Card card) {
+        if (card instanceof MinionCard && card.getKiCost() >= HEAVY_KI) {
+            Sound.play(HEAVY_THUD);
+        }
     }
 
     /** Screen shake when a card lands: 6+ Ki shakes; 10+ Ki shakes longer and harder, and every minion on the board wobbles. */
