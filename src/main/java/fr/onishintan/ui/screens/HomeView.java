@@ -55,9 +55,8 @@ public class HomeView extends Pane {
         Scale scale = new Scale();
         grid.getTransforms().add(scale);
         InvalidationListener fit = o -> {
-            double s = Math.min(getWidth() / W, getHeight() / H);
-            scale.setX(s);
-            scale.setY(s);
+            scale.setX(getWidth() / W);    // stretched to fill the window: no strip on a screen that isn't 16:9
+            scale.setY(getHeight() / H);
         };
         widthProperty().addListener(fit);
         heightProperty().addListener(fit);
