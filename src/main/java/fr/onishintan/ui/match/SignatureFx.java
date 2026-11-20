@@ -135,17 +135,48 @@ final class SignatureFx {
         return targets.size() * SLICE_GAP + 300;
     }
 
-    /** Kettō: both minions lunge to meet in the middle, a white smoke bursts above them, then they go back to their slots. */
-    static double duel(Pane layer, Node a, Node b) {
+    /** How many smoke puffs make Kettō's cloud, how wide each is, and when the loser vanishes inside it. */
+    private static final int DUEL_PUFFS = 6;
+    private static final double DUEL_PUFF_W = 260, DUEL_VANISH_MS = 700, DUEL_MS = 1900;
+
+    /**
+     * Kettō: both minions lunge to meet in the middle, puffs of white smoke stack on each other until they hide both cards,
+     * the loser vanishes inside the cloud, then the smoke clears on the one still standing.
+     */
+    static double duel(Pane layer, Node a, Node b, Node loser) {
         Bounds boxA = a.getBoundsInParent();
         Bounds boxB = b.getBoundsInParent();
         double midX = (boxA.getCenterX() + boxB.getCenterX()) / 2;
         double midY = (boxA.getCenterY() + boxB.getCenterY()) / 2;
         clash(a, (midX - boxA.getCenterX()) * 0.7, (midY - boxA.getCenterY()) * 0.7);
         clash(b, (midX - boxB.getCenterX()) * 0.7, (midY - boxB.getCenterY()) * 0.7);
+        for (int i = 0; i < DUEL_PUFFS; i++) {
+            cloud(layer, midX + (Math.random() - 0.5) * 160, midY + (Math.random() - 0.5) * 120, i * 60);
+        }
+        if (loser != null) {
+            Timeline vanish = new Timeline(new KeyFrame(Duration.millis(DUEL_VANISH_MS), e -> loser.setOpacity(0)));   // hidden by the cloud
+            vanish.play();
+        }
+        return DUEL_MS;
+    }
 
-        puff(layer, midX, midY);   // above the two minions
-        return 950;
+    /** One puff of Kettō's cloud at (x, y): thickens after `delay` ms, hides the duel, then drifts up and clears. */
+    private static void cloud(Pane layer, double x, double y, double delay) {
+        ImageView smoke = BoardView.image("/images/fx/black-smoke.png");
+        smoke.setEffect(new ColorAdjust(0, 0, 1, 0));   // brightened to white
+        smoke.setFitWidth(DUEL_PUFF_W);
+        smoke.setFitHeight(DUEL_PUFF_W * 0.6);   // taller than the picture, so the stack covers the cards
+        smoke.setMouseTransparent(true);
+        smoke.setOpacity(0);
+        smoke.relocate(x - DUEL_PUFF_W / 2, y - DUEL_PUFF_W * 0.3);
+        layer.getChildren().add(smoke);
+        Timeline puff = new Timeline(
+                new KeyFrame(Duration.millis(delay), new KeyValue(smoke.opacityProperty(), 0)),
+                new KeyFrame(Duration.millis(delay + 300), new KeyValue(smoke.opacityProperty(), 0.95)),
+                new KeyFrame(Duration.millis(1250), new KeyValue(smoke.opacityProperty(), 0.95), new KeyValue(smoke.translateYProperty(), -10)),
+                new KeyFrame(Duration.millis(DUEL_MS), new KeyValue(smoke.opacityProperty(), 0), new KeyValue(smoke.translateYProperty(), -60)));
+        puff.setOnFinished(e -> layer.getChildren().remove(smoke));
+        puff.play();
     }
 
     /** One duellist: lunges by (dx, dy), holds there under the smoke, then goes back to its slot. */
