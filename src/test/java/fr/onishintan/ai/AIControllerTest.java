@@ -166,4 +166,26 @@ class AIControllerTest {
         assertEquals(Move.Kind.KATANA, m.kind());
         assertEquals(KatanaTier.KATANA, m.tier());
     }
+
+    @Test
+    void extremeIsNeverAnAdventureBattle() {
+        for (int battle = -1; battle < 10; battle++) assertNotEquals(Difficulty.EXTREME, Difficulty.forBattle(battle));
+        assertTrue(Difficulty.EXTREME.atLeastHard());
+        assertTrue(Difficulty.HARD.atLeastHard());
+        assertFalse(Difficulty.NORMAL.atLeastHard());
+    }
+
+    @Test
+    void extremeBeatsEasyMostOfTheTime() {
+        int extreme = 0, games = 40;
+        for (int g = 0; g < games; g++) {
+            HeroClass c = CLASSES[g % 4];
+            Player p = ADVENTURE.hero("Extreme", c), q = ADVENTURE.hero("Easy", c);
+            boolean extremeFirst = g % 2 == 0;
+            Player winner = extremeFirst ? match(p, q, Difficulty.EXTREME, Difficulty.EASY, g)
+                                         : match(q, p, Difficulty.EASY, Difficulty.EXTREME, g);
+            if (winner == p) extreme++;
+        }
+        assertTrue(extreme >= games * 0.6, "EXTREME won " + extreme + " of " + games);
+    }
 }

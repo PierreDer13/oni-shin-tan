@@ -11,7 +11,13 @@ public class Hero extends Combatant {
     private Weapon weapon;
 
     public Hero(HeroClass heroClass) {
-        super(0, START_HEALTH);
+        this(heroClass, START_HEALTH);
+    }
+
+    /** A hero with other starting HP (Yamata no Orochi: 200). */
+    public Hero(HeroClass heroClass, int startHealth) {
+        super(0, startHealth);
+        if (startHealth <= 0) throw new IllegalArgumentException("A hero needs HP, not " + startHealth);
         if (heroClass == HeroClass.NEUTRAL) {
             throw new IllegalArgumentException("A hero cannot be NEUTRAL");
         }

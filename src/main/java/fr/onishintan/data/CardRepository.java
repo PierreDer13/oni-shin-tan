@@ -63,6 +63,12 @@ public final class CardRepository {
         return BY_ID.get(id);
     }
 
+    /** True for a reward card (the 4 kami, Amaterasu): won in the Adventure, never in a given deck. */
+    public static boolean isReward(String id) {
+        CardData data = DATA.get(id);
+        return data != null && data.reward();
+    }
+
     /** The cards the player owns (the Inventory and the deck editor): every collectible card, a reward card only once claimed. */
     public static List<Card> collectible() {
         SaveManager saves = new SaveManager();

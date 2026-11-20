@@ -44,17 +44,22 @@ import fr.onishintan.model.BoardSide;
 public final class AIController {
 
     public enum Difficulty {
-        EASY(0.3), NORMAL(0.1), HARD(0);
+        EASY(0.3), NORMAL(0.1), HARD(0),
+        /** Yamata no Orochi only: HARD, plus it goes for the biggest threats first. forBattle() never gives it. */
+        EXTREME(0);
 
         /** How often a random legal move replaces the best one. */
         final double mistakes;
 
         Difficulty(double mistakes) { this.mistakes = mistakes; }
 
-        /** The Adventure gets harder battle by battle: Town EASY, Ocean NORMAL, Mount Fuji HARD. */
+        /** The Adventure gets harder battle by battle: Town EASY, Ocean NORMAL, Mount Fuji HARD (never EXTREME). */
         public static Difficulty forBattle(int battle) {
-            return values()[Math.max(0, Math.min(battle, values().length - 1))];
+            return values()[Math.max(0, Math.min(battle, HARD.ordinal()))];
         }
+
+        /** True for HARD and EXTREME: no mistakes, looks for lethal, removes its Curses. */
+        public boolean atLeastHard() { return compareTo(HARD) >= 0; }
     }
 
     /** Safety net: a turn never has more moves than this. */
@@ -176,7 +181,7 @@ public final class AIController {
     /** Every move the engine should accept now, with its score (higher = better, 0 or less = not worth it). */
     List<Scored> legalMoves() {
         List<Scored> out = new ArrayList<>();
-        boolean lethal = difficulty == Difficulty.HARD && lethalOnHero();
+        boolean lethal = difficulty.atLeastHard() && lethalOnHero();
         for (Card card : List.copyOf(me.getHand())) {
             Scored s = cardMove(card);
             if (s != null && !lethal) out.add(s);
@@ -194,7 +199,7 @@ public final class AIController {
     /** Playing (or, for a held Curse, removing) this card, aimed at its best target. Null if it cannot be played. */
     private Scored cardMove(Card card) {
         if (card instanceof CurseCard c && me.isHeldCurse(c)) {
-            if (difficulty != Difficulty.HARD || !me.canAfford(c.getRemovalCost())) return null;
+            if (!difficulty.atLeastHard() || !me.canAfford(c.getRemovalCost())) return null;
             return new Scored(Move.play(card, -1, null, null), 1 + c.getRemovalCost());
         }
         if (!engine.canPlay(card)) return null;
@@ -282,6 +287,7 @@ public final class AIController {
         else if (kills) score = value(t) - mine;
         else if (t.hasTorii()) score = dies ? 2 - mine : 3;   // the hit takes one Torii off: the next one gets through
         else score = dies ? -mine : t.getHealth() < t.getMaxHealth() || attacker.getAttack() > 0 ? 1 : 0;
+        if (kills && difficulty == Difficulty.EXTREME) score += t.getAttack() * 2;   // the biggest hitters die first
         return score + pressure();
     }
 
