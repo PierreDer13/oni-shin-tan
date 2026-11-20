@@ -204,12 +204,13 @@ final class MinionEffects {
         for (Combatant c : enemies) if (hits.containsKey(c)) engine.dealDamage(ctx.source(), c, hits.get(c));
     }
 
-    /** Shike: the minion loses its keywords and its effects (Banzai, Seppuku, passives) for good. */
+    /** Shike: the minion loses its keywords and its effects (Banzai, Seppuku, passives) for good. Publishes SILENCED. */
     private void silence(Minion m) {
         silenced.add(m);
         m.clearKeywords();
         asleep.remove(m);
         m.removeStatus(Status.SLEEP);
+        engine.publish(GameEvent.of(GameEvent.Type.SILENCED, engine.ownerOf(m), m));
     }
 
     // ---------- events ----------

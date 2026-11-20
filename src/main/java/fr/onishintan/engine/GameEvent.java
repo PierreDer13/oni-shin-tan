@@ -16,6 +16,7 @@ public record GameEvent(Type type, Object source, Object target, int amount) {
         ATTACK, DAMAGE, HEAL,
         ARMOUR_GAINED, ARMOUR_BROKEN,
         KEYWORD_LOST,               // Torii cut, Shirodu cut, Shinobi revealed
+        SILENCED,                   // source = owner Player of the minion, target = the Minion silenced by Shike (UI: grey it out)
         WEAPON_EQUIPPED, WEAPON_BROKEN,
         HERO_POWER_USED,
         OATH_SWORN,                 // source = Player, target = Oath
