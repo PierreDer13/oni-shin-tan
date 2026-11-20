@@ -251,6 +251,29 @@ class FamilyEffectTest {
     }
 
     @Test
+    void motonosumiReachesTwoSlotsOnEachSideOnly() {
+        Minion[] at = new Minion[7];
+        for (int slot : new int[] {0, 1, 2, 4, 5, 6}) at[slot] = place(me, slot, card("m" + slot, 1, 1));
+        assertTrue(play(shrine("motonosumi-shrine", 2), 3, null));
+        for (int slot : new int[] {1, 2, 4, 5}) {
+            assertEquals(4, at[slot].getAttack(), "slot " + slot + " is within 2 slots");
+            assertTrue(at[slot].hasKeyword(Keyword.TATAKAE), "slot " + slot);
+        }
+        for (int slot : new int[] {0, 6}) {
+            assertEquals(1, at[slot].getAttack(), "slot " + slot + " is 3 slots away");
+            assertFalse(at[slot].hasKeyword(Keyword.TATAKAE), "slot " + slot);
+        }
+    }
+
+    @Test
+    void otherShrinesStillReachOnlyTheirNeighbours() {
+        Minion near = place(me, 2, card("near", 1, 1)), far = place(me, 1, card("far", 1, 1));
+        assertTrue(play(shrine("meiji-otorii", 2), 3, null));
+        assertEquals(4, near.getAttack());
+        assertEquals(1, far.getAttack());
+    }
+
+    @Test
     void fushimiInariSavesFromASingleHitOnTheOpponentsTurn() {
         Minion m = place(me, 1, card("m", 1, 5));
         assertTrue(play(shrine("fushimi-inari", 3), 0, null));

@@ -182,7 +182,7 @@ final class FamilyEffects {
     /**
      * The stat and keyword auras of the Shrines on the minions next to them:
      * Heiwa no Torii +0/+3, Meiji Ōtorii +3/+0, Kumano Hongū Taisha +2/+4 and Shirodu,
-     * Motonosumi Jinja +3/+3 and Tatakae. Divinity 9 doubles the stats.
+     * Motonosumi Jinja +3/+3 and Tatakae up to 2 slots away. Divinity 9 doubles the stats.
      */
     void refreshAuras() {
         Set<Minion> onBoard = Collections.newSetFromMap(new IdentityHashMap<>());
@@ -236,11 +236,20 @@ final class FamilyEffects {
     }
 
     /** The Shrines in the slots next to this minion of p's. */
+    private static final String MOTONOSUMI = "motonosumi-shrine";
+    /** Motonosumi Jinja reaches 2 slots on each side; every other Shrine only its two neighbours. */
+    static final int MOTONOSUMI_REACH = 2;
+
+    /** The Shrines whose aura reaches this minion: next to it, or up to 2 slots away for Motonosumi Jinja. */
     private static List<Shrine> shrinesAround(Player p, Minion m) {
         int slot = p.getSide().slotOf(m);
-        List<Shrine> out = new ArrayList<>(2);
-        for (int s : new int[] {slot - 1, slot + 1}) {
-            if (p.getSide().entityAt(s) instanceof Shrine sh) out.add(sh);
+        List<Shrine> out = new ArrayList<>(4);
+        for (int d = -MOTONOSUMI_REACH; d <= MOTONOSUMI_REACH; d++) {
+            if (d == 0) continue;
+            if (p.getSide().entityAt(slot + d) instanceof Shrine sh
+                    && (Math.abs(d) == 1 || MOTONOSUMI.equals(sh.getSource().getId()))) {
+                out.add(sh);
+            }
         }
         return out;
     }
