@@ -431,7 +431,13 @@ public class MatchController implements CardPlayer {
         recorder.start();
         engine.endTurn();
         // End- and start-of-turn effects show on the table (0.75 s at most) before the turn passes.
-        board.replay(recorder.stop(), 0, TURN_SHOW, this::afterTurnEnded);
+        List<GameEvent> events = recorder.stop();
+        for (GameEvent e : events) {
+            if (e.type() == GameEvent.Type.CARD_PLAYED && e.target() instanceof Card card) {
+                board.showAiPlayed(card);   // Yamata no Orochi's dragon, arriving on its own at the start of his turn
+            }
+        }
+        board.replay(events, 0, TURN_SHOW, this::afterTurnEnded);
     }
 
     /**
