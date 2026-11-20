@@ -20,6 +20,7 @@ import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.media.AudioClip;
+import javafx.scene.media.MediaPlayer;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.text.TextAlignment;
@@ -48,9 +49,18 @@ final class StoryPanel extends StackPane {
     private final SequentialTransition show;
     /** How many lines are shown so far. */
     private int shown;
+    /** The voice files' name (sounds/voice/<voice>-<n>.mp3), or null for a silent page; the line being spoken. */
+    private final String voice;
+    private MediaPlayer speaking;
 
     StoryPanel(String title, String story, List<String> pictureNames, Runnable then) {
+        this(title, story, pictureNames, null, then);
+    }
+
+    /** A page whose lines are also spoken: line n plays sounds/voice/<voice>-<n>.mp3 when it appears (none: silent). */
+    StoryPanel(String title, String story, List<String> pictureNames, String voice, Runnable then) {
         this.story = story;
+        this.voice = voice;
         Rectangle veil = new Rectangle(HomeView.W, HomeView.H, Color.rgb(0, 0, 0, 0.88));
         heading = label(title, 48);
         heading.setTextFill(Color.web("#c41e1e"));
@@ -70,6 +80,7 @@ final class StoryPanel extends StackPane {
         go = label("進む  CONTINUE", 30);
         go.setVisible(false);   // shown once the page is written
         HomeView.clickable(go, false, () -> {
+            hush();
             ((Pane) getParent()).getChildren().remove(this);
             if (then != null) {
                 then.run();
@@ -143,6 +154,7 @@ final class StoryPanel extends StackPane {
         in.setToValue(1);
         in.play();
         shown++;
+        speak(shown);
         if (shown == lines.size()) {
             go.setVisible(true);
         }
@@ -158,6 +170,23 @@ final class StoryPanel extends StackPane {
         FadeTransition in = new FadeTransition(Duration.millis(LINE_MS), art);
         in.setToValue(1);
         in.play();
+    }
+
+    /** Speaks line n (counted from 1), stopping the line before; silent when the page or that line has no voice file. */
+    private void speak(int n) {
+        hush();
+        if (voice != null) {
+            speaking = Sound.voice(voice + "-" + n);
+        }
+    }
+
+    /** Stops the line being spoken. */
+    private void hush() {
+        if (speaking != null) {
+            speaking.stop();
+            speaking.dispose();
+            speaking = null;
+        }
     }
 
     /** Cream text in the card font with a soft shadow, like the rest of the Adventure map. */
