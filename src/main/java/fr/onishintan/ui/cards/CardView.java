@@ -43,6 +43,8 @@ import javafx.util.Duration;
 public class CardView extends Group {
     public static final double W = 530, H = 742;
     private static final String SERIF = "Yu Mincho";
+    /** Every English name's size, the widest a name may be before it is made smaller, and the paper left on each side of it. */
+    private static final double NAME_SIZE = 26, MAX_NAME_W = 340, NAME_PAD = 10;
     private static final Color INK = Color.web("#1f1b17");
     private static final Color DAMAGED = Color.web("#c41e1e");
     /** Better than printed: a Ki cost lowered by Yōi or an Oath, ATK or HP above the card's own. */
@@ -85,19 +87,16 @@ public class CardView extends Group {
 
         /** Rebuilds the card face from the card's data. */
     public void render() {
-        face.getChildren().setAll(artView());
+        String name = card.getNameRomaji();
+        double nameSize = Math.min(NAME_SIZE, NAME_SIZE * MAX_NAME_W / width(name, NAME_SIZE));   // only a very long name is made smaller
+        double gap = width(name, nameSize) + 2 * NAME_PAD;
+        NameGap.Opened art = NameGap.open(card.getId(), art(), gap);   // the line under the art opened just wide enough for the name
+        face.getChildren().setAll(artView(art.image()));
         kiLabel = text(String.valueOf(card.getKiCost()), 50, 25, 24, 100, 82);          // Ki circle
         text("気 Ki", 14, 25, 88, 100, 20);
         String kanji = card.getNameKanji();
         vertical(kanji, Math.min(56, 200 / kanji.length()), 370, 30, 135, 210);           // Japanese name, top right
-        String name = card.getNameRomaji();
-        Text probe = new Text(name);
-        probe.setFont(Font.font(SERIF, FontWeight.BOLD, 30));
-        double nameSize = Math.min(30, 30 * 118 / probe.getLayoutBounds().getWidth());   // as big as fits on one line, up to 30
-        if (nameSize < 20) {
-            nameSize = 20;   // a long name wraps on two lines instead of getting tiny
-        }
-        text(name, nameSize, 205, 228, 120, 58);   // English name, centred on the gap in the line
+        text(name, nameSize, NameGap.CENTRE_X - gap / 2, art.lineY() - 22, gap, 44);   // English name, in the gap, centred on the line
         String desc = card.getEffectText();
         int kw = 0;
         if (card instanceof MinionCard m) {
@@ -248,12 +247,19 @@ public class CardView extends Group {
      * The card's art fitted to the card's size (W x H), whatever the PNG's own size is.
      * Some art is drawn at twice the size (1061 x 1483); without this only its top-left quarter would show.
      */
-    private ImageView artView() {
-        ImageView view = new ImageView(art());
+    private ImageView artView(Image art) {
+        ImageView view = new ImageView(art);
         view.setFitWidth(W);
         view.setFitHeight(H);
         view.setSmooth(true);
         return view;
+    }
+
+    /** How wide `name` is in the bold card font at `size`. */
+    private static double width(String name, double size) {
+        Text probe = new Text(name);
+        probe.setFont(Font.font(SERIF, FontWeight.BOLD, size));
+        return probe.getLayoutBounds().getWidth();
     }
 
     /** Text written top to bottom, one character per line; extra columns go right to left. */
@@ -359,4 +365,4 @@ public class CardView extends Group {
         }
         face.getChildren().add(tag);
     }
-}
+}
