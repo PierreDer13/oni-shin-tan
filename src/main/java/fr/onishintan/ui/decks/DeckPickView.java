@@ -4,7 +4,6 @@ import fr.onishintan.model.Deck;
 import fr.onishintan.model.Hero;
 import fr.onishintan.model.HeroClass;
 import fr.onishintan.model.Player;
-import fr.onishintan.ui.MockCards;
 import fr.onishintan.ui.OniShinTanApp;
 import fr.onishintan.ui.app.SceneRouter;
 import fr.onishintan.ui.app.Screen;
@@ -28,13 +27,12 @@ import javafx.scene.shape.Rectangle;
 
 /**
  * PvP, laid over the home screen: Player 1, then Player 2, chooses the deck they play with.
- * Every legal saved deck is offered, plus a starter deck of each class (MockCards), so a match can start before any deck is built.
+ * Every legal saved deck is offered (the starter decks are saved decks too, see DeckStore).
  * Once both have chosen, they pick the battlefield (BoardPicker) and the match starts there.
  */
 public class DeckPickView extends Pane {
     private static final double W = ScreenGrid.W, H = ScreenGrid.H;
     private static final double HOLDER_W = 170;
-    private static final HeroClass[] CLASSES = { HeroClass.SAMURAI, HeroClass.NINJA, HeroClass.KANNUSHI, HeroClass.ONI };
 
     private final SceneRouter router;
     /** Everything is placed on this 1600 x 900 grid, which is scaled to fit the window. */
@@ -96,18 +94,13 @@ public class DeckPickView extends Pane {
         ((Pane) getParent()).getChildren().remove(this);
     }
 
-    /** The legal saved decks, then one starter deck per class. */
+    /** The legal saved decks (the starter decks are saved decks too, see DeckStore). */
     private List<SavedDeck> decksToOffer() {
         List<SavedDeck> decks = new ArrayList<>();
         for (SavedDeck deck : DeckStore.all()) {
             if (deck.isLegal()) {
                 decks.add(deck);
             }
-        }
-        for (HeroClass heroClass : CLASSES) {
-            SavedDeck starter = new SavedDeck("Starter " + heroClass.getDisplayName(), heroClass);
-            starter.setCards(MockCards.deckCards(heroClass));
-            decks.add(starter);
         }
         return decks;
     }

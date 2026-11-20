@@ -11,7 +11,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Every deck the player has built: loaded from disk at start-up (Pierre's SaveManager), written again after each change.
+ * Every deck the player has: loaded from disk at start-up (Pierre's SaveManager), written again after each change.
+ * With no deck saved, it starts with one starter deck per class (MockCards), which the player can edit or delete.
  */
 public final class DeckStore {
     private static final SaveManager SAVES = new SaveManager();
@@ -80,6 +81,14 @@ public final class DeckStore {
             SavedDeck deck = new SavedDeck(data.name(), data.heroClass());
             deck.setCards(cards);
             decks.add(deck);
+        }
+
+        if (decks.isEmpty()) {   // first launch, or every deck deleted: one starter deck per class, editable and deletable like any other
+            for (HeroClass heroClass : List.of(HeroClass.SAMURAI, HeroClass.NINJA, HeroClass.KANNUSHI, HeroClass.ONI)) {
+                SavedDeck starter = new SavedDeck("Starter " + heroClass.getDisplayName(), heroClass);
+                starter.setCards(MockCards.deckCards(heroClass));
+                decks.add(starter);
+            }
         }
         return decks;
     }
