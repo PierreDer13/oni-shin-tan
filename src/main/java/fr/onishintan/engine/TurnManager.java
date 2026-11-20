@@ -2,6 +2,7 @@ package fr.onishintan.engine;
 
 import fr.onishintan.model.Card;
 import fr.onishintan.model.Minion;
+import fr.onishintan.model.HeroClass;
 import fr.onishintan.model.Player;
 import fr.onishintan.model.Status;
 
@@ -58,11 +59,16 @@ public class TurnManager {
         Player second = state.getSecond();
         first.getDeck().shuffle(rng);
         second.getDeck().shuffle(rng);
-        for (int i = 0; i < OPENING_HAND_FIRST; i++)
+        for (int i = 0; i < openingHand(first, OPENING_HAND_FIRST); i++)
             first.draw();
-        for (int i = 0; i < OPENING_HAND_SECOND; i++)
+        for (int i = 0; i < openingHand(second, OPENING_HAND_SECOND); i++)
             second.draw();
         state.begin();
+    }
+
+    /** Yamata no Orochi starts with a full hand (Player.MAX_HAND); anyone else with 4 or 5 cards. */
+    static int openingHand(Player p, int usual) {
+        return p.getHero().getHeroClass() == HeroClass.OROCHI ? Player.MAX_HAND : usual;
     }
 
     /**

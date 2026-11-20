@@ -191,6 +191,8 @@ public class GameEngine {
                 p.getHero().getWeapon().addAttack(Upgrade.CHIKARA_BONUS);
             }
         });
+        // Yamata no Orochi: his mythic comes by itself at the start of his turns 10, 15, 20...
+        bus.subscribe(GameEvent.Type.TURN_STARTED, e -> orochiMythic((Player) e.source()));
         // Oath rewards (3 and 6 stacks): last, so they see what the rule handlers recorded
         for (GameEvent.Type t : GameEvent.Type.values()) bus.subscribe(t, rewards::onEvent);
         for (GameEvent.Type t : GameEvent.Type.values()) bus.subscribe(t, minionEffects::onEvent);
@@ -555,7 +557,7 @@ public class GameEngine {
         return true;
     }
 
-    public static final int HERO_POWER_COST = 2;     // GDD, proposed for Shuriken, Miko, Jikininki
+    public static final int HERO_POWER_COST = 2;     // GDD, proposed for Shuriken, Miko, Jikininki, Yatsu-kubi
     public static final int SHURIKEN_DAMAGE = 6;
     public static final int JIKININKI_DRAIN = 4;
     public static final String MIKO_ID = "miko";       // same id as the Miko card: art images/cards/Kannushi/miko.png
@@ -563,9 +565,13 @@ public class GameEngine {
     static final MinionCard MIKO = new MinionCard(MIKO_ID, "Miko", "巫女", "みこ", 0,
             Rarity.COMMON, HeroClass.KANNUSHI, "", "", 3, 3, null);
 
+    /** Yamata no Orochi's power, 八つ首 Yatsu-kubi (Eight Heads): 1 damage to a random enemy character, 8 times. */
+    public static final int YATSU_KUBI_HITS = 8;
+
     /**
      * Ninja Shuriken (6 damage), Kannushi Miko (3/3 in the leftmost free slot),
-     * Oni Jikininki (drain 4, heal own hero). Samurai: useKatana. Once per turn.
+     * Oni Jikininki (drain 4, heal own hero), Orochi Yatsu-kubi (8 x 1 damage, random enemies).
+     * Samurai: useKatana. Once per turn.
      */
     public boolean useHeroPower(Combatant target) {
         Player p = state.active();
@@ -598,11 +604,65 @@ public class GameEngine {
                 int healed = p.getHero().heal(dealt);
                 publish(new GameEvent(GameEvent.Type.HEAL, p.getHero(), p.getHero(), healed));
             }
+            case OROCHI -> {
+                payPower(p, HERO_POWER_COST);
+                yatsuKubi(p);
+            }
             default -> { return false; }   // SAMURAI picks a blade: useKatana(tier)
         }
         combat.removeDead();
         checkGameOver();
         return true;
+    }
+
+    /** Yatsu-kubi: 8 hits of 1 on random enemy characters, dealt as one hit per character (like Raijin). */
+    private void yatsuKubi(Player p) {
+        Player enemy = state.opponentOf(p);
+        List<Combatant> targets = new ArrayList<>(enemy.getSide().getMinions());
+        targets.add(enemy.getHero());
+        Map<Combatant, Integer> hits = new IdentityHashMap<>();
+        for (int i = 0; i < YATSU_KUBI_HITS; i++) hits.merge(targets.get(rng.nextInt(targets.size())), 1, Integer::sum);
+        for (Combatant c : targets) {
+            if (hits.containsKey(c) && !state.isOver()) dealDamage(p.getHero(), c, hits.get(c));
+        }
+    }
+
+    // ---------- Yamata no Orochi's mythic ----------
+
+    public static final String OROCHI_MYTHIC_ID = "yamata-no-orochi";
+    public static final int OROCHI_MYTHIC_FIRST = 10;
+    public static final int OROCHI_MYTHIC_EVERY = 5;
+
+    /** True on Orochi's turns 10, 15, 20, 25... (his own turns: one per round). */
+    static boolean isOrochiMythicTurn(int round) {
+        return round >= OROCHI_MYTHIC_FIRST && (round - OROCHI_MYTHIC_FIRST) % OROCHI_MYTHIC_EVERY == 0;
+    }
+
+    /**
+     * Start of an OROCHI turn 10, 15, 20...: his mythic arrives without his hand. It costs 10 Ki (all he has if less),
+     * comes even if he has one already, replaces his weakest minion when his side is full,
+     * then CARD_PLAYED, MINION_SUMMONED and its Banzai, like a card played.
+     */
+    void orochiMythic(Player p) {
+        if (state.isOver() || p.getHero().getHeroClass() != HeroClass.OROCHI || !isOrochiMythicTurn(state.getRound())) return;
+        if (!(catalogCard(OROCHI_MYTHIC_ID) instanceof MinionCard card)) return;
+        int slot = p.getSide().firstFree();
+        if (slot < 0) {
+            Minion weakest = p.getSide().getMinions().stream()
+                    .min(java.util.Comparator.comparingInt((Minion m) -> m.getAttack() + m.getHealth())).orElse(null);
+            if (weakest == null) return;
+            slot = p.getSide().slotOf(weakest);
+            p.getSide().remove(weakest);
+            publish(GameEvent.of(GameEvent.Type.MINION_REMOVED, p, weakest));
+        }
+        int paid = Math.min(card.getKiCost(), p.getKi());
+        p.spendKi(paid);
+        publish(new GameEvent(GameEvent.Type.CARD_PLAYED, p, card, paid));
+        Minion m = new Minion(card);
+        p.getSide().place(m, slot);
+        publish(GameEvent.of(GameEvent.Type.MINION_SUMMONED, p, m));
+        runTrigger(Trigger.BANZAI, p, m, null);
+        triggerTraps(state.opponentOf(p), TrapTrigger.ON_ENEMY_SUMMON, m);
     }
 
     /** Samurai power: pay the blade's Ki and equip it (replaces the current weapon). */

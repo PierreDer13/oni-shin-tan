@@ -132,6 +132,10 @@ final class MinionEffects {
             }
         });
         banzai(fx, "raijin", this::raijin);
+        banzai(fx, "yamata-no-orochi", ctx -> {              // 4 damage to every enemy character
+            for (Minion m : List.copyOf(ctx.enemy().getSide().getMinions())) engine.dealDamage(ctx.source(), m, 4);
+            engine.dealDamage(ctx.source(), ctx.enemy().getHero(), 4);
+        });
         banzai(fx, "amaterasu-omikami", ctx -> engine.heal(ctx.owner().getHero(), ctx.owner().getHero().getMaxHealth()));
         banzai(fx, "tsukuyomi", ctx -> others(ctx).forEach(m -> m.giveKeyword(Keyword.SHINOBI)));
         banzai(fx, "takemikazuchi", ctx -> engine.equip(ctx.owner(), FUTSU_NO_MITAMA));
@@ -171,6 +175,7 @@ final class MinionEffects {
         turnEnd(fx, "komuso", ctx -> engine.heal(ctx.owner().getHero(), 4));
         turnEnd(fx, "hatamoto", ctx -> engine.gainArmour(ctx.owner(), 3));
         turnEnd(fx, "inari-okami", ctx -> summon(ctx.owner(), "kitsune-no-tsukai"));
+        turnEnd(fx, "yamata-no-orochi", ctx -> engine.heal(ctx.source(), 8));
     }
 
     private interface Aimed { void apply(EffectContext ctx, Combatant target); }

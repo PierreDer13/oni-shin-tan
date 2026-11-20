@@ -244,6 +244,9 @@ public final class AIController {
             return new Scored(Move.katana(best), 5 + best.getAttack() / 10.0);
         }
         if (!me.canAfford(GameEngine.HERO_POWER_COST)) return null;
+        if (c == HeroClass.OROCHI) {                    // Yatsu-kubi: random targets, nothing to aim
+            return new Scored(Move.power(null), 5);
+        }
         if (c == HeroClass.KANNUSHI) {
             return me.getSide().firstFree() < 0 ? null : new Scored(Move.power(null), 5);
         }
