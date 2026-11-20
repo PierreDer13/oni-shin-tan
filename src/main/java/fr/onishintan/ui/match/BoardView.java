@@ -322,7 +322,10 @@ public class BoardView extends Pane {
     /** The card just played, big on the right of the table: its width and top-left corner. */
     private static final double PLAYED_W = 220, BIG_X = 1350, BIG_Y = 20;
     /** Where the AI's card shows big: on the left of the table. */
-    private static final double ENEMY_BIG_X = 30;
+    private static final double ENEMY_BIG_X = 30, ENEMY_BIG_Y = 296;   // left, centred: (900 - the card's 308 px) / 2
+    /** How long each AI card shows on the left, and when the spot is free for the next one (System.currentTimeMillis). */
+    private static final long ENEMY_CARD_MS = 1000;
+    private long enemyCardFree;
 
     /** The card just played, big at `x` on the table (right for yours, left for the AI's), to read while its effects play (the redraw takes it away). */
     private Node bigCard(Card card, double x) {
@@ -341,7 +344,16 @@ public class BoardView extends Pane {
         if (card instanceof TrapCard) {
             return;
         }
-        live.getChildren().add(bigCard(card, ENEMY_BIG_X));
+        long now = System.currentTimeMillis();
+        long start = Math.max(now, enemyCardFree);   // after the AI's previous card, if it is still showing
+        enemyCardFree = start + ENEMY_CARD_MS;
+        Node big = bigCard(card, ENEMY_BIG_X);
+        big.setLayoutY(ENEMY_BIG_Y);
+        big.setVisible(false);
+        table.getChildren().add(big);   // on the table: a redraw does not cut the queue short
+        new Timeline(
+                new KeyFrame(Duration.millis(start - now), e -> big.setVisible(true)),
+                new KeyFrame(Duration.millis(start - now + ENEMY_CARD_MS), e -> table.getChildren().remove(big))).play();
         for (int slot = 0; slot < BoardSide.MAX; slot++) {
             Minion m = enemy.getSide().getAt(slot);
             if (m != null && m.getSource() == card && !nodes.containsKey(m)) {
