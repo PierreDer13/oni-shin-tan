@@ -256,6 +256,7 @@ public class BoardView extends Pane {
         drawHand();
         enemyHand(enemy);
         healEffects();
+        table.lookupAll("#arrival-smoke").forEach(Node::toFront);   // a minion just drawn stays behind its smoke
         if (enemy.getHero().isDead() || you.getHero().isDead()) endGame(enemy.getHero().isDead());
     }
 
@@ -597,36 +598,39 @@ public class BoardView extends Pane {
         rising = false;
     }
 
+    /** The arrival smoke's size: wide and tall enough to hide a minion while it appears. */
+    private static final double SMOKE_W = 320, SMOKE_H = 220;
+
     /** Smoke rises over the slot at x and fades: black, or white (the same image brightened). On the table: the redraw clears `live`. */
     private void smoke(double x, boolean white) {
         ImageView smoke = image("/images/fx/black-smoke.png");   // 600 x 198
-        smoke.setFitWidth(180);
-        smoke.setPreserveRatio(true);
+        smoke.setFitWidth(SMOKE_W);
+        smoke.setFitHeight(SMOKE_H);   // stretched taller than the picture, to hide the whole minion
         smoke.setMouseTransparent(true);
         if (white) {
             smoke.setEffect(new ColorAdjust(0, 0, 1, 0));
         }
-        smoke.relocate(x + MINION_W / 2 - 90, YOUR_Y + 40);
+        smoke.relocate(x + MINION_W / 2 - SMOKE_W / 2, YOUR_Y - 20);
+        smoke.setOpacity(0);
+        smoke.setId("arrival-smoke");   // render() keeps it in front, so the minion appears from behind it
         table.getChildren().add(smoke);
-        TranslateTransition rise = new TranslateTransition(Duration.millis(1200), smoke);
-        rise.setByY(-40);
-        FadeTransition fade = new FadeTransition(Duration.millis(1200), smoke);
-        fade.setFromValue(1);
-        fade.setToValue(0);
-        fade.setOnFinished(e -> table.getChildren().remove(smoke));
-        rise.play();
-        fade.play();
+        Timeline puff = new Timeline(
+                new KeyFrame(Duration.millis(400), new KeyValue(smoke.opacityProperty(), 1)),   // thick first, hiding the slot
+                new KeyFrame(Duration.millis(1200), new KeyValue(smoke.opacityProperty(), 1), new KeyValue(smoke.translateYProperty(), -20)),
+                new KeyFrame(Duration.millis(2600), new KeyValue(smoke.opacityProperty(), 0), new KeyValue(smoke.translateYProperty(), -70)));   // then it clears slowly
+        puff.setOnFinished(e -> table.getChildren().remove(smoke));
+        puff.play();
     }
 
     /** The Miko arrives: sakura petals drift down over the slot at x, spinning and swaying, then fade. */
     private void petals(double x) {
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < 16; i++) {
             Ellipse petal = new Ellipse(6, 3.5);
             petal.setFill(Color.web("#f6c1d0"));
             petal.setMouseTransparent(true);
             petal.relocate(x + Math.random() * MINION_W, YOUR_Y - 40 - Math.random() * 60);
             table.getChildren().add(petal);
-            Duration time = Duration.millis(1400 + Math.random() * 600);
+            Duration time = Duration.millis(2600 + Math.random() * 1200);   // a slow fall
             TranslateTransition fall = new TranslateTransition(time, petal);
             fall.setByX(-30 + Math.random() * 60);
             fall.setByY(180);

@@ -84,6 +84,12 @@ public class ClassSelectView extends Pane {
         shura.addEventHandler(MouseEvent.MOUSE_ENTERED, e -> about.setText("Hard AI from the first battle, one bonus only, and your wounds stay from battle to battle."));
         shura.addEventHandler(MouseEvent.MOUSE_EXITED, e -> about.setText(""));
         grid.getChildren().add(shura);
+        Label hardcore = new Label("Hardcore mode: health is not restored between fights.");
+        hardcore.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 15; -fx-font-weight: bold; -fx-text-fill: #f3ede1; -fx-alignment: center;");
+        hardcore.setEffect(new DropShadow(6, Color.BLACK));
+        hardcore.setPrefWidth(500);
+        hardcore.relocate(W / 2 - 250, 868);   // under the switch
+        grid.getChildren().add(hardcore);
         for (int i = 0; i < CLASSES.length; i++) {
             HeroClass c = CLASSES[i];
             Group banner = Fx.waving(new Image(getClass().getResourceAsStream("/images/banners/class-" + c.name().toLowerCase() + ".png")), 250, 60);
