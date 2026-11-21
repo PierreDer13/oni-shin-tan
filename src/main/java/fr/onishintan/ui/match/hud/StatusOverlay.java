@@ -1,4 +1,4 @@
-package fr.onishintan.ui.match;
+package fr.onishintan.ui.match.hud;
 import fr.onishintan.ui.fx.Fx;
 
 import fr.onishintan.model.Combatant;
@@ -35,9 +35,10 @@ import javafx.scene.image.ImageView;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
 import javafx.util.Duration;
+import fr.onishintan.ui.match.BoardView;
 
 /** Keyword and status effects drawn over board cards: Shinobi clouds, Torii and Shirodu gates, Passive flag, Seppuku, Tatakae seal, Banzai shout, Sleep zzz. */
-final class StatusOverlay {
+public final class StatusOverlay {
     private final Pane live;
     private final Runnable shake;
     private final Set<List<Object>> shown = new HashSet<>();          // (image, minion) pairs already dropped in
@@ -52,13 +53,13 @@ final class StatusOverlay {
     private static final double ARMOUR_W = 42;
 
     /** live: the board layer to draw on; shake: the small screen shake played when a gate lands. */
-    StatusOverlay(Pane live, Runnable shake) {
+    public StatusOverlay(Pane live, Runnable shake) {
         this.live = live;
         this.shake = shake;
     }
 
     /** Call at every redraw: forgets gates that are gone and the old images. */
-    void clear() {
+    public void clear() {
         shown.removeIf(key -> !keeps(key));
         before = now;
         now = new HashSet<>();
@@ -74,7 +75,7 @@ final class StatusOverlay {
 
 
     /** The effects added next ride with this card: their group follows its position and layer, so they lunge with it when it attacks. */
-    void follow(Node card) {
+    public void follow(Node card) {
         on = new Group();
         on.translateXProperty().bind(card.translateXProperty());
         on.translateYProperty().bind(card.translateYProperty());
@@ -83,7 +84,7 @@ final class StatusOverlay {
     }
 
     /** Shinobi: the hidden card darkens and two ink clouds drift over it in opposite directions; the first time, both come in over 0.5 s. */
-    void shinobi(Node card, Minion m, double x, double y) {
+    public void shinobi(Node card, Minion m, double x, double y) {
         boolean fresh = isNew("shinobi", m);
         if (card.getEffect() == null) {   // a glow (it can attack, it is a target) wins over the darkening
             ColorAdjust dark = new ColorAdjust(0, -0.4, -0.45, 0);
@@ -111,7 +112,7 @@ final class StatusOverlay {
     }
 
     /** Armour on a minion (Yoroi): the hero's armour plate with its number, just above the HP. It drops in the first time; later only the number changes. */
-    void armour(Minion m, double x, double y) {
+    public void armour(Minion m, double x, double y) {
         ImageView plate = BoardView.image("/images/hud/armour.png");
         plate.setFitWidth(ARMOUR_W);
         plate.setPreserveRatio(true);
@@ -123,7 +124,7 @@ final class StatusOverlay {
     }
 
     /** Seppuku: a kneeling samurai, still, at the bottom middle of the card between its ATK and HP. */
-    void seppuku(double x, double y) {
+    public void seppuku(double x, double y) {
         ImageView s = BoardView.image("/images/fx/seppuku.png");
         s.setFitWidth(26);
         s.setPreserveRatio(true);
@@ -132,7 +133,7 @@ final class StatusOverlay {
     }
 
     /** Banzai: the first time the minion is drawn (just played), a gold 万歳! bursts out of it, grows and rises away, with sparks. */
-    void banzai(Minion m, double x, double y) {
+    public void banzai(Minion m, double x, double y) {
         List<Object> key = List.of("banzai", m);
         if (!shown.add(key)) {
             return;   // already shouted when it was played
@@ -158,7 +159,7 @@ final class StatusOverlay {
     }
 
     /** Asleep (Status.SLEEP): z, z, Z float up from the top-right corner of the card or hero at (x, y) and fade, over and over. */
-    void sleep(Object who, double x, double y) {
+    public void sleep(Object who, double x, double y) {
         if (isNew("sleep", who)) {   // just fell asleep: the dart hits first
             dart(x, y);
         }
@@ -217,7 +218,7 @@ final class StatusOverlay {
     }
 
     /** Passive: a war banner planted over the card's top-left corner; the cloth ripples from the pole to the tip. */
-    void flag(Minion m, double x, double y) {
+    public void flag(Minion m, double x, double y) {
         Image img = BoardView.image("/images/fx/flag.png").getImage();   // 400 px wide, cloth starts at x = 125
         Group g = new Group();
         for (int sx = 0; sx < 400; sx += sx == 0 ? 125 : 11) {          // the pole in one piece, then 11 px strips of cloth
@@ -243,7 +244,7 @@ final class StatusOverlay {
     }
 
     /** A gate over a card: the Torii gates in a column (one per stack), or the shirodu wall at the top. Each drops in and shakes the first time. */
-    void gate(String image, Minion m, double x, double y) {
+    public void gate(String image, Minion m, double x, double y) {
         if (image.equals("torii")) {
             toriiColumn(m, x, y);
             return;
@@ -308,7 +309,7 @@ final class StatusOverlay {
     }
 
     /** After a hit: every gate of this character that it no longer has (a Torii stack that blocked the hit) is cut in half and vanishes. */
-    void broken(Combatant c) {
+    public void broken(Combatant c) {
         if (!(c instanceof Minion m)) {
             return;
         }

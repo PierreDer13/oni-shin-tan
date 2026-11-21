@@ -1,4 +1,4 @@
-package fr.onishintan.ui.match;
+package fr.onishintan.ui.match.hud;
 import fr.onishintan.ui.fx.Anim;
 
 import fr.onishintan.model.HeroClass;
@@ -13,6 +13,7 @@ import javafx.scene.effect.ColorAdjust;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import fr.onishintan.ui.match.BoardView;
 
 /** A hero power panel: Ki cost in the circle, English name, Japanese name and effect below.
  *  Usable: yellow outline, hover previews the Ki and grows a little, press uses it. Used: dimmed for the turn. */

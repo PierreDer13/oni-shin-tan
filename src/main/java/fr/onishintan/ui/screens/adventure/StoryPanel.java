@@ -1,4 +1,4 @@
-package fr.onishintan.ui.screens;
+package fr.onishintan.ui.screens.adventure;
 
 import fr.onishintan.ui.app.Sound;
 import fr.onishintan.ui.app.Images;
@@ -26,6 +26,7 @@ import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.text.TextAlignment;
 import javafx.util.Duration;
+import fr.onishintan.ui.screens.HomeView;
 
 /**
  * A story page over the Adventure map, played like a scene: the map goes dark, the title is stamped in with a thud,

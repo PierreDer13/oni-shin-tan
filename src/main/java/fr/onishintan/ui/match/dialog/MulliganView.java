@@ -1,4 +1,4 @@
-package fr.onishintan.ui.match;
+package fr.onishintan.ui.match.dialog;
 
 import fr.onishintan.model.Card;
 import fr.onishintan.model.Player;
@@ -31,12 +31,13 @@ import java.util.ArrayList;
 import java.util.Map;
 import java.util.List;
 import java.util.function.Function;
+import fr.onishintan.ui.match.BoardView;
 
 /**
  * Mulligan (GDD): the opening hand shown big over the table. Click a card to send it back (it flips face down),
  * click it again to keep it; CONFIRM swaps them through `exchange` (engine.mulligan), the new cards flip in, then onDone runs.
  */
-final class MulliganView extends StackPane {
+public final class MulliganView extends StackPane {
     private static final double CARD_W = 210;
     private static final double CARD_H = CARD_W * 742 / 530;   // card art ratio
     private static final Duration FLIP = Duration.millis(120);
@@ -49,7 +50,7 @@ final class MulliganView extends StackPane {
     /** The deck the cards go back into, where it sits on the table. */
     private final ImageView deck = new ImageView(Images.get("/images/frames/card-back.png", CARD_W, CARD_H));
 
-    MulliganView(Player player, Function<List<Card>, List<Card>> exchange, Runnable onDone) {
+    public MulliganView(Player player, Function<List<Card>, List<Card>> exchange, Runnable onDone) {
         Label title = text("交換  MULLIGAN", 44);
         Label hint = text(player.getName() + ": click the cards to send back, then confirm", 22);
 

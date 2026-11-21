@@ -1,4 +1,4 @@
-package fr.onishintan.ui.match;
+package fr.onishintan.ui.match.fx;
 
 import fr.onishintan.model.Card;
 import fr.onishintan.ui.cards.CardView;
@@ -16,9 +16,9 @@ import javafx.util.Duration;
  * The trade animation (GDD, Trade): the card you dropped on your deck sinks into it face down,
  * then the deck is shuffled. After LENGTH, BoardView deals the card you drew into your hand.
  */
-final class TradeAnimation {
+public final class TradeAnimation {
     /** How long sinking + shuffling take; the drawn card starts flying in after this. */
-    static final Duration LENGTH = Duration.millis(900);
+    public static final Duration LENGTH = Duration.millis(900);
 
     private static final double SINK_MS = 300;     // the traded card going into the deck
     private static final double RIFFLE_MS = 200;   // one shuffle: halves apart, then together again
@@ -34,7 +34,7 @@ final class TradeAnimation {
      * Plays the animation on `layer` over your deck.
      * x, y = top-left corner of the deck's top card, width = card width, cardBack = makes one card-back image.
      */
-    static void play(Pane layer, Card traded, double x, double y, double width, Supplier<ImageView> cardBack) {
+    public static void play(Pane layer, Card traded, double x, double y, double width, Supplier<ImageView> cardBack) {
         sink(layer, traded, x, y, width);
         shuffle(layer, x, y, cardBack);
     }

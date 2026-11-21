@@ -1,4 +1,4 @@
-package fr.onishintan.ui.match;
+package fr.onishintan.ui.match.hud;
 import fr.onishintan.ui.app.Images;
 import fr.onishintan.ui.screens.HomeView;
 
@@ -26,6 +26,7 @@ import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Font;
 import javafx.util.Duration;
+import fr.onishintan.ui.match.BoardView;
 
 /** Oaths on scrolls (GDD, Oaths): the choice at the start of a match, the stamped scroll to reread, the small one by the hero. */
 public final class OathView extends StackPane {
@@ -54,7 +55,7 @@ public final class OathView extends StackPane {
                 { "Descension", "降臨", "Play a minion with 5+ ATK every turn, if you can afford one.", "Your 5+ ATK minions cost 1 less Ki.", "Your 5+ ATK minions ignore Shirodu and Torii.", "Your biggest minion has double ATK and HP.", "Abyss: 8 + destroy your strongest minion." },
                 { "Corruption", "堕落", "Give the enemy at least 1 Curse every turn, if you have a Curse card.", "Your Curses deal +1 damage.", "When the enemy removes a Curse, draw a card.", "Every Curse in the enemy's hand triggers at the start and end of every turn.", "Exorcism: 8 + the enemy discards all Curses; you can't curse for 2 turns." } });
 
-    OathView(HeroClass c, Consumer<String> onSworn) {
+    public OathView(HeroClass c, Consumer<String> onSworn) {
         HBox row = new HBox(80);
         row.setAlignment(Pos.CENTER);
         for (String[] o : OATHS.get(c)) {
@@ -96,10 +97,10 @@ public final class OathView extends StackPane {
     }
 
     /** A sworn Oath's full scroll, stamped, to reread it. */
-    static StackPane sworn(HeroClass c, String name) { return scroll(find(c, name)); }
+    public static StackPane sworn(HeroClass c, String name) { return scroll(find(c, name)); }
 
     /** The small scroll next to the hero: the Oath's kanji ("?" while hidden) and its stamp. */
-    static StackPane mini(HeroClass c, String name, boolean hidden) {
+    public static StackPane mini(HeroClass c, String name, boolean hidden) {
         ImageView bg = new ImageView(SCROLL);
         bg.setFitHeight(150);
         bg.setPreserveRatio(true);
@@ -116,7 +117,7 @@ public final class OathView extends StackPane {
     }
 
     /** The reward text of this Oath at 3, 6 or 9 stacks (for the reward banner). */
-    static String reward(HeroClass c, String name, int stacks) {
+    public static String reward(HeroClass c, String name, int stacks) {
         String[] oath = find(c, name);
         int column = 2 + stacks / 3;   // 3 stacks -> column 3, 6 -> 4, 9 -> 5
         return oath[column];
@@ -129,14 +130,14 @@ public final class OathView extends StackPane {
 
 
     /** The name of this Oath's break penalty, before the colon on its scroll: "Dishonour", "Banishment", "Exposed"... */
-    static String penaltyName(HeroClass c, String name) {
+    public static String penaltyName(HeroClass c, String name) {
         String text = breakText(c, name);
         int colon = text.indexOf(':');
         return text.substring(0, colon);
     }
 
     /** What the break does besides the damage ("destroy your strongest minion"), or "" when it is only damage. */
-    static String penaltyEffect(HeroClass c, String name) {
+    public static String penaltyEffect(HeroClass c, String name) {
         String text = breakText(c, name);
         int plus = text.indexOf(" + ");
         if (plus < 0) {

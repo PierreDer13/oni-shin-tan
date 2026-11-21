@@ -1,4 +1,4 @@
-package fr.onishintan.ui.match;
+package fr.onishintan.ui.match.fx;
 
 import fr.onishintan.ui.app.Images;
 import fr.onishintan.model.BoardSide;
@@ -28,17 +28,18 @@ import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.scene.shape.Rectangle;
 import javafx.util.Duration;
+import fr.onishintan.ui.match.BoardView;
 
 /**
  * The moves of single cards, played before their effects so you see what is coming:
  * Iaidō's blade draw, Nue's shockwave, Enma's judgement, Sakasama's flip, Kamikakushi's vanishing.
  * Each one that the effects wait for returns how long it plays.
  */
-final class SignatureFx {
+public final class SignatureFx {
     private SignatureFx() { }
 
     /** Iaidō: one long blade flash, drawn from the middle out, between the two rows of minions. */
-    static double iaido(Pane layer) {
+    public static double iaido(Pane layer) {
         Rectangle blade = new Rectangle(BoardView.SLOT_X - 40, 430, BoardSide.MAX * BoardView.SLOT_STEP + 80, 6);
         blade.setFill(Color.WHITE);
         blade.setEffect(new DropShadow(20, Color.web("#bfe6ff")));
@@ -57,7 +58,7 @@ final class SignatureFx {
     }
 
     /** Nue: a purple ring bursts out from (x, y) across the whole board. */
-    static double shockwave(Pane layer, double x, double y) {
+    public static double shockwave(Pane layer, double x, double y) {
         Circle ring = new Circle(x, y, 40, Color.TRANSPARENT);
         ring.setStroke(Color.web("#9b4dff"));
         ring.setStrokeWidth(8);
@@ -73,7 +74,7 @@ final class SignatureFx {
     }
 
     /** Enma: the whole board flashes blood red, then clears. */
-    static double judgement(Pane layer) {
+    public static double judgement(Pane layer) {
         Rectangle veil = new Rectangle(BoardView.W, BoardView.H, Color.web("#8b0000"));
         veil.setOpacity(0);
         veil.setMouseTransparent(true);
@@ -87,7 +88,7 @@ final class SignatureFx {
     }
 
     /** Sakasama: every enemy minion turns upside down and back as its ATK and HP swap. */
-    static double upsideDown(List<Node> minions) {
+    public static double upsideDown(List<Node> minions) {
         for (Node minion : minions) {
             ScaleTransition turn = new ScaleTransition(Duration.millis(300), minion);
             turn.setToY(-1);
@@ -99,7 +100,7 @@ final class SignatureFx {
     }
 
     /** Kamikakushi: the minion is spirited away, shrinking and spinning into nothing. */
-    static void vanish(Node minion) {
+    public static void vanish(Node minion) {
         Duration time = Duration.millis(450);
         ScaleTransition shrink = new ScaleTransition(time, minion);
         shrink.setToX(0);
@@ -125,7 +126,7 @@ final class SignatureFx {
     private static final int DROPS = 8;
 
     /** Raijin: a slash on each target in turn, one after another. */
-    static double slices(Pane layer, List<Node> targets) {
+    public static double slices(Pane layer, List<Node> targets) {
         for (int i = 0; i < targets.size(); i++) {
             Node target = targets.get(i);
             PauseTransition wait = new PauseTransition(Duration.millis(i * SLICE_GAP));
@@ -143,7 +144,7 @@ final class SignatureFx {
      * Kettō: both minions lunge to meet in the middle, puffs of white smoke stack on each other until they hide both cards,
      * the loser vanishes inside the cloud, then the smoke clears on the one still standing.
      */
-    static double duel(Pane layer, Node a, Node b, Node loser) {
+    public static double duel(Pane layer, Node a, Node b, Node loser) {
         Bounds boxA = a.getBoundsInParent();
         Bounds boxB = b.getBoundsInParent();
         double midX = (boxA.getCenterX() + boxB.getCenterX()) / 2;
@@ -189,7 +190,7 @@ final class SignatureFx {
 
 
     /** A white smoke bursts above (x, y) and drifts up (Kettō's clash, Fūma Kotarō revealing himself). */
-    static void puff(Pane layer, double x, double y) {
+    public static void puff(Pane layer, double x, double y) {
         ImageView smoke = BoardView.image("/images/fx/black-smoke.png");
         smoke.setEffect(new ColorAdjust(0, 0, 1, 0));   // brightened to white
         smoke.setFitWidth(240);
@@ -207,7 +208,7 @@ final class SignatureFx {
     }
 
     /** Inari Ōkami: a blue foxfire flares on the minion as it calls a kitsune. */
-    static void foxfire(Pane layer, Node minion) {
+    public static void foxfire(Pane layer, Node minion) {
         Bounds box = minion.getBoundsInParent();
         Circle fire = new Circle(box.getCenterX(), box.getCenterY(), 30, Color.web("#7fd4ff", 0.7));
         fire.setEffect(new DropShadow(30, Color.web("#3aa0ff")));
@@ -224,7 +225,7 @@ final class SignatureFx {
     }
 
     /** Ninja's Shuriken: a volley of small stars (fx/shuriken-star.png) spins from `from` (your hero) into `to`, sparks where each hits. */
-    static void shuriken(Pane layer, Node from, Node to) {
+    public static void shuriken(Pane layer, Node from, Node to) {
         Bounds start = from.getBoundsInParent();
         Bounds end = to.getBoundsInParent();
         for (int i = 0; i < STARS; i++) {
@@ -256,7 +257,7 @@ final class SignatureFx {
      * Oni's Jikininki: a demon hand rises over `from` (the target) and clenches, squeezing its life out;
      * drops of it fly into `to` (your hero). The damage shows at the clench (MatchController.POWER_PAUSE).
      */
-    static void siphon(Pane layer, Node from, Node to) {
+    public static void siphon(Pane layer, Node from, Node to) {
         Bounds start = from.getBoundsInParent();
         Bounds end = to.getBoundsInParent();
         ImageView hand = BoardView.image("/images/fx/jikininki-open.png");
@@ -301,7 +302,7 @@ final class SignatureFx {
     }
 
     /** Seppuku: a katana drives down into the dying minion, then fades. */
-    static void seppuku(Pane layer, Node minion) {
+    public static void seppuku(Pane layer, Node minion) {
         Bounds box = minion.getBoundsInParent();
         ImageView blade = BoardView.image("/images/weapons/katana.png");   // 400 x 55, hilt left, tip right
         blade.setFitWidth(150);

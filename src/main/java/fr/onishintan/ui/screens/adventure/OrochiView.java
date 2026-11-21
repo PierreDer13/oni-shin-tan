@@ -1,4 +1,4 @@
-package fr.onishintan.ui.screens;
+package fr.onishintan.ui.screens.adventure;
 
 import fr.onishintan.ai.AIController;
 import fr.onishintan.data.AdventureDecks;
@@ -33,6 +33,7 @@ import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.transform.Scale;
+import fr.onishintan.ui.screens.HomeView;
 
 /**
  * The page after the classes: Yamata no Orochi, the bonus boss. Locked until every Adventure is finished in both modes;
