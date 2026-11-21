@@ -12,6 +12,8 @@ import org.junit.jupiter.api.Test;
 
 import fr.onishintan.model.*;
 
+import fr.onishintan.engine.event.GameEvent;
+import fr.onishintan.engine.turn.TurnManager;
 /** Yamata no Orochi as a boss: full opening hand, his mythic every 5 turns from turn 10, Yatsu-kubi. */
 class OrochiBossTest {
 

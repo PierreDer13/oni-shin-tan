@@ -10,7 +10,8 @@ import java.util.Random;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import fr.onishintan.model.*;
+import fr.onishintan.model.*;
+import fr.onishintan.engine.event.GameEvent;
 
 /** EFFECT_TRIGGERED is published just before a triggered effect acts, with what triggered it as source. */
 class EffectTriggeredTest {

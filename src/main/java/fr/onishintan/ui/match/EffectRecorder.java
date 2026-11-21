@@ -1,7 +1,7 @@
 package fr.onishintan.ui.match;
 
 import fr.onishintan.engine.GameEngine;
-import fr.onishintan.engine.GameEvent;
+import fr.onishintan.engine.event.GameEvent;
 
 import java.util.ArrayList;
 import java.util.EnumSet;

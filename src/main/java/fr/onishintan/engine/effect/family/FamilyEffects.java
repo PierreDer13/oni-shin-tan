@@ -1,4 +1,4 @@
-package fr.onishintan.engine;
+package fr.onishintan.engine.effect.family;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -18,13 +18,21 @@ import fr.onishintan.model.MinionCard;
 import fr.onishintan.model.Player;
 import fr.onishintan.model.Rarity;
 import fr.onishintan.model.Shrine;
-
+
+import fr.onishintan.engine.GameEngine;
+import fr.onishintan.engine.effect.minion.MinionEffects;
+import fr.onishintan.engine.effect.CardEffects;
+import fr.onishintan.engine.effect.Effect;
+import fr.onishintan.engine.effect.EffectContext;
+import fr.onishintan.engine.effect.Effects;
+import fr.onishintan.engine.effect.Trigger;
+import fr.onishintan.engine.event.GameEvent;
 /**
  * The effects of the card families of cards.json, by card id: the 6 Ninja Traps, the 6 Kannushi
  * Shrine auras (doubled by Divinity 9), the 6 Oni Curses and the Banzai that the Rite of Gokitō
  * leaves on later Ancestors (the Rite stacking itself is in GameEngine.performRite).
  */
-final class FamilyEffects {
+public final class FamilyEffects {
 
     /** Kawarimi: the 0/9 log that takes the hit (Shirodu, so it is a legal target). */
     static final MinionCard KAWARIMI_LOG = new MinionCard("kawarimi-log", "Kawarimi log", "丸太", "まるた", 0,
@@ -45,7 +53,7 @@ final class FamilyEffects {
     /** The keywords an aura gave a minion that did not have them (taken back when the aura ends). */
     private final Map<Minion, Set<Keyword>> lent = new IdentityHashMap<>();
 
-    FamilyEffects(GameEngine engine, MinionEffects minions) {
+    public FamilyEffects(GameEngine engine, MinionEffects minions) {
         this.engine = engine;
         this.minions = minions;
         register(engine.getCardEffects());
@@ -110,7 +118,7 @@ final class FamilyEffects {
     // ---------- hooks called by GameEngine ----------
 
     /** Bakeneko: while p holds it, his minions cost 1 more Ki (one per Bakeneko held). */
-    int costUp(Player p, Card card) {
+    public int costUp(Player p, Card card) {
         return card instanceof MinionCard ? held(p, "bakeneko") : 0;
     }
 
@@ -131,7 +139,7 @@ final class FamilyEffects {
      * Fushimi Inari: on the opponent's turns, a minion next to it cannot die from a single hit:
      * the hit leaves it at 1 HP at least.
      */
-    int capDamage(Combatant target, int amount) {
+    public int capDamage(Combatant target, int amount) {
         if (!(target instanceof Minion m) || amount <= 0 || m.getToriiStacks() > 0) return amount;
         Player owner = engine.ownerOf(m);
         if (owner == null || owner == engine.getState().active() || !nextTo(owner, m, "fushimi-inari")) return amount;
@@ -139,7 +147,7 @@ final class FamilyEffects {
     }
 
     /** Meiji Ōtorii: a minion next to it heals 3 after it attacks (still alive), as its card says. */
-    void afterAttack(Combatant attacker) {
+    public void afterAttack(Combatant attacker) {
         if (!(attacker instanceof Minion m) || m.isDead()) return;
         Player owner = engine.ownerOf(m);
         if (owner == null) return;
@@ -164,7 +172,7 @@ final class FamilyEffects {
         }
     }
 
-    void onEvent(GameEvent e) {
+    public void onEvent(GameEvent e) {
         switch (e.type()) {
             case TURN_STARTED -> gakiTurnStart((Player) e.source());
             default -> { }
@@ -173,7 +181,7 @@ final class FamilyEffects {
     }
 
     /** Subscribed before the Shrines tick, so a Shrine still acts at the end of its last turn. */
-    void onTurnEnded(GameEvent e) {
+    public void onTurnEnded(GameEvent e) {
         endTurn((Player) e.source());
     }
 

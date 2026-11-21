@@ -10,8 +10,11 @@ import java.util.Random;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import fr.onishintan.engine.GameEvent.Type;
-import fr.onishintan.model.*;
+import fr.onishintan.engine.event.GameEvent.Type;
+import fr.onishintan.model.*;
+import fr.onishintan.engine.effect.Trigger;
+import fr.onishintan.engine.event.GameEvent;
+import fr.onishintan.engine.oath.OathRewards;
 
 /** The 9 stack effects of the GDD Oath table, and what a break takes back. */
 class OathCardTest {

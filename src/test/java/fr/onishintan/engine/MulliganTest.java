@@ -11,7 +11,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import fr.onishintan.ai.AIController;
-import fr.onishintan.model.*;
+import fr.onishintan.model.*;
+import fr.onishintan.engine.event.GameEvent;
 
 /** The mulligan: once per player, before the first turn, chosen cards replaced by new ones. */
 class MulliganTest {

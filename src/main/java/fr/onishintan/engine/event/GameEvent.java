@@ -1,4 +1,4 @@
-package fr.onishintan.engine;
+package fr.onishintan.engine.event;
 
 /**
  * Something that happened in the match. The UI listens and animates it.

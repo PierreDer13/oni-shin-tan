@@ -1,6 +1,8 @@
-package fr.onishintan.engine;
+package fr.onishintan.engine.oath;
 
 import fr.onishintan.model.Player;
+import fr.onishintan.engine.GameState;
+import fr.onishintan.engine.turn.TurnTracker;
 
 /** Checks one Oath at the end of its owner's turn (GDD, Chosen vs unable). */
 @FunctionalInterface

@@ -12,7 +12,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import fr.onishintan.adventure.Upgrade;
-import fr.onishintan.model.*;
+import fr.onishintan.model.*;
+import fr.onishintan.engine.event.GameEvent;
 
 /** The Adventure upgrades: Inochi (+30 max HP), Chikara (+3 ATK, +3 spell damage), Hayasa (-1 Ki, min 1). */
 class UpgradeTest {

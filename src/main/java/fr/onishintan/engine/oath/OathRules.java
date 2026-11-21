@@ -1,8 +1,8 @@
-package fr.onishintan.engine;
+package fr.onishintan.engine.oath;
 
-import static fr.onishintan.engine.OathRule.Verdict.BROKEN;
-import static fr.onishintan.engine.OathRule.Verdict.KEPT;
-import static fr.onishintan.engine.OathRule.Verdict.UNABLE;
+import static fr.onishintan.engine.oath.OathRule.Verdict.BROKEN;
+import static fr.onishintan.engine.oath.OathRule.Verdict.KEPT;
+import static fr.onishintan.engine.oath.OathRule.Verdict.UNABLE;
 
 import java.util.EnumMap;
 import java.util.Map;
@@ -21,7 +21,10 @@ import fr.onishintan.model.Player;
 import fr.onishintan.model.RiteCard;
 import fr.onishintan.model.ShrineCard;
 import fr.onishintan.model.TrapCard;
-
+
+import fr.onishintan.engine.turn.CombatResolver;
+import fr.onishintan.engine.GameState;
+import fr.onishintan.engine.turn.TurnTracker;
 /**
  * The rule of each Oath, checked at the end of its owner's turn (GDD, Oaths table).
  * KEPT = +1 stack, UNABLE = no legal way to keep it (no stack, the Oath holds), BROKEN = broken on purpose.
@@ -48,7 +51,7 @@ public class OathRules {
     }
 
     /** What a card costs its player now (Oath rewards). Set by GameEngine. */
-    void setCost(ToIntBiFunction<Player, Card> cost) {
+    public void setCost(ToIntBiFunction<Player, Card> cost) {
         this.cost = Objects.requireNonNull(cost);
     }
 

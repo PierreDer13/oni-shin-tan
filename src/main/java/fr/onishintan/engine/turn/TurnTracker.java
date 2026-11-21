@@ -1,4 +1,4 @@
-package fr.onishintan.engine;
+package fr.onishintan.engine.turn;
 
 import java.util.Collections;
 import java.util.IdentityHashMap;
@@ -33,7 +33,7 @@ public class TurnTracker {
     /** Justice: enemy minions that hit a player's hero, by that player. */
     private final Map<Player, Set<Minion>> heroAttackers = new IdentityHashMap<>();
 
-    void reset() {
+    public void reset() {
         cardsPlayed = 0;
         minionsPlayed = 0;
         kiSpent = 0;
@@ -47,7 +47,7 @@ public class TurnTracker {
         attacked.clear();
     }
 
-    void cardPlayed(Card card, int paid) {
+    public void cardPlayed(Card card, int paid) {
         cardsPlayed++;
         kiSpent += paid;
         if (card instanceof MinionCard mc) {
@@ -57,32 +57,32 @@ public class TurnTracker {
     }
 
     /** A trap is a card played too, but announced as TRAP_SET to keep it hidden. */
-    void trapSet(Card card, int paid) {
+    public void trapSet(Card card, int paid) {
         cardPlayed(card, paid);
         trapsSet++;
     }
 
     /** Ki paid outside a card (hero power, katana). */
-    void addKiSpent(int paid) { kiSpent += paid; }
+    public void addKiSpent(int paid) { kiSpent += paid; }
 
-    void attacked(Combatant target) { attacked.add(target); }
+    public void attacked(Combatant target) { attacked.add(target); }
 
-    void minionHitHero(boolean enemyHadMinions) {
+    public void minionHitHero(boolean enemyHadMinions) {
         heroAttacks++;
         if (enemyHadMinions) heroAttacksPastMinions++;
     }
 
-    void minionSkippedHero() { heroSkipped++; }
+    public void minionSkippedHero() { heroSkipped++; }
 
-    void addDamage(int amount) { damageDealt += amount; }
+    public void addDamage(int amount) { damageDealt += amount; }
 
-    void curseGiven() { cursesGiven++; }
+    public void curseGiven() { cursesGiven++; }
 
-    void markHeroAttacker(Player defender, Minion attacker) {
+    public void markHeroAttacker(Player defender, Minion attacker) {
         heroAttackers.computeIfAbsent(defender, k -> Collections.newSetFromMap(new IdentityHashMap<>())).add(attacker);
     }
 
-    void clearHeroAttackers(Player defender) { heroAttackers.remove(defender); }
+    public void clearHeroAttackers(Player defender) { heroAttackers.remove(defender); }
 
     public int getCardsPlayed() { return cardsPlayed; }
     public int getMinionsPlayed() { return minionsPlayed; }

@@ -1,4 +1,4 @@
-package fr.onishintan.engine;
+package fr.onishintan.engine.oath;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -11,16 +11,17 @@ import java.util.Optional;
 import fr.onishintan.model.Minion;
 import fr.onishintan.model.Oath;
 import fr.onishintan.model.Player;
-import fr.onishintan.model.Status;
+import fr.onishintan.model.Status;
+import fr.onishintan.engine.GameEngine;
 
 /**
  * The extra penalty of each broken Oath (GDD Oath table, "Break" column), applied after the damage,
  * and the penalties that last some of the Oathbreaker's own turns.
  */
-class OathPenalties {
+public class OathPenalties {
 
     /** A penalty that lasts some of its player's turns. */
-    enum Lasting {
+    public enum Lasting {
         HERO_ASLEEP(3),   // Dishonour: the hero cannot attack
         PERSECUTION(3),   // Persecution: the enemy minions keep +2 ATK
         NO_DRAW(2),       // Disappointment: no card drawn
@@ -40,11 +41,11 @@ class OathPenalties {
     private final Map<Player, EnumMap<Lasting, Integer>> left = new HashMap<>();
     private final Map<Player, List<Minion>> persecuted = new HashMap<>();
 
-    OathPenalties(GameEngine engine) {
+    public OathPenalties(GameEngine engine) {
         this.engine = engine;
     }
 
-    boolean has(Player p, Lasting l) {
+    public boolean has(Player p, Lasting l) {
         return turnsLeft(p, l) > 0;
     }
 
@@ -58,7 +59,7 @@ class OathPenalties {
     }
 
     /** p just broke this Oath: its own penalty, after the break damage. */
-    void apply(Player p, Oath oath) {
+    public void apply(Player p, Oath oath) {
         Player enemy = engine.getState().opponentOf(p);
         switch (oath.getType()) {
             case HONOR -> {                                          // Dishonour
@@ -93,7 +94,7 @@ class OathPenalties {
     }
 
     /** End of p's turn, before his Oath is checked: each of his lasting penalties loses a turn. */
-    void tick(Player p) {
+    public void tick(Player p) {
         EnumMap<Lasting, Integer> m = left.get(p);
         if (m == null) return;
         for (Lasting l : List.copyOf(m.keySet())) {

@@ -1,4 +1,4 @@
-package fr.onishintan.engine;
+package fr.onishintan.engine.effect;
 
 /** What a plain spell or a Banzai is aimed at: GameEngine.spellTarget / banzaiTarget, then spellTargets / banzaiTargets for the legal ones. */
 public enum SpellTarget {

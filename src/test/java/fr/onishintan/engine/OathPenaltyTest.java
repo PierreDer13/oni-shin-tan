@@ -10,8 +10,10 @@ import java.util.Random;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import fr.onishintan.engine.GameEvent.Type;
-import fr.onishintan.model.*;
+import fr.onishintan.engine.event.GameEvent.Type;
+import fr.onishintan.model.*;
+import fr.onishintan.engine.event.GameEvent;
+import fr.onishintan.engine.oath.OathPenalties;
 
 /** The extra penalty of each broken Oath (GDD Oath table, Break column). */
 class OathPenaltyTest {

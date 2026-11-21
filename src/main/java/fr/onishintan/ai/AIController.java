@@ -11,7 +11,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import fr.onishintan.engine.GameEngine;
-import fr.onishintan.engine.SpellTarget;
+import fr.onishintan.engine.effect.SpellTarget;
 import fr.onishintan.model.BoardSide;
 import fr.onishintan.model.Card;
 import fr.onishintan.model.Combatant;

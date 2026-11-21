@@ -1,4 +1,6 @@
-package fr.onishintan.engine;
+package fr.onishintan.engine.event;
+
+import fr.onishintan.engine.GameState;
 
 /** Implemented by the UI (MatchController) to react to the engine. */
 @FunctionalInterface

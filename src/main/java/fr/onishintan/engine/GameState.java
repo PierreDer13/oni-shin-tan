@@ -24,13 +24,13 @@ public class GameState {
     }
 
     /** Round 1, first player to act. Called once by TurnManager.startMatch(). */
-    void begin() {
+    public void begin() {
         current = 0;
         round = 1;
     }
 
     /** Hands the turn to the other player; a new round starts when the first player is up again. */
-    void nextTurn() {
+    public void nextTurn() {
         current = 1 - current;
         if (current == 0) round++;
     }

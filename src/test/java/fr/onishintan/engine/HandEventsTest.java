@@ -10,7 +10,9 @@ import java.util.Random;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import fr.onishintan.model.*;
+import fr.onishintan.model.*;
+import fr.onishintan.engine.event.GameEvent;
+import fr.onishintan.engine.oath.OathRewards;
 
 /** Cards an effect puts in the hand publish CARD_ADDED (or CARD_BURNED when full); bonusOf gives the green number of a hand card. */
 class HandEventsTest {

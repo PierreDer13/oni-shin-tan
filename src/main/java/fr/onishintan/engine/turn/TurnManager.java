@@ -1,4 +1,4 @@
-package fr.onishintan.engine;
+package fr.onishintan.engine.turn;
 
 import fr.onishintan.model.Card;
 import fr.onishintan.model.Minion;
@@ -13,6 +13,7 @@ import java.util.Optional;
 import java.util.Random;
 import java.util.function.Predicate;
 
+import fr.onishintan.engine.GameState;
 /**
  * Runs the match order from the GDD:
  * start of match (shuffle, opening hands), then for each turn
@@ -36,7 +37,7 @@ public class TurnManager {
     /** False for a player who may not draw this turn (Oath penalty Disappointment). Set by GameEngine. */
     private Predicate<Player> mayDraw = p -> true;
 
-    void setDrawRule(Predicate<Player> rule) {
+    public void setDrawRule(Predicate<Player> rule) {
         mayDraw = Objects.requireNonNull(rule);
     }
 
@@ -136,9 +137,9 @@ public class TurnManager {
     }
 
     /** Kuji-in: the hero power can be used once more this turn. */
-    void resetPower() { powerUsedThisTurn = false; }
+    public void resetPower() { powerUsedThisTurn = false; }
 
-    void markPowerUsed() { 
+    public void markPowerUsed() { 
         powerUsedThisTurn = true; 
     }
 

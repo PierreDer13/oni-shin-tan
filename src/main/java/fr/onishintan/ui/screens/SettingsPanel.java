@@ -17,6 +17,7 @@ import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
 import javafx.stage.Stage;
+import fr.onishintan.engine.effect.Effects;
 
 /**
  * The settings, laid over the current screen (home or a match) on the 1600 x 900 grid: music and effect volumes,

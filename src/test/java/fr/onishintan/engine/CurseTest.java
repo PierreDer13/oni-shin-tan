@@ -10,7 +10,8 @@ import java.util.Random;
 import org.junit.jupiter.api.Test;
 
 import fr.onishintan.model.*;
-
+
+import fr.onishintan.engine.event.GameEvent;
 /** Curses: hand Curses act while held and can be removed, deck Curses act when drawn. */
 class CurseTest {
 

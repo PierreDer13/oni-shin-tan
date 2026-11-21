@@ -11,7 +11,8 @@ import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import fr.onishintan.model.*;
+import fr.onishintan.model.*;
+import fr.onishintan.engine.event.GameEvent;
 
 /** The family effects of cards.json by id: the 6 Traps, the 6 Shrine auras, the 6 Curses, Gokitō's draw and Rite stacking. */
 class FamilyEffectTest {
