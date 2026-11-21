@@ -1,5 +1,6 @@
 package fr.onishintan.ui.match;
 import fr.onishintan.ui.cards.CardView;
+import fr.onishintan.ui.cards.CardPreview;
 import fr.onishintan.ui.cards.MinionView;
 import fr.onishintan.ui.cards.ShrineView;
 import fr.onishintan.ui.fx.EventBanner;
@@ -114,6 +115,7 @@ public class BoardView extends Pane {
         + " -fx-background-radius: 10; -fx-alignment: center; -fx-text-alignment: center;";
 
     private final Pane live = new Pane();
+    private final DeckTracker deckTracker;
     private final StatusOverlay status = new StatusOverlay(live, () -> impact(0, true));
     private KiBarView ki;
     private HandView hand;
@@ -228,6 +230,9 @@ public class BoardView extends Pane {
         Label settings = darkButton("設定  SETTINGS", () -> table.getChildren().add(new SettingsPanel(this::askSurrender)));
         settings.relocate(20, 20);
         table.getChildren().add(settings);
+        // Deck tracker, right side: the cards left in your deck (opens and closes with its tab).
+        deckTracker = new DeckTracker(new CardPreview(table));
+        table.getChildren().add(deckTracker);
         targetMark.setFitWidth(MARK_W);
         targetMark.setPreserveRatio(true);
         targetMark.setMouseTransparent(true);   // clicks still reach the target under it
@@ -256,6 +261,7 @@ public class BoardView extends Pane {
         if (izakaya) props();
         nodes.clear();
         status.clear();
+        deckTracker.show(you);   // the deck tracker follows the player at the bottom
         hero(enemy.getHero(), enemyPortrait, 107, false);
         oath(enemy, 107);
         oath(you, 637);
@@ -396,7 +402,7 @@ public class BoardView extends Pane {
             played = new CardView(card, MINION_W);   // already gone (a trap killed it): its card shows in the slot
             played.relocate(SLOT_X + 2 + slot * SLOT_STEP, YOUR_Y);
         } else {
-            played = bigCard(card, BIG_X);   // a spell shows big on the right
+            return;   // your spells no longer show big on the right: only the opponent's plays do
         }
         played.setMouseTransparent(true);
         // Placed: it comes down onto the table, from big to its size.

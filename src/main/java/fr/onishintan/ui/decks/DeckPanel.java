@@ -1,6 +1,7 @@
 package fr.onishintan.ui.decks;
 
 import fr.onishintan.model.Card;
+import fr.onishintan.ui.app.ScrollTheme;
 import fr.onishintan.ui.cards.CardPreview;
 import fr.onishintan.ui.cards.DeckListView;
 
@@ -16,8 +17,8 @@ import javafx.scene.layout.VBox;
  * Hovering a card shows it big; a right click takes one copy out.
  */
 class DeckPanel extends ScrollPane {
-    /** The panel's width, and the list's width inside it (minus the padding and the scroll bar). */
-    private static final double WIDTH = 410, LIST_W = 370;
+    /** The panel's width, and the list's width inside it (minus the padding and the 36 px themed scroll bar). */
+    private static final double WIDTH = 410, LIST_W = 350;
 
     private final VBox content = new VBox();
     private final DeckListView list;
@@ -29,6 +30,7 @@ class DeckPanel extends ScrollPane {
         setPrefSize(WIDTH, 545);
         setHbarPolicy(ScrollBarPolicy.NEVER);
         setStyle("-fx-background-color: transparent; -fx-background: transparent;");   // the frame's dark inside shows through
+        ScrollTheme.apply(this);   // the paper-scroll bar, like everywhere else
     }
 
     /** Redraws the deck: each different card once, with how many copies there are, in Ki sections. */
