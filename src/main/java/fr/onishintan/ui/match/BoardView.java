@@ -97,6 +97,8 @@ public class BoardView extends Pane {
     /** The shadow every object on the table casts: down and to the right. */
     static final DropShadow SHADOW = new DropShadow(15, 8, 6, Color.rgb(0, 0, 0, 0.6));
     public static final double SLOT_X = 352, SLOT_STEP = 130.5, ENEMY_Y = 257, YOUR_Y = 443, MINION_W = 114;
+    /** A played minion floats above its slot for FLOAT_MS, then takes DROP_MS to drop onto it. */
+    static final double FLOAT_MS = 300, DROP_MS = 150;
 
     private Player enemy, you;
     private String enemyPortrait, yourPortrait;
@@ -357,7 +359,7 @@ public class BoardView extends Pane {
      * so its Banzai, smoke and damage play on it (like yours in showPlayed). Its Traps stay hidden.
      */
     public void showAiPlayed(Card card) {
-        heavyLanding(card);
+        afterLanding(card, () -> heavyLanding(card));   // the thud when its minion hits the slot
         if (card instanceof TrapCard) {
             return;
         }
@@ -377,6 +379,7 @@ public class BoardView extends Pane {
             if (m != null && m.getSource() == card && !nodes.containsKey(m)) {
                 Node played = new MinionView(m, MINION_W);
                 played.relocate(SLOT_X + 2 + slot * SLOT_STEP, ENEMY_Y);
+                floatAndDrop(played);   // the AI's minion floats and drops too
                 nodes.put(m, played);   // its effects show on it, and it is not redrawn as a newcomer
                 live.getChildren().add(played);
             }
@@ -405,20 +408,13 @@ public class BoardView extends Pane {
             return;   // your spells no longer show big on the right: only the opponent's plays do
         }
         played.setMouseTransparent(true);
-        // Placed: it comes down onto the table, from big to its size.
-        ScaleTransition land = new ScaleTransition(Duration.millis(180), played);
-        land.setFromX(1.4);
-        land.setFromY(1.4);
-        land.setToX(1);
-        land.setToY(1);
-        land.setInterpolator(Interpolator.EASE_IN);
-        land.play();
+        floatAndDrop(played);   // it floats above its slot, then drops onto it, before its effects
         live.getChildren().add(played);
         if (card instanceof MinionCard) {
             Minion minion = you.getSide().getAt(slot);
             if (minion != null && minion.hasKeyword(Keyword.BANZAI)) {
                 status.follow(played);
-                status.banzai(minion, SLOT_X + 2 + slot * SLOT_STEP, YOUR_Y);   // 万歳! bursts out before the effect (shown once)
+                afterLanding(card, () -> status.banzai(minion, SLOT_X + 2 + slot * SLOT_STEP, YOUR_Y));   // 万歳! bursts out once it has landed
             }
         }
     }
@@ -1377,8 +1373,10 @@ public void passTo(String name, Runnable onReady) {
             duelHp.put(second, second.getHealth());
         }
         if (player.play(card, slot, first, second)) {
-            impact(cost, false);
-            heavyLanding(card);
+            afterLanding(card, () -> {
+                impact(cost, false);   // the shake and the thud come when the minion hits its slot
+                heavyLanding(card);
+            });
         }
     }
 
@@ -1496,6 +1494,35 @@ public void passTo(String name, Runnable onReady) {
         if (card instanceof MinionCard && card.getKiCost() >= HEAVY_KI) {
             Sound.play(HEAVY_THUD);
         }
+    }
+
+    /** A minion just played: it floats above its slot, a little bigger, then drops onto it. */
+    private static void floatAndDrop(Node minion) {
+        minion.setTranslateY(-40);   // starts above its slot
+        minion.setScaleX(1.15);
+        minion.setScaleY(1.15);
+        // It floats: drifts up a little, still big.
+        KeyFrame floating = new KeyFrame(Duration.millis(FLOAT_MS),
+                new KeyValue(minion.translateYProperty(), -50),
+                new KeyValue(minion.scaleXProperty(), 1.15),
+                new KeyValue(minion.scaleYProperty(), 1.15));
+        // It drops: down onto its slot, back to its size, faster and faster.
+        KeyFrame landed = new KeyFrame(Duration.millis(FLOAT_MS + DROP_MS),
+                new KeyValue(minion.translateYProperty(), 0, Interpolator.EASE_IN),
+                new KeyValue(minion.scaleXProperty(), 1, Interpolator.EASE_IN),
+                new KeyValue(minion.scaleYProperty(), 1, Interpolator.EASE_IN));
+        new Timeline(floating, landed).play();
+    }
+
+    /** Runs `then` when a played card hits the table: after the float and the drop for a minion, at once otherwise. */
+    private static void afterLanding(Card card, Runnable then) {
+        double wait = 0;
+        if (card instanceof MinionCard) {
+            wait = FLOAT_MS + DROP_MS;
+        }
+        PauseTransition landing = new PauseTransition(Duration.millis(wait));
+        landing.setOnFinished(event -> then.run());
+        landing.play();
     }
 
     /** Screen shake when a card lands: 6+ Ki shakes; 10+ Ki shakes longer and harder, and every minion on the board wobbles. */
