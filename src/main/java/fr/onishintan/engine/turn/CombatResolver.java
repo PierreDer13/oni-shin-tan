@@ -1,6 +1,6 @@
-package fr.onishintan.engine;
+package fr.onishintan.engine.turn;
 
-import fr.onishintan.engine.GameEvent.Type;
+import fr.onishintan.engine.event.GameEvent.Type;
 import fr.onishintan.model.Combatant;
 import fr.onishintan.model.Hero;
 import fr.onishintan.model.Minion;
@@ -12,7 +12,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
-
+
+import fr.onishintan.engine.GameState;
+import fr.onishintan.engine.event.GameEvent;
 /**
  * Attacks between characters (GDD, Combat):
  * - a visible Shirodu on the enemy side must be attacked first;
@@ -35,12 +37,12 @@ public class CombatResolver {
     private Predicate<Combatant> piercing = c -> false;
 
     /** Set by GameEngine. */
-    void setDamageRule(DamageRule rule) {
+    public void setDamageRule(DamageRule rule) {
         damageRule = Objects.requireNonNull(rule);
     }
 
     /** Attackers that ignore Shirodu and Torii (Descension 6). Set by GameEngine. */
-    void setPiercing(Predicate<Combatant> rule) {
+    public void setPiercing(Predicate<Combatant> rule) {
         piercing = Objects.requireNonNull(rule);
     }
 

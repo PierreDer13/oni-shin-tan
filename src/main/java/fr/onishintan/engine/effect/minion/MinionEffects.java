@@ -1,4 +1,4 @@
-package fr.onishintan.engine;
+package fr.onishintan.engine.effect.minion;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -22,16 +22,24 @@ import fr.onishintan.model.Player;
 import fr.onishintan.model.Rarity;
 import fr.onishintan.model.Status;
 import fr.onishintan.model.WeaponCard;
-
+
+import fr.onishintan.engine.GameEngine;
+import fr.onishintan.engine.effect.SpellTarget;
+import fr.onishintan.engine.effect.CardEffects;
+import fr.onishintan.engine.effect.Effect;
+import fr.onishintan.engine.effect.EffectContext;
+import fr.onishintan.engine.effect.Effects;
+import fr.onishintan.engine.effect.Trigger;
+import fr.onishintan.engine.event.GameEvent;
 /**
  * The effects of the minions of cards.json (Card Curve), by card id: Banzai (with the target the UI
  * must ask for), Seppuku, end-of-turn passives, auras (Ronin, Jōnin), Tennō's cost cut, Hakahori,
  * Rokurokubi, Fūma Kotarō's Yogake, Jorōgumo's sleep and Shike's silence.
  */
-final class MinionEffects {
+public final class MinionEffects {
 
     /** A Banzai that needs a target: its kind, and a filter on top of it (Shinigami: damaged only). */
-    record Aim(SpellTarget target, Predicate<Combatant> filter) {
+    public record Aim(SpellTarget target, Predicate<Combatant> filter) {
         Aim(SpellTarget target) { this(target, c -> true); }
     }
 
@@ -65,17 +73,17 @@ final class MinionEffects {
     /** The aura bonus each minion carries now: {ATK, HP} (Ronin, Jōnin). */
     private final Map<Minion, int[]> auras = new IdentityHashMap<>();
 
-    MinionEffects(GameEngine engine) {
+    public MinionEffects(GameEngine engine) {
         this.engine = engine;
         register(engine.getCardEffects());
     }
 
     /** The Banzai target this minion card asks for, or null when its Banzai needs none. */
-    static Aim aim(Card card) {
+    public static Aim aim(Card card) {
         return card == null ? null : AIMS.get(card.getId());
     }
 
-    boolean isSilenced(Minion m) { return silenced.contains(m); }
+    public boolean isSilenced(Minion m) { return silenced.contains(m); }
 
     private boolean active(Minion m, String id) {
         return !m.isDead() && !silenced.contains(m) && id.equals(m.getSource().getId());
@@ -86,12 +94,12 @@ final class MinionEffects {
     }
 
     /** Rokurokubi attacks past Shirodu and Torii. */
-    boolean pierces(Combatant c) {
+    public boolean pierces(Combatant c) {
         return c instanceof Minion m && active(m, "rokurokubi");
     }
 
     /** Tennō: your other minions cost 1 less Ki (one per Tennō on your side). */
-    int costCut(Player p, Card c) {
+    public int costCut(Player p, Card c) {
         return c instanceof MinionCard && !"tenno".equals(c.getId()) ? (int) count(p, "tenno") : 0;
     }
 
@@ -220,7 +228,7 @@ final class MinionEffects {
 
     // ---------- events ----------
 
-    void onEvent(GameEvent e) {
+    public void onEvent(GameEvent e) {
         switch (e.type()) {
             case MINION_DIED -> hakahori((Player) e.source(), (Minion) e.target());
             case ATTACK -> yogake(e.source());
@@ -265,7 +273,7 @@ final class MinionEffects {
      * Put to sleep during its owner's own turn (Oyasumi, Otoshiana), it sleeps through the rest
      * of that turn and the whole next one too (decided 18 Nov).
      */
-    void sleep(Minion m) {
+    public void sleep(Minion m) {
         if (m == null || m.isDead()) return;
         m.addStatus(Status.SLEEP);
         int ends = engine.ownerOf(m) == engine.getState().active() ? 2 : 1;
@@ -290,7 +298,7 @@ final class MinionEffects {
     }
 
     /** Ronin (+6/+6 while it is your only minion) and Jōnin (your other Shinobi minions +3 ATK). */
-    void refreshAuras() {
+    public void refreshAuras() {
         Set<Minion> onBoard = Collections.newSetFromMap(new IdentityHashMap<>());
         for (Player p : List.of(engine.getState().getFirst(), engine.getState().getSecond())) {
             List<Minion> side = p.getSide().getMinions();

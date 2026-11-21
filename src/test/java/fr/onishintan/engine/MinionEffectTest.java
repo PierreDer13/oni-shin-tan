@@ -10,7 +10,9 @@ import java.util.Random;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import fr.onishintan.model.*;
+import fr.onishintan.model.*;
+import fr.onishintan.engine.effect.SpellTarget;
+import fr.onishintan.engine.event.GameEvent;
 
 /** The minion effects of cards.json by id: Banzai and their targets, Seppuku, passives, auras, Rokurokubi, Yogake. */
 class MinionEffectTest {

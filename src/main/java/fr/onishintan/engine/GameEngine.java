@@ -40,7 +40,24 @@ import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 import java.util.function.LongSupplier;
-
+
+import fr.onishintan.engine.effect.CardEffects;
+import fr.onishintan.engine.effect.family.FamilyEffects;
+import fr.onishintan.engine.effect.minion.MinionEffects;
+import fr.onishintan.engine.event.EventBus;
+import fr.onishintan.engine.event.GameListener;
+import fr.onishintan.engine.oath.OathPenalties;
+import fr.onishintan.engine.oath.OathRewards;
+import fr.onishintan.engine.oath.OathRules;
+import fr.onishintan.engine.turn.CombatResolver;
+import fr.onishintan.engine.turn.TurnManager;
+import fr.onishintan.engine.turn.TurnTracker;
+import fr.onishintan.engine.effect.Effect;
+import fr.onishintan.engine.effect.EffectContext;
+import fr.onishintan.engine.effect.SpellEffects;
+import fr.onishintan.engine.effect.SpellTarget;
+import fr.onishintan.engine.effect.Trigger;
+import fr.onishintan.engine.event.GameEvent;
 /**
  * The only entry point the UI uses. Every rule goes through here, and every change
  * is announced to the listeners as a GameEvent.
@@ -214,7 +231,7 @@ public class GameEngine {
      * order: an event comes before the events its handlers published (MINION_DIED before its Seppuku,
      * TURN_ENDED before the end-of-turn effects), and nothing is heard until the outermost event is handled.
      */
-    void publish(GameEvent event) {
+    public void publish(GameEvent event) {
         List<GameEvent> outer = heard;
         heard = new ArrayList<>();
         heard.add(event);
@@ -562,7 +579,7 @@ public class GameEngine {
     public static final int JIKININKI_DRAIN = 4;
     public static final String MIKO_ID = "miko";       // same id as the Miko card: art images/cards/Kannushi/miko.png
     public static final int MIKO_BONUS_EVERY = 3;      // every 3rd Kannushi power use: all Miko +1/+1
-    static final MinionCard MIKO = new MinionCard(MIKO_ID, "Miko", "巫女", "みこ", 0,
+    public static final MinionCard MIKO = new MinionCard(MIKO_ID, "Miko", "巫女", "みこ", 0,
             Rarity.COMMON, HeroClass.KANNUSHI, "", "", 3, 3, null);
 
     /** Yamata no Orochi's power, 八つ首 Yatsu-kubi (Eight Heads): 1 damage to a random enemy character, 8 times. */
@@ -721,7 +738,7 @@ public class GameEngine {
     }
 
     /** EFFECT_TRIGGERED, just before a triggered effect acts: the UI shows its banner and keeps it in order in the replay. */
-    void announce(Object source, Player owner) {
+    public void announce(Object source, Player owner) {
         publish(GameEvent.of(GameEvent.Type.EFFECT_TRIGGERED, source, owner));
     }
 
@@ -762,7 +779,7 @@ public class GameEngine {
 
     /** End of the holder's turn: every hand Curse he holds acts, left to right. */
     /** End of the holder's turn (and Corruption 9 at every turn start and end): every hand Curse he holds acts, left to right. */
-    void runHandCurses(Player holder) {
+    public void runHandCurses(Player holder) {
         for (Card c : List.copyOf(holder.getHand())) {
             if (c instanceof CurseCard curse && holder.isHeldCurse(curse)) fireCurse(holder, curse);
             if (state.isOver()) return;
@@ -852,7 +869,7 @@ public class GameEngine {
      * Effect damage: publishes DAMAGE, removes the dead, checks game over.
      * Oath rewards count, except on an Oath's own damage (break, Defilement) and the clock's.
      */
-    void dealDamage(Object source, Combatant target, int amount) {
+    public void dealDamage(Object source, Combatant target, int amount) {
         if (target == null || amount <= 0) return;
         if (!(source instanceof Oath) && !(source instanceof ChessClock) && !(source instanceof Deck)) {   // fatigue: no bonus
             Player dealer = dealer();
@@ -865,14 +882,14 @@ public class GameEngine {
         checkGameOver();
     }
 
-    void heal(Combatant target, int amount) {
+    public void heal(Combatant target, int amount) {
         if (healBlocked(target)) return;                                 // Defilement
         int restored = target.heal(rewards.heal(amount + ryu(state.active())));   // Ryū, Purity 3
         if (restored > 0) publish(new GameEvent(GameEvent.Type.HEAL, null, target, restored));
         rewards.healed(target, restored);                                 // Purity 6
     }
 
-    void gainArmour(Player owner, int amount) {
+    public void gainArmour(Player owner, int amount) {
         Hero hero = owner.getHero();
         int n = amount + ryu(owner);
         hero.gainArmour(n);
@@ -880,19 +897,19 @@ public class GameEngine {
     }
 
     /** Yoroi: armour on a minion of owner's. */
-    void gainArmour(Player owner, Minion m, int amount) {
+    public void gainArmour(Player owner, Minion m, int amount) {
         int n = amount + ryu(owner);
         m.gainArmour(n);
         publish(new GameEvent(GameEvent.Type.ARMOUR_GAINED, owner, m, n));
     }
 
-    void draw(Player p) {
+    public void draw(Player p) {
         if (penalties.has(p, OathPenalties.Lasting.NO_DRAW)) return;     // Disappointment
         publishDraw(p, p.draw());
     }
 
     /** An effect puts c in p's hand: CARD_ADDED so the hand redraws, or CARD_BURNED if the hand is full (the card is lost). */
-    boolean addToHand(Player p, Card c) {
+    public boolean addToHand(Player p, Card c) {
         if (c == null) return false;
         if (p.getHand().size() >= Player.MAX_HAND) {
             publish(GameEvent.of(GameEvent.Type.CARD_BURNED, p, c));
@@ -976,16 +993,16 @@ public class GameEngine {
     }
 
     /** Kawarimi: the attack being resolved hits this minion instead. */
-    void redirectAttack(Minion m) { redirected = m; }
+    public void redirectAttack(Minion m) { redirected = m; }
 
     /** Otoshiana: the attack being resolved is cancelled. */
-    void cancelAttack() { attackCancelled = true; }
+    public void cancelAttack() { attackCancelled = true; }
 
     /** Divinity 9 doubles the Shrine auras. */
-    int shrineFactor(Player p) { return rewards.shrineFactor(p); }
+    public int shrineFactor(Player p) { return rewards.shrineFactor(p); }
 
     /** The player whose hero or minion this is, or null if it is not on the board. */
-    Player ownerOf(Combatant c) {
+    public Player ownerOf(Combatant c) {
         for (Player p : List.of(state.getFirst(), state.getSecond())) {
             if (c == p.getHero() || (c instanceof Minion m && p.getSide().slotOf(m) >= 0)) return p;
         }
@@ -993,7 +1010,7 @@ public class GameEngine {
     }
 
     /** A minion summoned by a rule (Retainer, Kagura's Miko, Kuchiyose) in p's leftmost free slot. Null if his side is full. */
-    Minion summon(Player p, MinionCard card) {
+    public Minion summon(Player p, MinionCard card) {
         int slot = p.getSide().firstFree();
         if (slot < 0) return null;
         Minion m = new Minion(card);
@@ -1092,27 +1109,27 @@ public class GameEngine {
         for (Card c : cards) catalog.put(c.getId(), c);
     }
 
-    Card catalogCard(String id) { return catalog.get(id); }
+    public Card catalogCard(String id) { return catalog.get(id); }
 
-    List<CurseCard> deckCurses() {
+    public List<CurseCard> deckCurses() {
         return catalog.values().stream().filter(c -> c instanceof CurseCard cc && cc.getZone() == CurseZone.DECK)
                 .map(c -> (CurseCard) c).sorted(java.util.Comparator.comparing(Card::getId)).toList();
     }
 
     /** Oiwa: one copy of a deck Curse shuffled into to's deck. */
-    void giveDeckCurse(Player from, Player to, CurseCard curse) {
+    public void giveDeckCurse(Player from, Player to, CurseCard curse) {
         to.getDeck().insertRandom(curse, rng);
         publish(new GameEvent(GameEvent.Type.CURSE_GIVEN, from, curse, 1));
     }
 
     /** Daimyō, Jujutsu shihan, Takemikazuchi: the hero equips this weapon (replaces the current one). */
-    void equip(Player p, WeaponCard card) {
+    public void equip(Player p, WeaponCard card) {
         p.getHero().equip(new Weapon(card));
         publish(GameEvent.of(GameEvent.Type.WEAPON_EQUIPPED, p, p.getHero()));
     }
 
     /** Kitsune no bakashiya: m becomes a fresh copy of that card in the same slot (no Banzai). */
-    void transform(Minion m, MinionCard into) {
+    public void transform(Minion m, MinionCard into) {
         Player owner = ownerOf(m);
         if (owner == null) return;
         int slot = owner.getSide().slotOf(m);
@@ -1124,7 +1141,7 @@ public class GameEngine {
     }
 
     /** Fūjin: back to its owner's hand (lost if the hand is full), without dying. */
-    void bounce(Minion m) {
+    public void bounce(Minion m) {
         Player owner = ownerOf(m);
         if (owner == null) return;
         owner.getSide().remove(m);
@@ -1133,7 +1150,7 @@ public class GameEngine {
     }
 
     /** Yogake: two minions hit each other with their ATK, like an attack but with no attacker's turn. */
-    void fight(Minion a, Minion b) {
+    public void fight(Minion a, Minion b) {
         int x = a.getAttack(), y = b.getAttack();
         publish(GameEvent.of(GameEvent.Type.ATTACK, a, b));
         publish(new GameEvent(GameEvent.Type.DAMAGE, a, b, b.takeDamage(x)));
@@ -1153,10 +1170,10 @@ public class GameEngine {
     }
 
     /** Kuji-in. */
-    void refreshHeroPower() { turns.resetPower(); }
+    public void refreshHeroPower() { turns.resetPower(); }
 
     /** Yōi: every card now in p's hand (not a held Curse) costs 1 less, until it leaves the hand. */
-    void discountHand(Player p) {
+    public void discountHand(Player p) {
         Map<Card, Integer> off = handDiscounts.computeIfAbsent(p, k -> new IdentityHashMap<>());
         for (Card c : p.getHand()) if (!p.isHeldCurse(c)) off.merge(c, 1, Integer::sum);
     }
@@ -1167,19 +1184,19 @@ public class GameEngine {
     }
 
     /** Kettō: a random one of the two survives on half its HP (rounded up), the other dies. */
-    void duel(Minion a, Minion b) {
+    public void duel(Minion a, Minion b) {
         boolean first = rng.nextBoolean();
         Minion winner = first ? a : b;
         winner.halveHealth();
         destroy(first ? b : a);
     }
 
-    List<MinionCard> graveyard(Player p) {
+    public List<MinionCard> graveyard(Player p) {
         return graveyards.getOrDefault(p, List.of());
     }
 
     /** Kuchiyose: a random dead minion of p's comes back in his leftmost free slot, and its Banzai runs again. */
-    void resurrectRandom(Player p) {
+    public void resurrectRandom(Player p) {
         List<MinionCard> dead = graveyards.get(p);
         if (dead == null || dead.isEmpty()) return;
         MinionCard card = dead.remove(rng.nextInt(dead.size()));
@@ -1188,7 +1205,7 @@ public class GameEngine {
     }
 
     /** Kamikakushi: the minion leaves the board without dying (no Seppuku), its card goes into its owner's deck. */
-    void shuffleIntoDeck(Minion m) {
+    public void shuffleIntoDeck(Minion m) {
         Player owner = ownerOf(m);
         if (owner == null) return;
         owner.getSide().remove(m);
@@ -1197,7 +1214,7 @@ public class GameEngine {
     }
 
     /** Sakasama: every enemy minion swaps ATK and HP; the copies of those cards in his deck get the swapped stats. */
-    void swapEnemyStats(Player enemy) {
+    public void swapEnemyStats(Player enemy) {
         Set<String> ids = new HashSet<>();
         for (Minion m : enemy.getSide().getMinions()) {
             m.swapStats();
@@ -1207,32 +1224,32 @@ public class GameEngine {
     }
 
     /** Deception 9: a second Trap set for free, from the hand or the deck (not a card played, no TurnTracker count). */
-    void setExtraTrap(Player p, TrapCard trap) {
+    public void setExtraTrap(Player p, TrapCard trap) {
         if (!p.removeFromHand(trap)) p.getDeck().remove(trap);
         if (!p.setTrap(trap)) return;
         publish(new GameEvent(GameEvent.Type.TRAP_SET, p, trap, p.trapCount()));
     }
 
-    Random rng() { return rng; }
+    public Random rng() { return rng; }
 
     OathRewards getRewards() { return rewards; }
 
     OathPenalties getPenalties() { return penalties; }
 
     /** Destroyed outright, whatever its HP or Torii (Banishment, Abyss). */
-    void destroy(Minion m) {
+    public void destroy(Minion m) {
         m.destroy();
         combat.removeDead();
     }
 
     /** Revelation: the hand is shown to the opponent, then a random card of it is thrown away. */
-    void revealAndDiscard(Player p) {
+    public void revealAndDiscard(Player p) {
         publish(new GameEvent(GameEvent.Type.HAND_REVEALED, p, List.copyOf(p.getHand()), p.getHand().size()));
         discardRandom(p);
     }
 
     /** A random card of p's hand is thrown away (Revelation, Tamashii-gui). */
-    void discardRandom(Player p) {
+    public void discardRandom(Player p) {
         if (p.getHand().isEmpty()) return;
         Card c = p.getHand().get(rng.nextInt(p.getHand().size()));
         if (c instanceof CurseCard curse && p.isHeldCurse(curse)) p.removeCurse(curse);
@@ -1241,7 +1258,7 @@ public class GameEngine {
     }
 
     /** Exposed: every Trap of from, set or in hand, goes to thief (a copy he already has set, or a full hand, loses it). */
-    void stealTraps(Player from, Player thief) {
+    public void stealTraps(Player from, Player thief) {
         int stolen = 0;
         for (TrapCard t : from.takeAllTraps()) {
             if (thief.setTrap(t)) stolen++;
@@ -1256,7 +1273,7 @@ public class GameEngine {
     }
 
     /** Profanity: every Shrine of p leaves the board. */
-    void destroyShrines(Player p) {
+    public void destroyShrines(Player p) {
         for (Shrine s : List.copyOf(p.getSide().shrines())) {
             p.getSide().remove(s);
             publish(GameEvent.of(GameEvent.Type.SHRINE_EXPIRED, p, s));
@@ -1264,7 +1281,7 @@ public class GameEngine {
     }
 
     /** Exorcism: every Curse the holder was given is thrown away for free. */
-    void purgeCurses(Player holder) {
+    public void purgeCurses(Player holder) {
         for (Card c : List.copyOf(holder.getHand())) {
             if (c instanceof CurseCard curse && holder.isHeldCurse(curse)) {
                 holder.removeCurse(curse);

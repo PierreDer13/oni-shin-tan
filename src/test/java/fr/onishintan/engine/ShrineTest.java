@@ -9,7 +9,8 @@ import java.util.Random;
 
 import org.junit.jupiter.api.Test;
 
-import fr.onishintan.model.*;
+import fr.onishintan.model.*;
+import fr.onishintan.engine.event.GameEvent;
 
 /** Shrines: take a slot, are not minions, leave after their duration. */
 class ShrineTest {

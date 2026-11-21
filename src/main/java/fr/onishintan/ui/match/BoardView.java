@@ -27,7 +27,7 @@ import fr.onishintan.model.ShrineCard;
 import fr.onishintan.model.Player;
 import fr.onishintan.model.TrapCard;
 import fr.onishintan.engine.GameEngine;
-import fr.onishintan.engine.GameEvent;
+import fr.onishintan.engine.event.GameEvent;
 import fr.onishintan.model.KatanaTier;
 import fr.onishintan.model.Status;
 

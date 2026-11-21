@@ -10,8 +10,9 @@ import java.util.Random;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import fr.onishintan.engine.GameEvent.Type;
-import fr.onishintan.model.*;
+import fr.onishintan.engine.event.GameEvent.Type;
+import fr.onishintan.model.*;
+import fr.onishintan.engine.event.GameEvent;
 
 /** GameEngine.playCard: minions, weapons, Ki and board checks, events. */
 class PlayCardTest {

@@ -1,4 +1,4 @@
-package fr.onishintan.engine;
+package fr.onishintan.engine.effect;
 
 /** When a card effect runs. */
 public enum Trigger {

@@ -1,4 +1,4 @@
-package fr.onishintan.engine;
+package fr.onishintan.engine.event;
 
 import java.util.ArrayList;
 import java.util.EnumMap;

@@ -1,4 +1,4 @@
-package fr.onishintan.engine;
+package fr.onishintan.engine.effect;
 
 import java.util.EnumMap;
 import java.util.HashMap;

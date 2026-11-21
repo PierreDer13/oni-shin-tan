@@ -1,4 +1,4 @@
-package fr.onishintan.engine;
+package fr.onishintan.engine.effect;
 
 /** What a card does. Effects can be chained with andThen. */
 @FunctionalInterface

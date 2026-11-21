@@ -11,7 +11,8 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 import fr.onishintan.model.*;
-
+
+import fr.onishintan.engine.event.GameEvent;
 /** Rites: 4/4 Ancestors now, lasting bonus on the Ancestors summoned later. */
 class RiteTest {
 

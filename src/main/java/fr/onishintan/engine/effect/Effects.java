@@ -1,4 +1,4 @@
-package fr.onishintan.engine;
+package fr.onishintan.engine.effect;
 
 /** Ready-made effects. Card effects are built from these (GDD balance model). */
 public final class Effects {

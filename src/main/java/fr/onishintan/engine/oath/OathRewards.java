@@ -1,4 +1,4 @@
-package fr.onishintan.engine;
+package fr.onishintan.engine.oath;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -22,14 +22,18 @@ import fr.onishintan.model.Player;
 import fr.onishintan.model.Rarity;
 import fr.onishintan.model.Shrine;
 import fr.onishintan.model.SpellCard;
-import fr.onishintan.model.TrapCard;
+import fr.onishintan.model.TrapCard;
+import fr.onishintan.engine.GameEngine;
+import fr.onishintan.engine.effect.Trigger;
+import fr.onishintan.engine.event.GameEvent;
+import fr.onishintan.engine.turn.TurnTracker;
 
 /**
  * The rewards of the 3, 6 and 9 stack tiers (GDD Oath table). Each one holds while its Oath
  * is sworn with at least that many stacks: a break (stacks back to 0, then Oathbreaker) takes them
  * all away at once, the Oath cards leave the hand and the Honor 9 bonus is taken back.
  */
-class OathRewards {
+public class OathRewards {
 
     static final int HONOR_ATK = 2;              // Honor 3: your minions +2 ATK
     static final int HONOR_HEAL = 3;             // Honor 6: a minion hits the enemy hero, heal yours 3
@@ -37,7 +41,7 @@ class OathRewards {
     static final int SILENCE_MAX_CARDS = 2;      // Silence 6: played 2 cards or fewer, draw
     static final int DISCIPLINE_KI_SPENT = 4;    // Discipline 3: spent 4+ Ki, +1 Ki next turn
     static final int DISCIPLINE_DRAW_EVERY = 6;  // Discipline 6: a card per 6 Ki spent
-    static final int PURITY_HEAL_BONUS = 2;      // Purity 3: healing +2
+    public static final int PURITY_HEAL_BONUS = 2;      // Purity 3: healing +2
     static final int PEACE_HP = 2;               // Peace 3: your minions +0/+2
     static final int PEACE_HEAL = 6;             // Peace 6: end of turn, heal your hero 6
     static final int DIVINITY_HEAL = 3;          // Divinity 6: end of turn, heal 3 and a random minion +1/+1
@@ -48,14 +52,14 @@ class OathRewards {
     static final int WREAK_HAVOC_DAMAGE = 8;     // Havoc 9 Oath card
 
     /** Justice 9: Oath card added to the hand (0 Ki, decided 16 Nov), taken back on a break. */
-    static final SpellCard JUSTICE_CARD = new SpellCard("justice-oath", "Justice", "正義", "せいぎ", 0,
+    public static final SpellCard JUSTICE_CARD = new SpellCard("justice-oath", "Justice", "正義", "せいぎ", 0,
             Rarity.LEGENDARY, HeroClass.SAMURAI, "Oath card: deal your strongest minion's ATK to all enemy minions.", "");
     /** Havoc 9: Oath card added to the hand (0 Ki), taken back on a break. */
-    static final SpellCard WREAK_HAVOC = new SpellCard("wreak-havoc", "Wreak Havoc", "破壊", "はかい", 0,
+    public static final SpellCard WREAK_HAVOC = new SpellCard("wreak-havoc", "Wreak Havoc", "破壊", "はかい", 0,
             Rarity.LEGENDARY, HeroClass.ONI, "Oath card: deal 8 damage to every enemy minion and the enemy hero.", "");
 
     /** Allegiance 6: summoned when your last minion dies, once per turn. */
-    static final MinionCard RETAINER = new MinionCard("retainer", "Retainer", "家来", "けらい", 0,
+    public static final MinionCard RETAINER = new MinionCard("retainer", "Retainer", "家来", "けらい", 0,
             Rarity.COMMON, HeroClass.SAMURAI, "", "", 5, 5, null);
 
     /** Rewards that work once per turn (any player's turn). */
@@ -72,7 +76,7 @@ class OathRewards {
     private boolean minionCardPlayed;    // a MinionCard was played, its MINION_SUMMONED comes next
     private boolean settingExtraTrap;    // Deception 9: the free Trap does not chain
 
-    OathRewards(GameEngine engine) {
+    public OathRewards(GameEngine engine) {
         this.engine = engine;
         engine.getCardEffects()
                 .register(JUSTICE_CARD.getId(), Trigger.BANZAI, ctx -> {
@@ -88,7 +92,7 @@ class OathRewards {
     }
 
     /** True while p's Oath of this type is sworn with at least that many stacks. */
-    static boolean has(Player p, OathType type, int stacks) {
+    public static boolean has(Player p, OathType type, int stacks) {
         Oath o = p == null ? null : p.getOath();
         return o != null && o.isSworn() && o.getType() == type && o.getStacks() >= stacks;
     }
@@ -96,7 +100,7 @@ class OathRewards {
     // ---------- Ki cost ----------
 
     /** Silence 3: Ninja cards -1 (min 1). Deception 3: Traps -1 (min 0). Descension 3: 5+ ATK minions -1. */
-    int cost(Player p, Card c) {
+    public int cost(Player p, Card c) {
         int cost = c.getKiCost();
         if (has(p, OathType.SILENCE, 3) && c.getHeroClass() == HeroClass.NINJA) return Math.max(Math.min(cost, 1), cost - 1);
         if (has(p, OathType.DECEPTION, 3) && c instanceof TrapCard) return Math.max(0, cost - 1);
@@ -106,14 +110,14 @@ class OathRewards {
     }
 
     /** Ki p gets on top of his refill at the start of his next turn (Justice 3, Deception 6, Discipline 3). */
-    int kiNextTurn(Player p) {
+    public int kiNextTurn(Player p) {
         return kiNextTurn.getOrDefault(p, 0);
     }
 
     // ---------- damage and healing ----------
 
     /** Effect damage dealt by dealer (spells, Banzai, Seppuku, hero powers, Curses): Havoc 3, Corruption 3, then Justice 6. */
-    int effectDamage(Player dealer, boolean fromCurse, Combatant target, int amount) {
+    public int effectDamage(Player dealer, boolean fromCurse, Combatant target, int amount) {
         if (amount <= 0) return amount;
         if (has(dealer, OathType.HAVOC, 3)) amount++;
         if (fromCurse && has(dealer, OathType.CORRUPTION, 3)) amount++;
@@ -121,7 +125,7 @@ class OathRewards {
     }
 
     /** Justice 6: double damage to the enemy minions that hit the dealer's hero during the last enemy turn. Then Peace 9. */
-    int combatDamage(Player dealer, Combatant target, int amount) {
+    public int combatDamage(Player dealer, Combatant target, int amount) {
         if (target instanceof Minion m && has(dealer, OathType.JUSTICE, 6)
                 && engine.getTurnTracker().getHeroAttackers(dealer).contains(m)) amount *= 2;
         return deflect(target, amount);
@@ -138,17 +142,17 @@ class OathRewards {
     }
 
     /** Divinity 9: Shrine effects doubled. Read by the Shrine auras (engine-family-effects). */
-    int shrineFactor(Player p) {
+    public int shrineFactor(Player p) {
         return has(p, OathType.DIVINITY, 9) ? 2 : 1;
     }
 
     /** Purity 3: healing done during a Purity player's turn gets +2. */
-    int heal(int amount) {
+    public int heal(int amount) {
         return amount > 0 && has(engine.active(), OathType.PURITY, 3) ? amount + PURITY_HEAL_BONUS : amount;
     }
 
     /** Purity 6: once per turn, a friendly minion healed back to full HP draws a card. */
-    void healed(Combatant target, int restored) {
+    public void healed(Combatant target, int restored) {
         Player p = engine.active();
         if (restored > 0 && target instanceof Minion m && m.getHealth() >= m.getMaxHealth()
                 && p.getSide().slotOf(m) >= 0 && has(p, OathType.PURITY, 6) && once(p, Once.PURITY_DRAW)) {
@@ -158,7 +162,7 @@ class OathRewards {
     }
 
     /** Descension 6: a 5+ ATK minion attacks through Shirodu and Torii. */
-    boolean pierces(Combatant attacker) {
+    public boolean pierces(Combatant attacker) {
         return attacker instanceof Minion m && m.getAttack() >= TurnTracker.BIG_ATTACK
                 && has(engine.ownerOf(m), OathType.DESCENSION, 6);
     }
@@ -166,7 +170,7 @@ class OathRewards {
     // ---------- events ----------
 
     /** Every event, after the rule handlers: the triggered rewards, then the auras. */
-    void onEvent(GameEvent e) {
+    public void onEvent(GameEvent e) {
         switch (e.type()) {
             case TURN_STARTED -> startTurn((Player) e.source());
             case TURN_ENDED -> corruptionAtTurnEnd((Player) e.source());
@@ -336,7 +340,7 @@ class OathRewards {
     }
 
     /** End of p's turn, before his Oath is checked: Allegiance 3, Silence 6, Discipline 3 and 6, Peace 6, Divinity 6, Purity 9. */
-    void endTurn(Player p) {
+    public void endTurn(Player p) {
         TurnTracker turn = engine.getTurnTracker();
         if (has(p, OathType.ALLEGIANCE, 3) && !p.getSide().getMinions().isEmpty()) {
             announce(p);
@@ -375,7 +379,7 @@ class OathRewards {
      * Honor 3, Peace 3, Allegiance 9 (+2/+2 and Shirodu) and Descension 9 (biggest minion: double ATK and HP):
      * every minion carries exactly the aura its owner's Oath gives now.
      */
-    void refreshAuras() {
+    public void refreshAuras() {
         Set<Minion> onBoard = Collections.newSetFromMap(new IdentityHashMap<>());
         for (Player p : players()) {
             boolean all = has(p, OathType.ALLEGIANCE, 9);

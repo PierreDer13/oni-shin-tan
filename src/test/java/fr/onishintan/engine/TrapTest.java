@@ -10,9 +10,11 @@ import java.util.Random;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import fr.onishintan.engine.GameEvent.Type;
+import fr.onishintan.engine.event.GameEvent.Type;
 import fr.onishintan.model.*;
 
+import fr.onishintan.engine.event.GameEvent;
+import fr.onishintan.engine.effect.Trigger;
 /** Traps: set face down, one copy each, go off on the enemy's action. */
 class TrapTest {
 

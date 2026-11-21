@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 
 import fr.onishintan.model.*;
 
+import fr.onishintan.engine.turn.TurnManager;
 class TurnManagerTest {
 
     private Player first;

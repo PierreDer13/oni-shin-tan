@@ -1,4 +1,4 @@
-package fr.onishintan.engine;
+package fr.onishintan.engine.effect;
 
 import java.util.HashMap;
 import java.util.List;
@@ -10,13 +10,15 @@ import fr.onishintan.model.Hero;
 import fr.onishintan.model.Keyword;
 import fr.onishintan.model.Minion;
 import fr.onishintan.model.MinionCard;
-import fr.onishintan.model.Player;
+import fr.onishintan.model.Player;
+import fr.onishintan.engine.GameEngine;
+import fr.onishintan.engine.event.GameEvent;
 
 /**
  * The 17 plain class spells (GDD spell table, ids from cards.json): what each one is aimed at,
  * when it can be cast, and its effect, registered in CardEffects under Trigger.BANZAI.
  */
-final class SpellEffects {
+public final class SpellEffects {
 
     static final int YOROI_ARMOUR = 6;
     static final int HARAE_HEAL = 15;
@@ -24,7 +26,7 @@ final class SpellEffects {
     static final int KAGURA_MIKO = 3;
 
     /** One spell: its target, whether it can be cast now (besides Ki and target), and its effect. */
-    record Rule(SpellTarget target, Predicate<EffectContext> castable, Effect effect) {
+    public record Rule(SpellTarget target, Predicate<EffectContext> castable, Effect effect) {
         Rule(SpellTarget target, Effect effect) { this(target, ctx -> true, effect); }
     }
 
@@ -32,12 +34,12 @@ final class SpellEffects {
 
     private SpellEffects() {}
 
-    static Rule rule(Card card) {
+    public static Rule rule(Card card) {
         return card == null ? null : RULES.get(card.getId());
     }
 
     /** Puts every spell effect in the engine's CardEffects. */
-    static void register(CardEffects effects) {
+    public static void register(CardEffects effects) {
         RULES.forEach((id, r) -> effects.register(id, Trigger.BANZAI, r.effect()));
     }
 
@@ -112,7 +114,7 @@ final class SpellEffects {
     }
 
     /** Sakasama on a printed card: ATK and HP swapped (HP at least 1, ATK at most the 20 cap). */
-    static MinionCard swapped(MinionCard c) {
+    public static MinionCard swapped(MinionCard c) {
         return new MinionCard(c.getId(), c.getNameRomaji(), c.getNameKanji(), c.getNameKana(), c.getKiCost(),
                 c.getRarity(), c.getHeroClass(), c.getEffectText(), c.getEffectTextJp(),
                 Math.min(MinionCard.MAX_BASE_STAT, c.getBaseHealth()), Math.max(1, c.getBaseAttack()), c.getKeywords());
