@@ -1,4 +1,4 @@
-package fr.onishintan.ui.screens;
+package fr.onishintan.ui.screens.adventure;
 
 import fr.onishintan.model.HeroClass;
 

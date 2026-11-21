@@ -1,4 +1,4 @@
-package fr.onishintan.ui.match;
+package fr.onishintan.ui.match.hud;
 
 import fr.onishintan.model.Player;
 import fr.onishintan.ui.cards.CardPreview;
@@ -10,6 +10,7 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.VBox;
+import fr.onishintan.ui.match.BoardView;
 
 /**
  * The deck tracker, on the right side of the match: the cards still in your deck,

@@ -1,4 +1,4 @@
-package fr.onishintan.ui.screens;
+package fr.onishintan.ui.screens.adventure;
 import fr.onishintan.ui.app.Images;
 import fr.onishintan.ui.fx.Fx;
 import fr.onishintan.ui.app.SceneRouter;
@@ -28,6 +28,7 @@ import javafx.scene.paint.Stop;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.transform.Scale;
 import javafx.scene.input.MouseEvent;
+import fr.onishintan.ui.screens.HomeView;
 
 /** Class Select on the 1600 x 900 grid, scaled to the window: the four class banners wave side by side;
  *  clicking one opens the Adventure page for that class (its decklist, later its match sequence). */

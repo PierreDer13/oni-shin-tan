@@ -33,6 +33,9 @@ import java.util.Set;
 import java.util.Optional;
 import java.util.Random;
 import java.util.function.Consumer;
+import fr.onishintan.ui.match.fx.EffectRecorder;
+import fr.onishintan.ui.match.hud.ClockTicker;
+import fr.onishintan.ui.match.hud.OathView;
 
 /**
  * Runs one hotseat match. Pierre's GameEngine applies every rule; the BoardView only draws the table.

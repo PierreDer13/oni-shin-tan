@@ -1,4 +1,4 @@
-package fr.onishintan.ui.screens;
+package fr.onishintan.ui.screens.adventure;
 import fr.onishintan.ui.cards.CardView;
 import fr.onishintan.ui.cards.CardPreview;
 import fr.onishintan.ui.cards.DeckListView;
@@ -52,6 +52,7 @@ import javafx.scene.text.TextAlignment;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.transform.Scale;
+import fr.onishintan.ui.screens.HomeView;
 
 /** The Adventure run map on the 1600 x 900 grid, scaled to the window: three battles in order (Town, Ocean, Fuji),
  *  each with its banner over its panel, and the class deck in the frame on the right (GDD, Adventure). */

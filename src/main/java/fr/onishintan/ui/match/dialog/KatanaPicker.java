@@ -1,4 +1,4 @@
-package fr.onishintan.ui.match;
+package fr.onishintan.ui.match.dialog;
 
 import fr.onishintan.model.KatanaTier;
 import fr.onishintan.ui.screens.HomeView;
@@ -22,13 +22,14 @@ import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
 import javafx.util.Duration;
+import fr.onishintan.ui.match.BoardView;
 
 /**
  * The Samurai's hero power (Katana): the weapon cloth appears rolled up, unrolls, and shows one blade per strap,
  * from the wooden Bokken (1 Ki) on the bottom strap to Honjō Masamune (9 Ki) on the top one.
  * Blades you can't afford are dimmed. A click outside the cloth closes it without using the power.
  */
-final class KatanaPicker extends Pane {
+public final class KatanaPicker extends Pane {
     private static final String OPEN = "/images/hud/katana-picker.png";
     private static final String ROLLED = "/images/hud/katana-picker-rolled-up.png";
     /** The open cloth picture's size (887 x 1774) and the height it is drawn at on the table. */
@@ -45,7 +46,7 @@ final class KatanaPicker extends Pane {
     private static final Duration UNROLL = Duration.millis(650);
 
     /** kiAvailable = your Ki now; onPick gets the chosen blade; onCancel runs when you click outside. */
-    KatanaPicker(int kiAvailable, Consumer<KatanaTier> onPick, Runnable onCancel) {
+    public KatanaPicker(int kiAvailable, Consumer<KatanaTier> onPick, Runnable onCancel) {
         setPrefSize(BoardView.W, BoardView.H);
 
         // A light veil over the whole table: a click on it (outside the cloth) cancels.

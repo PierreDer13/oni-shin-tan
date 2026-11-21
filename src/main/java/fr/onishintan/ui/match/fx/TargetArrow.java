@@ -1,4 +1,4 @@
-package fr.onishintan.ui.match;
+package fr.onishintan.ui.match.fx;
 
 import fr.onishintan.ui.app.Images;
 
@@ -16,7 +16,7 @@ import javafx.scene.transform.Scale;
  * (images/cursors/): the cloud tail on the source, the arrowhead on the mouse, and dashes between them. Every piece keeps
  * its size: only the gaps between the dashes grow or shrink with the distance.
  */
-final class TargetArrow extends Group {
+public final class TargetArrow extends Group {
     /** The pictures are saved at twice the size they are drawn, so they stay sharp. */
     private static final double SCALE = 0.5;
     private static final Image TAIL = Images.get("/images/cursors/arrow-tail.png");
@@ -37,14 +37,14 @@ final class TargetArrow extends Group {
     /** 1 when the arrow points right, -1 when it points left: the curve and every piece are then mirrored, so they bow and hang outwards. */
     private double side = 1;
 
-    TargetArrow() {
+    public TargetArrow() {
         getChildren().addAll(tail, head);
         setMouseTransparent(true);   // clicks go through to the target under it
         setVisible(false);
     }
 
     /** Draws the arrow from (fromX, fromY) to (toX, toY). */
-    void span(double fromX, double fromY, double toX, double toY) {
+    public void span(double fromX, double fromY, double toX, double toY) {
         measureCurve(fromX, fromY, toX, toY);
         double total = lengthTo[STEPS];
 

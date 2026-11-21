@@ -10,7 +10,7 @@ import fr.onishintan.ui.app.ScreenGrid;
 import fr.onishintan.ui.app.Sound;
 import fr.onishintan.ui.app.Images;
 import fr.onishintan.ui.cards.CardPreview;
-import fr.onishintan.ui.match.OathView;
+import fr.onishintan.ui.match.hud.OathView;
 
 import java.util.ArrayList;
 import java.util.Comparator;

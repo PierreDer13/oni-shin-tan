@@ -1,4 +1,4 @@
-package fr.onishintan.ui.match;
+package fr.onishintan.ui.match.dialog;
 
 import fr.onishintan.model.TrapCard;
 import fr.onishintan.ui.cards.CardView;
@@ -14,17 +14,18 @@ import javafx.scene.image.ImageView;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
 import javafx.util.Duration;
+import fr.onishintan.ui.match.BoardView;
 
 /**
  * Traps (GDD, Ninja traps): set face down next to their owner's hero. The owner sees each of their traps;
  * the enemy only sees that at least one is set. When a trap goes off, both players see it flip face up
  * in the middle of the table, then it is cut in half and disappears.
  */
-final class TrapView {
+public final class TrapView {
     /** Width of a face-down trap next to the hero. */
     static final double BACK_W = 60;
     /** How far each of your traps sits from the previous one (they overlap a little). */
-    static final double SPACING = 22;
+    public static final double SPACING = 22;
 
     private static final double REVEAL_W = 260;              // the trap's size when it goes off
     private static final Duration HALF_FLIP = Duration.millis(200);
@@ -41,7 +42,7 @@ final class TrapView {
     }
 
     /** One face-down trap: a small card back with a red TRAP label on it. */
-    static StackPane back() {
+    public static StackPane back() {
         ImageView image = BoardView.image("/images/frames/card-back.png");
         image.setFitWidth(BACK_W);
         image.setPreserveRatio(true);
@@ -59,7 +60,7 @@ final class TrapView {
      * A trap going off: it appears face down in the middle of `layer`, flips face up, stays long enough to be read,
      * then is cut in half. `layer` must not be redrawn meanwhile (BoardView passes its table, not the live layer).
      */
-    static void reveal(Pane layer, TrapCard trap) {
+    public static void reveal(Pane layer, TrapCard trap) {
         double height = REVEAL_W * CardView.H / CardView.W;
         double x = BoardView.W / 2 - REVEAL_W / 2;
         double y = BoardView.H / 2 - height / 2;
@@ -100,7 +101,7 @@ final class TrapView {
      * Setting a trap: the card pops up big in the middle of `layer`, stays to be read, flips to its back,
      * then slowly glides and shrinks to its place by the hero, top-left corner (toX, toY). onLanded runs when it is there.
      */
-    static void set(Pane layer, TrapCard trap, double toX, double toY, Runnable onLanded) {
+    public static void set(Pane layer, TrapCard trap, double toX, double toY, Runnable onLanded) {
         double centreX = BoardView.W / 2;
         double centreY = BoardView.H / 2;
         double faceH = REVEAL_W * CardView.H / CardView.W;

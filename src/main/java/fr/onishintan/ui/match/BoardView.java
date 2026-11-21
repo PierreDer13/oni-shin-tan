@@ -88,13 +88,24 @@ import javafx.scene.layout.Region;
 import javafx.scene.input.MouseEvent;
 
 import javafx.event.EventHandler;
+import fr.onishintan.ui.match.dialog.KatanaPicker;
+import fr.onishintan.ui.match.dialog.MulliganView;
+import fr.onishintan.ui.match.dialog.TrapView;
+import fr.onishintan.ui.match.fx.SignatureFx;
+import fr.onishintan.ui.match.fx.TargetArrow;
+import fr.onishintan.ui.match.fx.TradeAnimation;
+import fr.onishintan.ui.match.hud.DeckTracker;
+import fr.onishintan.ui.match.hud.HeroPowerView;
+import fr.onishintan.ui.match.hud.KiBarView;
+import fr.onishintan.ui.match.hud.OathView;
+import fr.onishintan.ui.match.hud.StatusOverlay;
 
 /** The match table on a 1600 x 900 grid (zones from the Izakaya mock-up), scaled to fit the window. */
 public class BoardView extends Pane {
     public static final double DECK_X = 1227, DECK_Y = 632;
     public static final double W = 1600, H = 900;
     /** The shadow every object on the table casts: down and to the right. */
-    static final DropShadow SHADOW = new DropShadow(15, 8, 6, Color.rgb(0, 0, 0, 0.6));
+    public static final DropShadow SHADOW = new DropShadow(15, 8, 6, Color.rgb(0, 0, 0, 0.6));
     public static final double SLOT_X = 352, SLOT_STEP = 130.5, ENEMY_Y = 257, YOUR_Y = 443, MINION_W = 114;
     /** A played minion floats above its slot for FLOAT_MS, then takes DROP_MS to drop onto it. */
     static final double FLOAT_MS = 300, DROP_MS = 150;
@@ -113,16 +124,15 @@ public class BoardView extends Pane {
         + " -fx-background-radius: 10; -fx-alignment: center; -fx-text-alignment: center;";
 
     private final Pane live = new Pane();
+    private final TableFx tableFx = new TableFx(table, live);
+    private final HeldEffects heldEffects = new HeldEffects();
     private final DeckTracker deckTracker;
-    private final StatusOverlay status = new StatusOverlay(live, () -> impact(0, true));
+    private final StatusOverlay status = new StatusOverlay(live, () -> tableFx.impact(0, true));
     private KiBarView ki;
     private HandView hand;
     private boolean dealt;   // the hand stays hidden until the opening deal
     private boolean rising;   // the card just played brings dead minions back (black smoke on them)
     private boolean yoi;      // Yōi was just played: the costs in hand sparkle after the redraw
-    /** The thud of a big minion landing, and the cost from which a minion is big. */
-    private static final AudioClip HEAVY_THUD = Sound.clip("heavy-minion");
-    private static final int HEAVY_KI = 6;
     /** The sound of any hit (sounds/hit.wav). */
     private static final AudioClip HIT = Sound.clip("hit");
     /** The minions Shike has silenced: drawn grey for the rest of the match. */
@@ -353,7 +363,7 @@ public class BoardView extends Pane {
      * so its Banzai, smoke and damage play on it (like yours in showPlayed). Its Traps stay hidden.
      */
     public void showAiPlayed(Card card) {
-        afterLanding(card, () -> heavyLanding(card));   // the thud when its minion hits the slot
+        TableFx.afterLanding(card, () -> TableFx.heavyLanding(card));   // the thud when its minion hits the slot
         if (card instanceof TrapCard) {
             return;
         }
@@ -373,7 +383,7 @@ public class BoardView extends Pane {
             if (m != null && m.getSource() == card && !nodes.containsKey(m)) {
                 Node played = new MinionView(m, MINION_W);
                 played.relocate(SLOT_X + 2 + slot * SLOT_STEP, ENEMY_Y);
-                floatAndDrop(played);   // the AI's minion floats and drops too
+                TableFx.floatAndDrop(played);   // the AI's minion floats and drops too
                 nodes.put(m, played);   // its effects show on it, and it is not redrawn as a newcomer
                 live.getChildren().add(played);
             }
@@ -402,13 +412,13 @@ public class BoardView extends Pane {
             return;   // your spells no longer show big on the right: only the opponent's plays do
         }
         played.setMouseTransparent(true);
-        floatAndDrop(played);   // it floats above its slot, then drops onto it, before its effects
+        TableFx.floatAndDrop(played);   // it floats above its slot, then drops onto it, before its effects
         live.getChildren().add(played);
         if (card instanceof MinionCard) {
             Minion minion = you.getSide().getAt(slot);
             if (minion != null && minion.hasKeyword(Keyword.BANZAI)) {
                 status.follow(played);
-                afterLanding(card, () -> status.banzai(minion, SLOT_X + 2 + slot * SLOT_STEP, YOUR_Y));   // 万歳! bursts out once it has landed
+                TableFx.afterLanding(card, () -> status.banzai(minion, SLOT_X + 2 + slot * SLOT_STEP, YOUR_Y));   // 万歳! bursts out once it has landed
             }
         }
     }
@@ -644,63 +654,18 @@ public class BoardView extends Pane {
             double x = SLOT_X + 2 + slot * SLOT_STEP;
             String id = m.getSource().getId();
             if (rising) {
-                smoke(x, false);
+                tableFx.smoke(x, false);
             } else if (id.equals("ancestor")) {   // RiteCard.ancestorCard()
-                smoke(x, true);
+                tableFx.smoke(x, true);
             } else if (id.equals(GameEngine.MIKO_ID)) {
-                petals(x);
+                tableFx.petals(x);
             }
         }
         rising = false;
     }
 
-    /** The arrival smoke's size: wide and tall enough to hide a minion while it appears. */
-    private static final double SMOKE_W = 320, SMOKE_H = 220;
 
-    /** Smoke rises over the slot at x and fades: black, or white (the same image brightened). On the table: the redraw clears `live`. */
-    private void smoke(double x, boolean white) {
-        ImageView smoke = image("/images/fx/black-smoke.png");   // 600 x 198
-        smoke.setFitWidth(SMOKE_W);
-        smoke.setFitHeight(SMOKE_H);   // stretched taller than the picture, to hide the whole minion
-        smoke.setMouseTransparent(true);
-        if (white) {
-            smoke.setEffect(new ColorAdjust(0, 0, 1, 0));
-        }
-        smoke.relocate(x + MINION_W / 2 - SMOKE_W / 2, YOUR_Y - 20);
-        smoke.setOpacity(0);
-        smoke.setId("arrival-smoke");   // render() keeps it in front, so the minion appears from behind it
-        table.getChildren().add(smoke);
-        Timeline puff = new Timeline(
-                new KeyFrame(Duration.millis(400), new KeyValue(smoke.opacityProperty(), 1)),   // thick first, hiding the slot
-                new KeyFrame(Duration.millis(1200), new KeyValue(smoke.opacityProperty(), 1), new KeyValue(smoke.translateYProperty(), -20)),
-                new KeyFrame(Duration.millis(2600), new KeyValue(smoke.opacityProperty(), 0), new KeyValue(smoke.translateYProperty(), -70)));   // then it clears slowly
-        puff.setOnFinished(e -> table.getChildren().remove(smoke));
-        puff.play();
-    }
 
-    /** The Miko arrives: sakura petals drift down over the slot at x, spinning and swaying, then fade. */
-    private void petals(double x) {
-        for (int i = 0; i < 16; i++) {
-            Ellipse petal = new Ellipse(6, 3.5);
-            petal.setFill(Color.web("#f6c1d0"));
-            petal.setMouseTransparent(true);
-            petal.relocate(x + Math.random() * MINION_W, YOUR_Y - 40 - Math.random() * 60);
-            table.getChildren().add(petal);
-            Duration time = Duration.millis(2600 + Math.random() * 1200);   // a slow fall
-            TranslateTransition fall = new TranslateTransition(time, petal);
-            fall.setByX(-30 + Math.random() * 60);
-            fall.setByY(180);
-            RotateTransition spin = new RotateTransition(time, petal);
-            spin.setByAngle(360);
-            FadeTransition fade = new FadeTransition(time, petal);
-            fade.setFromValue(1);
-            fade.setToValue(0);
-            fade.setOnFinished(e -> table.getChildren().remove(petal));
-            fall.play();
-            spin.play();
-            fade.play();
-        }
-    }
 
     /** You just set a trap: it is shown big, flips, and glides to its place next to your hero. */
     public void showTrapSet(TrapCard trap) {
@@ -713,48 +678,24 @@ public class BoardView extends Pane {
         });
     }
 
-
-    /** True from the end of a turn until the pass veil is clicked: banners and stamps wait, so the veil doesn't hide them. */
-    private boolean holdingEffects;
-    /** The banners and stamps waiting for the veil to lift, in order. */
-    private final List<Runnable> heldEffects = new ArrayList<>();
-    /** Time between two held effects, so they don't play on top of each other. */
-    private static final Duration HELD_GAP = Duration.millis(1900);
-
     /** From now until the next pass veil is clicked, banners and stamps wait (MatchController calls it as a turn ends). */
     public void holdEffects() {
-        holdingEffects = true;
+        heldEffects.hold();
     }
 
-    /** Runs the effect now, or keeps it for when the pass veil lifts. */
-    private void runOrHold(Runnable effect) {
-        if (holdingEffects) {
-            heldEffects.add(effect);
-            return;
-        }
-        effect.run();
-    }
 
-    /** The veil has lifted: the waiting effects play one after the other. */
-    private void releaseEffects() {
-        holdingEffects = false;
-        for (int i = 0; i < heldEffects.size(); i++) {
-            Runnable effect = heldEffects.get(i);
-            PauseTransition wait = new PauseTransition(HELD_GAP.multiply(i));
-            wait.setOnFinished(event -> effect.run());
-            wait.play();
-        }
-        heldEffects.clear();
-    }
+
+
+
 
     /** A short announcement across the middle of the table (Curses, Rites, Shrines, Oaths). On `table`, so a redraw doesn't erase it. */
     public void announce(String kanji, String title, String subtitle, Color colour) {
-        runOrHold(() -> EventBanner.show(table, kanji, title, subtitle, colour));
+        heldEffects.runOrHold(() -> EventBanner.show(table, kanji, title, subtitle, colour));
     }
 
     /** An Oath reward (3, 6 or 9 stacks): the red seal slams onto the player's small Oath scroll. */
     public void stampOath(Player p) {
-        runOrHold(() -> {
+        heldEffects.runOrHold(() -> {
             // Where the player's small scroll is now (the board may have flipped since the reward).
             double zoneY = 107;
             if (p == you) {
@@ -1048,7 +989,7 @@ public void passTo(String name, Runnable onReady) {
         Label text = new Label("次の番\nPass to " + name + "\n\nclick when ready");
         text.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 56; -fx-font-weight: bold; -fx-text-alignment: center; -fx-text-fill: #f3ede1;");
         StackPane veil = new StackPane(new Rectangle(W, H, Color.rgb(0, 0, 0, 0.95)), text);
-        veil.setOnMousePressed(e -> { table.getChildren().remove(veil); onReady.run(); releaseEffects(); });
+        veil.setOnMousePressed(e -> { table.getChildren().remove(veil); onReady.run(); heldEffects.release(); });
         table.getChildren().add(veil);
     }
 
@@ -1136,7 +1077,7 @@ public void passTo(String name, Runnable onReady) {
             }
 
             double x = SLOT_X + 2 + slot * SLOT_STEP;
-            groundShadow(x, y);
+            tableFx.groundShadow(x, y);
 
             MinionView view = new MinionView(minion, MINION_W);
             clickable(view, minion, p == you);
@@ -1181,7 +1122,7 @@ public void passTo(String name, Runnable onReady) {
     /** A Shrine in its slot: its card with the turns it has left, a big copy on hover, and its aura glowing on the two slots beside it. */
     private void shrine(Shrine shrine, int slot, double y) {
         double x = SLOT_X + 2 + slot * SLOT_STEP;
-        groundShadow(x, y);
+        tableFx.groundShadow(x, y);
         ShrineView view = new ShrineView(shrine, MINION_W);
         place(view, x, y);
 
@@ -1300,7 +1241,7 @@ public void passTo(String name, Runnable onReady) {
     }
 
     /** A picture from the resources in a new ImageView; the picture itself is decoded only once (Images keeps it). */
-    static ImageView image(String path) {
+    public static ImageView image(String path) {
         return new ImageView(Images.get(path));
     }
 
@@ -1367,9 +1308,9 @@ public void passTo(String name, Runnable onReady) {
             duelHp.put(second, second.getHealth());
         }
         if (player.play(card, slot, first, second)) {
-            afterLanding(card, () -> {
-                impact(cost, false);   // the shake and the thud come when the minion hits its slot
-                heavyLanding(card);
+            TableFx.afterLanding(card, () -> {
+                tableFx.impact(cost, false);   // the shake and the thud come when the minion hits its slot
+                TableFx.heavyLanding(card);
             });
         }
     }
@@ -1430,7 +1371,7 @@ public void passTo(String name, Runnable onReady) {
     }
 
     /** The yellow "ready to attack" border: a crisp outline whose thickness grows with the radius. */
-    static DropShadow border(double radius) {
+    public static DropShadow border(double radius) {
         return new DropShadow(BlurType.GAUSSIAN, Color.web("#ffd84a"), radius, 0.8, 0, 0);
     }
 
@@ -1472,71 +1413,10 @@ public void passTo(String name, Runnable onReady) {
         arrow.setVisible(true);
     }
 
-    /** A soft dark patch under a card so it looks like it lies on the table. */
-    private void groundShadow(double x, double y) {
-        Rectangle r = new Rectangle(x - 4, y - 1, MINION_W + 8, MINION_W * CardView.H / CardView.W + 9);
-        r.setArcWidth(16);
-        r.setArcHeight(16);
-        r.setFill(Color.rgb(0, 0, 0, 0.45));
-        r.setEffect(new GaussianBlur(10));
-        r.setMouseTransparent(true);
-        live.getChildren().add(r);
-    }
 
-    /** A minion of HEAVY_KI or more lands with a heavy thud (sounds/heavy-minion.wav), yours or the AI's. */
-    private static void heavyLanding(Card card) {
-        if (card instanceof MinionCard && card.getKiCost() >= HEAVY_KI) {
-            Sound.play(HEAVY_THUD);
-        }
-    }
 
-    /** A minion just played: it floats above its slot, a little bigger, then drops onto it. */
-    private static void floatAndDrop(Node minion) {
-        minion.setTranslateY(-40);   // starts above its slot
-        minion.setScaleX(1.15);
-        minion.setScaleY(1.15);
-        // It floats: drifts up a little, still big.
-        KeyFrame floating = new KeyFrame(Duration.millis(FLOAT_MS),
-                new KeyValue(minion.translateYProperty(), -50),
-                new KeyValue(minion.scaleXProperty(), 1.15),
-                new KeyValue(minion.scaleYProperty(), 1.15));
-        // It drops: down onto its slot, back to its size, faster and faster.
-        KeyFrame landed = new KeyFrame(Duration.millis(FLOAT_MS + DROP_MS),
-                new KeyValue(minion.translateYProperty(), 0, Interpolator.EASE_IN),
-                new KeyValue(minion.scaleXProperty(), 1, Interpolator.EASE_IN),
-                new KeyValue(minion.scaleYProperty(), 1, Interpolator.EASE_IN));
-        new Timeline(floating, landed).play();
-    }
 
-    /** Runs `then` when a played card hits the table: after the float and the drop for a minion, at once otherwise. */
-    private static void afterLanding(Card card, Runnable then) {
-        double wait = 0;
-        if (card instanceof MinionCard) {
-            wait = FLOAT_MS + DROP_MS;
-        }
-        PauseTransition landing = new PauseTransition(Duration.millis(wait));
-        landing.setOnFinished(event -> then.run());
-        landing.play();
-    }
 
-    /** Screen shake when a card lands: 6+ Ki shakes; 10+ Ki shakes longer and harder, and every minion on the board wobbles. */
-    private void impact(int ki, boolean attack) {
-        if (ki < 6 && !attack) return;
-        double strength = ki >= 10 ? 14 : ki >= 6 ? 6 : 3;
-        int jolts = ki >= 10 ? 15 : ki >= 6 ? 10 : 6;
-        List<MinionView> cards = ki < 10 ? List.of()
-                : live.getChildren().stream().filter(MinionView.class::isInstance).map(MinionView.class::cast).toList();
-        Timeline t = new Timeline();
-        for (int i = 0; i <= jolts; i++) {
-            double fade = 1 - (double) i / jolts;
-            List<KeyValue> moves = new ArrayList<>(List.of(
-                    new KeyValue(table.translateXProperty(), (Math.random() * 2 - 1) * strength * fade),
-                    new KeyValue(table.translateYProperty(), (Math.random() * 2 - 1) * strength * fade)));
-            for (MinionView c : cards) moves.add(new KeyValue(c.rotateProperty(), (Math.random() * 2 - 1) * 8 * fade));
-            t.getKeyFrames().add(new KeyFrame(Duration.millis(i * 35), moves.toArray(KeyValue[]::new)));
-        }
-        t.play();
-    }
 
     /** The hero power's text when its strength changes: Yatsu-kubi's current damage per bite; null for the others. */
     private static String powerEffect(Player p) {
@@ -1734,7 +1614,7 @@ public void passTo(String name, Runnable onReady) {
             status.broken(attacker);
             crack(target, t);
             crack(attacker, a);
-            impact(attacker instanceof Minion m ? m.getSource().getKiCost() : 0, true);
+            tableFx.impact(attacker instanceof Minion m ? m.getSource().getKiCost() : 0, true);
             replay(events, 0, 700, then);   // the hits, a trap, the deaths, one step after the other, then the redraw
         });
     }
@@ -1745,7 +1625,7 @@ public void passTo(String name, Runnable onReady) {
         if (h.getArmour() == 0 && n.getProperties().get("armour") instanceof Node plate) Fx.deathCut(live, plate);
         if (h.getWeapon() == null && n.getProperties().get("weapon") instanceof Node blade) {
             PauseTransition back = new PauseTransition(Duration.millis(650));   // once the hero has glided back
-            back.setOnFinished(e -> { Fx.sparks(live, blade); Fx.deathCut(live, blade); impact(0, true); });
+            back.setOnFinished(e -> { Fx.sparks(live, blade); Fx.deathCut(live, blade); tableFx.impact(0, true); });
             back.play();
         }
     }
