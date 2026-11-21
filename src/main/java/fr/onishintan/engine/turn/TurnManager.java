@@ -12,7 +12,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
 import java.util.function.Predicate;
-
+
 import fr.onishintan.engine.GameState;
 /**
  * Runs the match order from the GDD:
