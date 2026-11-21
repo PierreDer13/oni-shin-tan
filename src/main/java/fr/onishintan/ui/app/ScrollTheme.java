@@ -19,7 +19,7 @@ public final class ScrollTheme {
     private static final String TRACK = "-fx-background-color: transparent; -fx-background-image: url('/images/scroll-ui/scroll-middle.png');"
             + " -fx-background-size: 100% auto; -fx-background-repeat: repeat-y;";
     private static final String HANDLE = "-fx-background-color: transparent; -fx-background-image: url('/images/scroll-ui/scroll-handle.png');"
-            + " -fx-background-size: contain; -fx-background-position: center; -fx-background-repeat: no-repeat;";
+            + " -fx-background-size: contain; -fx-background-repeat: no-repeat;";
     private static final String TOP = end("scroll-top", TOP_H), BOTTOM = end("scroll-bottom", BOTTOM_H);
 
     private ScrollTheme() {
@@ -52,11 +52,27 @@ public final class ScrollTheme {
     private static void theme(ScrollBar bar) {
         style(bar, ".track-background", CLEAR);
         style(bar, ".track", TRACK);
-        style(bar, ".thumb", HANDLE);
+        // The handle's picture follows the scroll: at the very top when scrolled to the top, at the very bottom at the end.
+        bar.valueProperty().addListener((property, oldValue, newValue) -> placeHandle(bar));
+        bar.maxProperty().addListener((property, oldValue, newValue) -> placeHandle(bar));
+        placeHandle(bar);
         style(bar, ".decrement-button", TOP);
         style(bar, ".increment-button", BOTTOM);
         style(bar, ".decrement-arrow", CLEAR);
         style(bar, ".increment-arrow", CLEAR);
+    }
+
+    /**
+     * The handle (JavaFX's "thumb") is often taller than its picture, so a centred picture never reached the ends of the bar.
+     * Now the picture sits at the same height in the handle as the scroll is in the list: 0% (top) at the top, 100% (bottom) at the end.
+     */
+    private static void placeHandle(ScrollBar bar) {
+        double range = bar.getMax() - bar.getMin();
+        double percent = 0;
+        if (range > 0) {
+            percent = (bar.getValue() - bar.getMin()) / range * 100;
+        }
+        style(bar, ".thumb", HANDLE + " -fx-background-position: center " + percent + "%;");
     }
 
     /** Gives every part of the bar matching `part` this style (nothing happens if JavaFX has no such part). */

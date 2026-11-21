@@ -5,6 +5,7 @@ import fr.onishintan.ui.cards.CardPreview;
 import fr.onishintan.ui.cards.CardShelves;
 import fr.onishintan.ui.cards.StandingCard;
 import fr.onishintan.ui.app.ScreenGrid;
+import fr.onishintan.ui.app.ScrollTheme;
 
 import java.util.List;
 import java.util.function.Consumer;
@@ -41,6 +42,7 @@ class CollectionPanel extends ScrollPane {
         setPrefSize(ScreenGrid.W, ScreenGrid.H);
         setHbarPolicy(ScrollBarPolicy.NEVER);
         setStyle("-fx-background-color: transparent; -fx-background: transparent;");
+        ScrollTheme.apply(this);   // the paper-scroll bar, like everywhere else
     }
 
     /**
