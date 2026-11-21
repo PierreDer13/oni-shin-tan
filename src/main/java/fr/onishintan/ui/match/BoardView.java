@@ -1119,7 +1119,7 @@ public void passTo(String name, Runnable onReady) {
         }
     }
 
-    /** A Shrine in its slot: its card with the turns it has left, a big copy on hover, and its aura glowing on the two slots beside it. */
+    /** A Shrine in its slot: its card with the turns it has left, a big copy on hover, and its aura glowing on the slots it reaches. */
     private void shrine(Shrine shrine, int slot, double y) {
         double x = SLOT_X + 2 + slot * SLOT_STEP;
         tableFx.groundShadow(x, y);
@@ -1136,11 +1136,15 @@ public void passTo(String name, Runnable onReady) {
         double bigY = Math.max(10, Math.min(H - bigH - 10, y + 80 - bigH / 2));
         bigOnHover(view, () -> new ShrineView(shrine, bigW), bigX, bigY);
 
-        if (slot > 0) {
-            auraGlow(slot - 1, y);
+        // Its aura glows on the slots it reaches: 2 on each side for Motonosumi Jinja, 1 for every other Shrine.
+        int reach = 1;
+        if (shrine.getSource().getId().equals("motonosumi-shrine")) {
+            reach = 2;   // same as FamilyEffects.MOTONOSUMI_REACH in the engine
         }
-        if (slot < BoardSide.MAX - 1) {
-            auraGlow(slot + 1, y);
+        for (int other = slot - reach; other <= slot + reach; other++) {
+            if (other != slot && other >= 0 && other < BoardSide.MAX) {
+                auraGlow(other, y);
+            }
         }
     }
 
