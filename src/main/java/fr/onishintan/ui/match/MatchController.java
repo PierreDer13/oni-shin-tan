@@ -43,7 +43,7 @@ public class MatchController implements CardPlayer {
     /** Notes what an action did (damage, healing, deaths, traps) so the board can show it before redrawing. */
     private final EffectRecorder recorder;
     /** Before a played card's effects: the card landing, or a spell or a Banzai taking effect (GDD timing). */
-    private static final double PLACE_PAUSE = 200, EFFECT_PAUSE = 300, POWER_PAUSE = 500;   // POWER_PAUSE: a shuriken or beam reaches its target
+    private static final double PLACE_PAUSE = BoardView.FLOAT_MS + BoardView.DROP_MS, EFFECT_PAUSE = PLACE_PAUSE + 50, POWER_PAUSE = 500;   // the card lands before its effects; POWER_PAUSE: a shuriken or beam reaches its target
     /** How long effects show before the redraw; at the end of a turn they all fit in 0.75 s. */
     private static final double EFFECT_SHOW = 700, TURN_SHOW = 750;
     private final BoardView board;
