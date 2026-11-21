@@ -83,7 +83,6 @@ import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.scene.shape.Ellipse;
 import javafx.scene.shape.Rectangle;
-import javafx.scene.transform.Rotate;
 import javafx.scene.transform.Scale;
 import javafx.scene.layout.Region;
 import javafx.scene.input.MouseEvent;
@@ -104,9 +103,6 @@ public class BoardView extends Pane {
     private String enemyPortrait, yourPortrait;
     private final Pane table = new Pane();
     private final ImageView bg;
-    private final boolean izakaya;
-    /** Izakaya props cut out of the table: file, x, y. */
-    private static final String[] PROPS = { "cup-1 130 46", "dice-1 306 105", "pot 1274 13", "dice-2 1271 681", "cup-2 1376 602" };
     private Combatant selected;
     private BiFunction<Combatant, Combatant, List<GameEvent>> onAttack = (a, t) -> List.of();
     private final Map<Combatant, Node> nodes = new HashMap<>();
@@ -202,7 +198,6 @@ public class BoardView extends Pane {
         this.enemyPortrait = enemyPortrait;
         this.yourPortrait = yourPortrait;
         bg = image("/images/boards/" + board + ".png");
-        izakaya = board.equals("izakaya");
         bg.setFitWidth(W);
         bg.setFitHeight(H);
         bg.setOnMouseClicked(e -> { selected = null; aiming = false; held = null; render(); });
@@ -260,7 +255,6 @@ public class BoardView extends Pane {
         live.getChildren().clear();
         arrow.setVisible(false);   // shown again as soon as the mouse moves, if something still aims
         targetMark.setVisible(false);
-        if (izakaya) props();
         nodes.clear();
         status.clear();
         deckTracker.show(you);   // the deck tracker follows the player at the bottom
@@ -1808,20 +1802,5 @@ public void passTo(String name, Runnable onReady) {
         t.playFrom(Duration.seconds(Math.random() * 1.4));
         n.getProperties().put("float", t);
         n.sceneProperty().addListener((o, was, now) -> { if (now == null) t.stop(); });
-    }
-
-    /** Izakaya: the dice, sake flask and cups lie on the table; click one to make it jiggle. */
-    private void props() {
-        for (String p : PROPS) {
-            String[] a = p.split(" ");
-            ImageView v = image("/images/boards/izakaya/" + a[0] + ".png");
-            Rotate r = new Rotate(0, v.getImage().getWidth() / 2, v.getImage().getHeight());   // tilts on its base
-            v.getTransforms().add(r);
-            v.setOnMouseClicked(e -> new Timeline(new KeyFrame(Duration.millis(80), new KeyValue(r.angleProperty(), -5)),
-                    new KeyFrame(Duration.millis(170), new KeyValue(r.angleProperty(), 4)),
-                    new KeyFrame(Duration.millis(250), new KeyValue(r.angleProperty(), -2)),
-                    new KeyFrame(Duration.millis(320), new KeyValue(r.angleProperty(), 0))).play());
-            place(v, Double.parseDouble(a[1]), Double.parseDouble(a[2]));
-        }
     }
 }
