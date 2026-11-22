@@ -26,7 +26,7 @@ public final class KeywordGuide {
             new Entry("Ritual", "儀", "Summons 4/4 Ancestors now and makes every later Ancestor stronger."),
             new Entry("Curse", "呪", "Goes into the enemy's hand or deck and hurts them. A Curse in hand is removed by paying its Ki."),
             new Entry("Sleep", "眠り", "Asleep: can't attack on its next turn."),
-            new Entry("Shortcuts", "鍵", "In a match: Space ends your turn, D opens the deck tracker, Esc the settings, G this guide."));
+            new Entry("Shortcuts", "鍵", "In a match: Space ends your turn, D opens the deck tracker, H the play history, Esc the settings, G this guide."));
 
     private KeywordGuide() {
         // Only static data: nobody creates a KeywordGuide.
