@@ -138,6 +138,10 @@ public class BoardView extends Pane {
     private boolean yoi;      // Yōi was just played: the costs in hand sparkle after the redraw
     /** The sound of any hit (sounds/hit.wav). */
     private static final AudioClip HIT = Sound.clip("hit");
+    /** The tick of a clock in a hurry: the shōji doors' wooden tap (sounds/door-tap.wav). */
+    private static final AudioClip TICK = Sound.clip("door-tap");
+    /** The last second that ticked on a clock in a hurry, so each second ticks only once (the clocks redraw every 200 ms). */
+    private String lastHurrySecond = "";
     /** The minions Shike has silenced: drawn grey for the rest of the match. */
     private final Set<Minion> silenced = new HashSet<>();
     /** A silenced minion's look: colours drained, a little darker, over its other effect (its yellow outline). */
@@ -848,14 +852,33 @@ public class BoardView extends Pane {
         enemyClock.setVisible(false);
     }
 
-    /** Both chess clocks: the active one is big and bright, the other small and grey (GDD). */
-    public void showClocks(String yours, String theirs, boolean yourTurn) {
+    /**
+     * Both chess clocks: the active one is big and bright, the other small and grey (GDD).
+     * In a hurry (under 30 s), the bottom clock turns red, and each new second it pops and ticks.
+     */
+    public void showClocks(String yours, String theirs, boolean yourTurn, boolean hurry) {
         yourClock.setVisible(true);
         enemyClock.setVisible(true);
         yourClock.setText(yours);
         enemyClock.setText(theirs);
         clock(yourClock, yourTurn);
         clock(enemyClock, !yourTurn);
+
+        String style = HUD + " -fx-font-size: 22;";
+        if (hurry) {
+            style = style + " -fx-text-fill: #ff3b30;";   // red
+            if (!yours.equals(lastHurrySecond)) {   // a new second: tick and pop, once
+                lastHurrySecond = yours;
+                Sound.play(TICK);
+                ScaleTransition pop = new ScaleTransition(Duration.millis(300), yourClock);
+                pop.setFromX(1.25);
+                pop.setFromY(1.25);
+                pop.setToX(1);
+                pop.setToY(1);
+                pop.play();
+            }
+        }
+        yourClock.setStyle(style);
     }
 
 

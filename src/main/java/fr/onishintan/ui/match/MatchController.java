@@ -49,6 +49,8 @@ public class MatchController implements CardPlayer {
     private static final double PLACE_PAUSE = BoardView.FLOAT_MS + BoardView.DROP_MS, EFFECT_PAUSE = PLACE_PAUSE + 50, POWER_PAUSE = 500;   // the card lands before its effects; POWER_PAUSE: a shuriken or beam reaches its target
     /** How long effects show before the redraw; at the end of a turn they all fit in 0.75 s. */
     private static final double EFFECT_SHOW = 700, TURN_SHOW = 750;
+    /** Under this time left (30 s), the active player's clock turns red and ticks every second. */
+    private static final long HURRY_MS = 30_000;
     private final BoardView board;
     /** Plays first and starts at the bottom of the screen. */
     private final Player first;
@@ -573,7 +575,8 @@ public class MatchController implements CardPlayer {
         }
         String yours = ClockTicker.format(engine.remainingMs(active));
         String theirs = ClockTicker.format(engine.remainingMs(waiting));
-        board.showClocks(yours, theirs, true);
+        boolean hurry = engine.remainingMs(active) < HURRY_MS;   // the bottom clock turns red and ticks
+        board.showClocks(yours, theirs, true, hurry);
     }
 
     /** Stops the active player's clock while the table is hidden (Oath choice, pass veil), on the engine's own time. */
