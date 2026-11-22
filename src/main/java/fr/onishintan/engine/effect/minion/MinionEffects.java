@@ -13,6 +13,7 @@ import java.util.function.Predicate;
 import fr.onishintan.model.Card;
 import fr.onishintan.model.Combatant;
 import fr.onishintan.model.CurseCard;
+import fr.onishintan.model.Hero;
 import fr.onishintan.model.HeroClass;
 import fr.onishintan.model.KatanaTier;
 import fr.onishintan.model.Keyword;
@@ -22,7 +23,7 @@ import fr.onishintan.model.Player;
 import fr.onishintan.model.Rarity;
 import fr.onishintan.model.Status;
 import fr.onishintan.model.WeaponCard;
-
+
 import fr.onishintan.engine.GameEngine;
 import fr.onishintan.engine.effect.SpellTarget;
 import fr.onishintan.engine.effect.CardEffects;
@@ -62,6 +63,7 @@ public final class MinionEffects {
         AIMS.put("kitsune-no-bakashiya", new Aim(SpellTarget.MINION));
         AIMS.put("fujin", new Aim(SpellTarget.ENEMY_MINION));
         AIMS.put("susanoo", new Aim(SpellTarget.ENEMY_MINION));
+        AIMS.put("mamori-shu", new Aim(SpellTarget.FRIENDLY_MINION));
     }
 
     private final GameEngine engine;
@@ -72,6 +74,10 @@ public final class MinionEffects {
     private boolean inYogake;
     /** The aura bonus each minion carries now: {ATK, HP} (Ronin, Jōnin). */
     private final Map<Minion, int[]> auras = new IdentityHashMap<>();
+    /** Shuriken-uchi: the extra Shuriken damage each player has collected this match. */
+    private final Map<Player, Integer> shurikenBonus = new IdentityHashMap<>();
+    /** Gashadokuro: how many minions died this match, on both sides. */
+    private int deaths;
 
     public MinionEffects(GameEngine engine) {
         this.engine = engine;
@@ -98,9 +104,31 @@ public final class MinionEffects {
         return c instanceof Minion m && active(m, "rokurokubi");
     }
 
-    /** Tennō: your other minions cost 1 less Ki (one per Tennō on your side). */
+    /** Tennō: your other minions cost 1 less Ki (one per Tennō on your side). Gashadokuro: 1 less per minion that died this match. */
     public int costCut(Player p, Card c) {
-        return c instanceof MinionCard && !"tenno".equals(c.getId()) ? (int) count(p, "tenno") : 0;
+        int cut = 0;
+        if (c instanceof MinionCard && !"tenno".equals(c.getId())) {
+            cut += (int) count(p, "tenno");
+        }
+        if ("gashadokuro".equals(c.getId())) {
+            cut += deaths;
+        }
+        return cut;
+    }
+
+    /** Shuriken-uchi: the extra damage p's Shuriken deals now. */
+    public int shurikenBonus(Player p) {
+        return shurikenBonus.getOrDefault(p, 0);
+    }
+
+    /** Kosho: when its owner's hero attacks with a weapon, every Kosho strikes the same target for its ATK. */
+    public void followHero(Combatant attacker, Combatant target) {
+        if (!(attacker instanceof Hero) || target == null || target.isDead()) return;
+        Player owner = engine.ownerOf(attacker);
+        if (owner == null) return;
+        for (Minion m : List.copyOf(owner.getSide().getMinions())) {
+            if (active(m, "kosho") && !target.isDead()) engine.dealDamage(m, target, m.getAttack());
+        }
     }
 
     // ---------- the effects, by card id ----------
@@ -120,6 +148,7 @@ public final class MinionEffects {
         banzai(fx, "kitsune-no-bakashiya", aimed((ctx, t) -> engine.transform(ctx.source(), ((Minion) t).getSource())));
         banzai(fx, "fujin", aimed((ctx, t) -> engine.bounce((Minion) t)));
         banzai(fx, "susanoo", aimed((ctx, t) -> engine.dealDamage(ctx.source(), t, 6)));
+        banzai(fx, "mamori-shu", aimed((ctx, t) -> ((Minion) t).giveKeyword(Keyword.SHIRODU)));
 
         // Banzai without a target
         banzai(fx, "katana-kaji", ctx -> { if (ctx.owner().getHero().getWeapon() != null) ctx.owner().getHero().getWeapon().addAttack(3); });
@@ -158,6 +187,12 @@ public final class MinionEffects {
                 engine.graveyard(ctx.owner()).remove(c);
                 engine.summon(ctx.owner(), c);
             }
+        });
+        banzai(fx, "shuriken-uchi", ctx -> shurikenBonus.merge(ctx.owner(), 2, Integer::sum));   // +2 Shuriken damage for the match
+        banzai(fx, "kagemusha", ctx -> ctx.owner().getHero().armLastStand());               // the next lethal hit leaves 1 HP
+        banzai(fx, "shishimai", ctx -> {                // +1/+1 per Miko summoned this match
+            int miko = ctx.owner().getMikoCalls();
+            ctx.source().buff(miko, miko);
         });
         banzai(fx, "kiji", ctx -> {                     // a copy of a random card of the opponent's hand (not a Curse he holds)
             List<Card> pool = ctx.enemy().getHand().stream().filter(c -> !ctx.enemy().isHeldCurse(c)).toList();
@@ -218,7 +253,7 @@ public final class MinionEffects {
     }
 
     /** Shike: the minion loses its keywords and its effects (Banzai, Seppuku, passives) for good. Publishes SILENCED. */
-    private void silence(Minion m) {
+    public void silence(Minion m) {
         silenced.add(m);
         m.clearKeywords();
         asleep.remove(m);
@@ -230,7 +265,11 @@ public final class MinionEffects {
 
     public void onEvent(GameEvent e) {
         switch (e.type()) {
-            case MINION_DIED -> hakahori((Player) e.source(), (Minion) e.target());
+            case MINION_DIED -> {
+                deaths++;   // Gashadokuro
+                hakahori((Player) e.source(), (Minion) e.target());
+            }
+            case TURN_STARTED -> ((Player) e.source()).getHero().endUntouchable();   // Kagemusha's protection ends
             case ATTACK -> yogake(e.source());
             case TURN_ENDED -> wake((Player) e.source());
             default -> { }

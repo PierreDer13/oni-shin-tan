@@ -10,10 +10,13 @@ import fr.onishintan.model.Hero;
 import fr.onishintan.model.Keyword;
 import fr.onishintan.model.Minion;
 import fr.onishintan.model.MinionCard;
-import fr.onishintan.model.Player;
+import fr.onishintan.model.Player;
 import fr.onishintan.engine.GameEngine;
 import fr.onishintan.engine.event.GameEvent;
 
+import java.util.ArrayList;
+import java.util.IdentityHashMap;
+import fr.onishintan.model.Combatant;
 /**
  * The 17 plain class spells (GDD spell table, ids from cards.json): what each one is aimed at,
  * when it can be cast, and its effect, registered in CardEffects under Trigger.BANZAI.
@@ -24,6 +27,8 @@ public final class SpellEffects {
     static final int HARAE_HEAL = 15;
     static final int KISEKI_BUFF = 3;
     static final int KAGURA_MIKO = 3;
+    static final int KOTODAMA_HEAL = 5;
+    static final int TOTSUGEKI_ATK = 4;
 
     /** One spell: its target, whether it can be cast now (besides Ki and target), and its effect. */
     public record Rule(SpellTarget target, Predicate<EffectContext> castable, Effect effect) {
@@ -57,6 +62,9 @@ public final class SpellEffects {
                 ctx -> ctx.engine().refreshHeroPower()));
         add("yoi", new Rule(SpellTarget.NONE,                           // the cards in hand now cost 1 less, no minimum
                 ctx -> ctx.engine().discountHand(ctx.owner())));
+        add("suiton-no-jutsu", new Rule(SpellTarget.FRIENDLY_MINION,     // back to your hand, to play it again
+                ctx -> ctx.engine().bounce((Minion) ctx.target())));
+        add("zeni-nage", new Rule(SpellTarget.NONE, ctx -> ctx.owner().getKi() > 0, SpellEffects::zeniNage));
 
         // ---------- Samurai ----------
         add("chiburi", new Rule(SpellTarget.NONE, SpellEffects::hasWeapon,
@@ -71,6 +79,12 @@ public final class SpellEffects {
             }
         }));
         add("ketto", new Rule(SpellTarget.TWO_MINIONS, ctx -> ctx.engine().duel((Minion) ctx.target(), (Minion) ctx.second())));
+        add("totsugeki", new Rule(SpellTarget.NONE, ctx -> !ctx.owner().getSide().getMinions().isEmpty(), ctx -> {
+            for (Minion m : ctx.owner().getSide().getMinions()) {   // every friendly minion: +4 ATK and Tatakae
+                m.buff(TOTSUGEKI_ATK, 0);
+                m.giveKeyword(Keyword.TATAKAE);
+            }
+        }));
         add("yoroi", new Rule(SpellTarget.FRIENDLY_MINION, ctx -> {    // 6 armour to your hero and a friendly minion
             ctx.engine().gainArmour(ctx.owner(), YOROI_ARMOUR);
             ctx.engine().gainArmour(ctx.owner(), (Minion) ctx.target(), YOROI_ARMOUR);
@@ -91,6 +105,10 @@ public final class SpellEffects {
                 ctx -> ctx.owner().getSide().getMinions().forEach(m -> m.giveKeyword(Keyword.TORII))));
         add("taisha-zukuri", new Rule(SpellTarget.FRIENDLY_MINION,
                 ctx -> ((Minion) ctx.target()).giveKeyword(Keyword.TORII)));
+        add("kotodama", new Rule(SpellTarget.ENEMY_MINION, ctx -> {    // silence an enemy minion, heal your hero 5
+            ctx.engine().getMinionEffects().silence((Minion) ctx.target());
+            ctx.engine().heal(ctx.owner().getHero(), KOTODAMA_HEAL);
+        }));
         add("kagura", new Rule(SpellTarget.NONE, ctx -> !ctx.owner().getSide().isFull(), ctx -> {   // 3 Miko with Tatakae
             for (int i = 0; i < KAGURA_MIKO; i++) {
                 Minion miko = ctx.engine().summon(ctx.owner(), GameEngine.MIKO);
@@ -107,10 +125,31 @@ public final class SpellEffects {
                 ctx -> ctx.engine().shuffleIntoDeck((Minion) ctx.target())));
         add("sakasama", new Rule(SpellTarget.NONE,                     // swap ATK and HP of all enemy minions and their deck copies
                 ctx -> ctx.engine().swapEnemyStats(ctx.enemy())));
+        add("chimatsuri", new Rule(SpellTarget.FRIENDLY_MINION, ctx -> {   // sacrifice: its ATK hits the enemy hero
+            Minion victim = (Minion) ctx.target();
+            int attack = victim.getAttack();
+            ctx.engine().destroy(victim);
+            ctx.engine().dealDamage(null, ctx.enemy().getHero(), attack);
+        }));
         add("tamashii-gui", new Rule(SpellTarget.MINION, ctx -> {      // destroy a minion and a random enemy card in hand
             ctx.engine().destroy((Minion) ctx.target());
             ctx.engine().discardRandom(ctx.enemy());
         }));
+    }
+
+    /** Zeni-nage: all the owner's Ki is spent, then that much damage falls 1 at a time on random enemy characters. */
+    private static void zeniNage(EffectContext ctx) {
+        int coins = ctx.owner().getKi();
+        ctx.owner().spendKi(coins);
+        List<Combatant> enemies = new ArrayList<>(ctx.enemy().getSide().getMinions());
+        enemies.add(ctx.enemy().getHero());
+        Map<Combatant, Integer> hits = new IdentityHashMap<>();
+        for (int i = 0; i < coins; i++) {
+            hits.merge(enemies.get(ctx.engine().rng().nextInt(enemies.size())), 1, Integer::sum);
+        }
+        for (Combatant c : enemies) {
+            if (hits.containsKey(c)) ctx.engine().dealDamage(null, c, hits.get(c));
+        }
     }
 
     /** Sakasama on a printed card: ATK and HP swapped (HP at least 1, ATK at most the 20 cap). */
