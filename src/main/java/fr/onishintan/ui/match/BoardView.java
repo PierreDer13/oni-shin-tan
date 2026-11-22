@@ -94,10 +94,13 @@ import javafx.event.EventHandler;
 import fr.onishintan.ui.match.dialog.KatanaPicker;
 import fr.onishintan.ui.match.dialog.MulliganView;
 import fr.onishintan.ui.match.dialog.TrapView;
+import fr.onishintan.ui.match.fx.BoardAmbience;
 import fr.onishintan.ui.match.fx.SignatureFx;
 import fr.onishintan.ui.match.fx.TargetArrow;
 import fr.onishintan.ui.match.fx.TradeAnimation;
 import fr.onishintan.ui.match.hud.DeckTracker;
+import fr.onishintan.ui.match.hud.EndHaiku;
+import fr.onishintan.ui.match.hud.PlayHistory;
 import fr.onishintan.ui.match.hud.HeroPowerView;
 import fr.onishintan.ui.match.hud.KiBarView;
 import fr.onishintan.ui.match.hud.OathView;
@@ -130,6 +133,7 @@ public class BoardView extends Pane {
     private final TableFx tableFx = new TableFx(table, live);
     private final HeldEffects heldEffects = new HeldEffects();
     private final DeckTracker deckTracker;
+    private final PlayHistory history;
     private final StatusOverlay status = new StatusOverlay(live, () -> tableFx.impact(0, true));
     private KiBarView ki;
     private HandView hand;
@@ -235,7 +239,7 @@ public class BoardView extends Pane {
         endTurn.setEffect(SHADOW);
         endTurn.relocate(1415, 335);
         endTurn.setOnMousePressed(e -> pressEndTurn());   // the mouse, or Space (shortcut)
-        table.getChildren().addAll(bg, live, endTurn, yourClock, enemyClock);
+        table.getChildren().addAll(bg, BoardAmbience.of(board), live, endTurn, yourClock, enemyClock);   // the ambience lies on the picture, behind the cards
         live.setPickOnBounds(false);   // a click on empty table goes through to the board (cancels an aim)
         // Settings, top left: volumes, window size and Surrender (which asks first).
         Label settings = darkButton("設定  SETTINGS", this::toggleSettings);
@@ -244,6 +248,9 @@ public class BoardView extends Pane {
         // Deck tracker, right side: the cards left in your deck (opens and closes with its tab).
         deckTracker = new DeckTracker(new CardPreview(table));
         table.getChildren().add(deckTracker);
+        // Play history, left side: every card played, attack and hero power, with their targets (opens and closes with its tab).
+        history = new PlayHistory(new CardPreview(table));
+        table.getChildren().add(history);
         targetMark.setFitWidth(MARK_W);
         targetMark.setPreserveRatio(true);
         targetMark.setMouseTransparent(true);   // clicks still reach the target under it
@@ -274,7 +281,7 @@ public class BoardView extends Pane {
         render();
     }
 
-    /** A key pressed during the match: Space ends your turn, D opens the deck tracker, Esc the settings, G the game guide. */
+    /** A key pressed during the match: Space ends your turn, D opens the deck tracker, H the play history, Esc the settings, G the game guide. */
     private void shortcut(KeyEvent event) {
         if (event.getCode() == KeyCode.SPACE) {
             pressEndTurn();
@@ -284,6 +291,8 @@ public class BoardView extends Pane {
             toggleSettings();
         } else if (event.getCode() == KeyCode.G) {
             toggleGuide();
+        } else if (event.getCode() == KeyCode.H) {
+            history.toggle();
         } else {
             return;   // any other key is left to the screen
         }
@@ -810,7 +819,10 @@ public class BoardView extends Pane {
         }
         seal.setFitHeight(END_H);
         seal.setPreserveRatio(true);
-        StackPane end = new StackPane(new Rectangle(W, H, Color.rgb(0, 0, 0, 0.6)), seal);
+        // The seal, and under it a haiku for the class at the bottom (EndHaiku).
+        VBox sealAndHaiku = new VBox(10, seal, EndHaiku.of(you.getHero().getHeroClass(), won));
+        sealAndHaiku.setAlignment(Pos.CENTER);
+        StackPane end = new StackPane(new Rectangle(W, H, Color.rgb(0, 0, 0, 0.6)), sealAndHaiku);
         end.setOnMousePressed(e -> onGameOver.run());
         table.getChildren().add(end);
     }
@@ -953,6 +965,9 @@ public class BoardView extends Pane {
 
     /** Dims, with a slow pulse, the part of your available Ki that a hovered card or power would cost (0 = none). */
     public void previewCost(int cost) { ki.preview(cost); }
+
+    /** The play history on the left, for MatchController to fill. */
+    public PlayHistory getHistory() { return history; }
 
     public void setOnEndTurn(Runnable r) { onEndTurn = r; }
     /** What happens when you click "Swear again" on your Oath once Oathbreaker is over. */

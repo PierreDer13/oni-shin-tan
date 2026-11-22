@@ -2,6 +2,7 @@ package fr.onishintan.ui.screens;
 
 import fr.onishintan.ui.fx.Anim;
 import fr.onishintan.ui.fx.Fx;
+import fr.onishintan.ui.fx.EventBanner;
 import fr.onishintan.model.HeroClass;
 import fr.onishintan.ui.app.SceneRouter;
 import fr.onishintan.ui.app.Profile;
@@ -14,6 +15,7 @@ import fr.onishintan.ui.app.Rei;
 import javafx.animation.Animation;
 import javafx.animation.Interpolator;
 import javafx.animation.TranslateTransition;
+import javafx.animation.PauseTransition;
 import javafx.beans.InvalidationListener;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -90,6 +92,18 @@ public class HomeView extends Pane {
         button("inventory", 600, 790, 190, Screen.INVENTORY);
         button("profile", 810, 790, 190, Screen.PROFILE);
         clickable(add("button-settings", 1020, 790, 190), false, () -> grid.getChildren().add(new SettingsPanel(null)));   // laid over the home screen
+        rankUp();   // a PvP win that reached a new Rei stone is celebrated once, here
+    }
+
+    /** A new Rei stone just reached: once the shōji doors have opened, its banner crosses the screen. */
+    private void rankUp() {
+        Rei.Stone stone = Profile.takeNewStone();
+        if (stone == null) {
+            return;   // no new stone: nothing to celebrate
+        }
+        PauseTransition doorsOpen = new PauseTransition(Duration.millis(900));   // the doors open first
+        doorsOpen.setOnFinished(event -> EventBanner.show(grid, stone.kanji(), "Rank up: " + stone.name(), "Your new Rei stone", Color.web("#ffd84a")));
+        doorsOpen.play();
     }
 
     /** Puts /images/home/<name>.png on the grid at (x, y), w wide (height follows the image), and returns it. */

@@ -8,6 +8,8 @@ public final class Profile {
     /** The name shown until the player types one. */
     public static final String DEFAULT_NAME = "Player";
     private static final SaveManager SAVES = new SaveManager();
+    /** The stone just reached by a PvP win, shown once on the Home screen; null when there is none. */
+    private static Rei.Stone newStone;
 
     private Profile() {
         // Only static rules: nobody creates a Profile.
@@ -40,8 +42,20 @@ public final class Profile {
             if (won) {
                 rei = Rei.afterWin(updated.rei());
             }
+            Rei.Stone before = Rei.stoneOf(updated.rei());
+            Rei.Stone after = Rei.stoneOf(rei);
+            if (after.from() > before.from()) {
+                newStone = after;   // a higher stone: the Home screen celebrates it once
+            }
             updated = updated.withRei(rei);
         }
         SAVES.saveStats(updated);
+    }
+
+    /** The stone just reached, once: the Home screen shows it, then it is forgotten. Null when there is none. */
+    public static Rei.Stone takeNewStone() {
+        Rei.Stone stone = newStone;
+        newStone = null;
+        return stone;
     }
 }

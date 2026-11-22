@@ -36,6 +36,7 @@ import java.util.function.Consumer;
 import fr.onishintan.ui.match.fx.EffectRecorder;
 import fr.onishintan.ui.match.hud.ClockTicker;
 import fr.onishintan.ui.match.hud.OathView;
+import fr.onishintan.ui.match.hud.PlayHistory;
 
 /**
  * Runs one hotseat match. Pierre's GameEngine applies every rule; the BoardView only draws the table.
@@ -60,6 +61,9 @@ public class MatchController implements CardPlayer {
     /** The last clock timeout (from CLOCK_TIMEOUT): the hero who ran out of time and the damage he took. */
     private Hero timedOutHero;
     private int timeoutDamage;
+    /** The target(s) of the card or hero power being played right now, for the play history (the engine's event doesn't carry them). */
+    private Combatant aimFirst;
+    private Combatant aimSecond;
     /** How many cards the engine drew during endTurn(), so they can fly in after the pass veil. */
     private int cardsDrawnThisTurn;
     /** False until the second player's first turn: then their whole opening hand is dealt, not only the 2 cards drawn. */
@@ -108,6 +112,12 @@ public class MatchController implements CardPlayer {
         // 3. The table, with each action plugged into the engine.
         board = new BoardView(boardName, second, HeroChoice.portrait(theirs), first, HeroChoice.portrait(yours));
         showClocks();
+        // The play history (left side): every card played, attack and hero power, with their targets, yours and the AI's.
+        PlayHistory history = board.getHistory();
+        engine.getBus().subscribe(GameEvent.Type.TURN_STARTED, event -> history.turn(((Player) event.source()).getName()));
+        engine.getBus().subscribe(GameEvent.Type.CARD_PLAYED, event -> history.played(((Player) event.source()).getName(), (Card) event.target(), aimFirst, aimSecond));
+        engine.getBus().subscribe(GameEvent.Type.ATTACK, event -> history.attacked((Combatant) event.source(), (Combatant) event.target()));
+        engine.getBus().subscribe(GameEvent.Type.HERO_POWER_USED, event -> history.heroPower(((Player) event.source()).getName(), aimFirst));
         board.setOnPlay(this);
         board.setOnAttack(this::attack);
         board.setOnPower(this::useHeroPower);
@@ -328,7 +338,11 @@ public class MatchController implements CardPlayer {
         if (removal) {
             played = engine.removeCurse((CurseCard) card);   // a Curse the enemy gave you: dropping it pays its removal Ki
         } else {
+            aimFirst = first;   // for the play history
+            aimSecond = second;
             played = engine.playCard(card, slot, first, second);
+            aimFirst = null;
+            aimSecond = null;
         }
         List<GameEvent> events = recorder.stop();
         if (!played) {
@@ -406,7 +420,9 @@ public class MatchController implements CardPlayer {
     /** Hero power with a target (Ninja Shuriken, Oni Jikininki) or without (Kannushi Miko: target is null). True if the engine accepted it. */
     private boolean useHeroPower(Combatant target) {
         recorder.start();
+        aimFirst = target;   // for the play history
         boolean used = engine.useHeroPower(target);
+        aimFirst = null;
         List<GameEvent> events = recorder.stop();
         if (used) {
             board.replay(events, POWER_PAUSE, EFFECT_SHOW, () -> {});   // the damage, a death, a trap, one step after the other
@@ -513,7 +529,11 @@ public class MatchController implements CardPlayer {
             return;
         }
         recorder.start();
+        aimFirst = move.get().target();   // for the play history
+        aimSecond = move.get().second();
         ai.play(move.get());
+        aimFirst = null;
+        aimSecond = null;
         if (move.get().kind() == Move.Kind.PLAY) {
             board.showAiPlayed(move.get().card());   // its card big on the left and its minion in its slot, before the effects
         }
