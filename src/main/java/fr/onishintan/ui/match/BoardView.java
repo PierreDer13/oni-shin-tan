@@ -6,6 +6,7 @@ import fr.onishintan.ui.cards.ShrineView;
 import fr.onishintan.ui.fx.EventBanner;
 import fr.onishintan.ui.fx.Fx;
 import fr.onishintan.ui.fx.HeroBurn;
+import fr.onishintan.ui.screens.GuidePanel;
 import fr.onishintan.ui.screens.HomeView;
 import fr.onishintan.ui.screens.SettingsPanel;
 import fr.onishintan.ui.app.Images;
@@ -86,6 +87,8 @@ import javafx.scene.shape.Rectangle;
 import javafx.scene.transform.Scale;
 import javafx.scene.layout.Region;
 import javafx.scene.input.MouseEvent;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
 
 import javafx.event.EventHandler;
 import fr.onishintan.ui.match.dialog.KatanaPicker;
@@ -168,6 +171,10 @@ public class BoardView extends Pane {
             SWITCH_OFF = Images.get("/images/hud/end-turn-off.png");
     private final ImageView endTurn = new ImageView(SWITCH_ON);
     private Runnable onEndTurn = () -> {};
+    /** The keyboard shortcuts, kept so they can be taken off the window when the match leaves it. */
+    private final EventHandler<KeyEvent> shortcuts = this::shortcut;
+    /** How many layers the table has once built: more means something lies over it, and Space waits. */
+    private int fixedLayers;
     private Runnable onReswear = () -> {};
     private final Label yourClock = hud(new Label(), 1441, 558, 130, 44, 22);
     private Predicate<Card> onTrade = card -> false;
@@ -223,18 +230,11 @@ public class BoardView extends Pane {
         endTurn.setPreserveRatio(true);
         endTurn.setEffect(SHADOW);
         endTurn.relocate(1415, 335);
-        endTurn.setOnMousePressed(e -> {
-            endTurn.setDisable(true);   // one press per turn
-            Sound.play(HomeView.CLICK);
-            endTurn.setImage(SWITCH_OFF);   // the paddle and the lights switch over
-            PauseTransition wait = new PauseTransition(Duration.millis(200));
-            wait.setOnFinished(f -> onEndTurn.run());
-            wait.play();
-        });
+        endTurn.setOnMousePressed(e -> pressEndTurn());   // the mouse, or Space (shortcut)
         table.getChildren().addAll(bg, live, endTurn, yourClock, enemyClock);
         live.setPickOnBounds(false);   // a click on empty table goes through to the board (cancels an aim)
         // Settings, top left: volumes, window size and Surrender (which asks first).
-        Label settings = darkButton("設定  SETTINGS", () -> table.getChildren().add(new SettingsPanel(this::askSurrender)));
+        Label settings = darkButton("設定  SETTINGS", this::toggleSettings);
         settings.relocate(20, 20);
         table.getChildren().add(settings);
         // Deck tracker, right side: the cards left in your deck (opens and closes with its tab).
@@ -256,8 +256,66 @@ public class BoardView extends Pane {
             }
         });
         getChildren().add(table);
+        fixedLayers = table.getChildren().size();   // anything added later lies over the table (veil, panel, animation)
+        // Keyboard shortcuts (listed in the game guide), heard on the whole window while this board is on it.
+        sceneProperty().addListener((property, oldScene, newScene) -> {
+            if (oldScene != null) {
+                oldScene.removeEventFilter(KeyEvent.KEY_PRESSED, shortcuts);
+            }
+            if (newScene != null) {
+                newScene.addEventFilter(KeyEvent.KEY_PRESSED, shortcuts);
+            }
+        });
         setStyle("-fx-background-color: black;");
         render();
+    }
+
+    /** A key pressed during the match: Space ends your turn, D opens the deck tracker, Esc the settings, G the game guide. */
+    private void shortcut(KeyEvent event) {
+        if (event.getCode() == KeyCode.SPACE) {
+            pressEndTurn();
+        } else if (event.getCode() == KeyCode.D) {
+            deckTracker.toggle();
+        } else if (event.getCode() == KeyCode.ESCAPE) {
+            toggleSettings();
+        } else if (event.getCode() == KeyCode.G) {
+            toggleGuide();
+        } else {
+            return;   // any other key is left to the screen
+        }
+        event.consume();
+    }
+
+    /** The End Turn paddle pressed, with the mouse or Space: once per turn, and never through a veil or a panel. */
+    private void pressEndTurn() {
+        if (endTurn.isDisable()) {
+            return;   // not your turn, or already pressed
+        }
+        if (table.getChildren().size() > fixedLayers) {
+            return;   // something lies over the table (pass veil, mulligan, settings, an animation): wait for it
+        }
+        endTurn.setDisable(true);   // one press per turn
+        Sound.play(HomeView.CLICK);
+        endTurn.setImage(SWITCH_OFF);   // the paddle and the lights switch over
+        PauseTransition wait = new PauseTransition(Duration.millis(200));
+        wait.setOnFinished(f -> onEndTurn.run());
+        wait.play();
+    }
+
+    /** Opens the settings, or closes them if they are already open (the button or Esc). */
+    private void toggleSettings() {
+        boolean wasOpen = table.getChildren().removeIf(node -> node instanceof SettingsPanel);
+        if (!wasOpen) {
+            table.getChildren().add(new SettingsPanel(this::askSurrender));
+        }
+    }
+
+    /** Opens the game guide, or closes it if it is already open (G). */
+    private void toggleGuide() {
+        boolean wasOpen = table.getChildren().removeIf(node -> node instanceof GuidePanel);
+        if (!wasOpen) {
+            table.getChildren().add(new GuidePanel());
+        }
     }
 
     /** Redraws everything that changes during a match: heroes, minions, Ki and decks. */
