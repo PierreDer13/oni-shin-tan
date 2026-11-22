@@ -4,13 +4,13 @@ import java.util.EnumSet;
 import java.util.Set;
 
 /**
- * A Samurai spell: summons 4/4 Ancestor tokens now, and leaves a lasting bonus
+ * A Samurai spell: summons 2/2 Ancestor tokens now, and leaves a lasting bonus
  * on every Ancestor its owner summons later in the match.
  * Its BANZAI effect in CardEffects (if any) is the lasting Banzai of future Ancestors.
  */
 public class RiteCard extends SpellCard {
-    public static final int ANCESTOR_ATK = 4;
-    public static final int ANCESTOR_HP = 4;
+    public static final int ANCESTOR_ATK = 2;   // lowered from 4: the Rites' bonuses make them grow, not their base
+    public static final int ANCESTOR_HP = 2;
 
     private final int ancestors;
     private final Set<Keyword> nowKeywords;
@@ -37,7 +37,7 @@ public class RiteCard extends SpellCard {
         return (s == null || s.isEmpty()) ? EnumSet.noneOf(Keyword.class) : EnumSet.copyOf(s);
     }
 
-    /** The 4/4 Ancestor token every Rite summons. */
+    /** The 2/2 Ancestor token every Rite summons. */
     public static MinionCard ancestorCard() {
         return new MinionCard("ancestor", "Ancestor", "祖霊", "それい", 0, Rarity.COMMON,
                 HeroClass.SAMURAI, "", "", ANCESTOR_ATK, ANCESTOR_HP, EnumSet.noneOf(Keyword.class));

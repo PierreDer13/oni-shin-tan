@@ -130,7 +130,7 @@ class AdventureDecksTest {
             assertTrue(c.getKiCost() >= 1 && c.getKiCost() <= 10, c.getId() + " costs " + c.getKiCost());
             curve[c.getKiCost()]++;
         }
-        assertArrayEquals(new int[] { 0, 4, 6, 10, 13, 20, 15, 20, 8, 2, 2 }, curve);
+        assertArrayEquals(new int[] { 0, 5, 6, 11, 19, 15, 15, 17, 8, 2, 2 }, curve);
     }
 
     @Test

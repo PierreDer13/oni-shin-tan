@@ -89,7 +89,7 @@ public final class AdventureDecks {
     /**
      * Yamata no Orochi's 100 cards (1 to 10 Ki), from the 4 classes and the neutrals: no kami, no Amaterasu,
      * no family card (Trap, Shrine, Curse, Rite). Not a legal deck (Deck.SIZE is 40): it is never validated.
-     * Curve: 1 Ki 8, 2 Ki 12, 3 Ki 14, 4 Ki 14, 5 Ki 13, 6 Ki 13, 7 Ki 15, 8 Ki 7, 9 Ki 2, 10 Ki 2.
+     * Curve: 1 Ki 5, 2 Ki 6, 3 Ki 11, 4 Ki 19, 5 Ki 15, 6 Ki 15, 7 Ki 17, 8 Ki 8, 9 Ki 2, 10 Ki 2.
      */
     public static final String OROCHI_DECK = """
             genin 2, miko 2,
