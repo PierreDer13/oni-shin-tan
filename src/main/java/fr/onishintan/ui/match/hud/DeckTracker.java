@@ -74,8 +74,8 @@ public class DeckTracker extends Pane {
         updateTab();
     }
 
-    /** Opens the panel if it is closed, closes it if it is open. */
-    private void toggle() {
+    /** Opens the panel if it is closed, closes it if it is open (its tab, or D in a match). */
+    public void toggle() {
         boolean open = !panel.isVisible();
         panel.setVisible(open);
         updateTab();

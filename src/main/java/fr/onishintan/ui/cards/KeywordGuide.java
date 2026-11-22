@@ -12,7 +12,7 @@ public final class KeywordGuide {
     /** One entry: its name, its kanji (drawn as its logo until a painted one exists) and what it does. */
     public record Entry(String name, String kanji, String text) {}
 
-    /** Every entry, in the guide's order: the 7 keywords, the 4 spell families, then Sleep. */
+    /** Every entry, in the guide's order: the 7 keywords, the 4 spell families, Sleep, then the keyboard shortcuts. */
     public static final List<Entry> ALL = List.of(
             new Entry("Banzai", "万歳", "When this minion is played or summoned, its effect happens."),
             new Entry("Seppuku", "切腹", "When this minion dies, its effect happens."),
@@ -25,7 +25,8 @@ public final class KeywordGuide {
             new Entry("Shrine", "社", "Stands in a board slot for a few of your turns; its aura acts on the two minions beside it."),
             new Entry("Ritual", "儀", "Summons 4/4 Ancestors now and makes every later Ancestor stronger."),
             new Entry("Curse", "呪", "Goes into the enemy's hand or deck and hurts them. A Curse in hand is removed by paying its Ki."),
-            new Entry("Sleep", "眠り", "Asleep: can't attack on its next turn."));
+            new Entry("Sleep", "眠り", "Asleep: can't attack on its next turn."),
+            new Entry("Shortcuts", "鍵", "In a match: Space ends your turn, D opens the deck tracker, Esc the settings, G this guide."));
 
     private KeywordGuide() {
         // Only static data: nobody creates a KeywordGuide.
