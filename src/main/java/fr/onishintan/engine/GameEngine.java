@@ -36,7 +36,7 @@ import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 import java.util.function.LongSupplier;
-
+
 import fr.onishintan.engine.effect.CardEffects;
 import fr.onishintan.engine.effect.family.FamilyEffects;
 import fr.onishintan.engine.effect.minion.MinionEffects;
@@ -435,6 +435,7 @@ public class GameEngine {
         if (redirected != null && !redirected.isDead()) target = redirected;   // Kawarimi: the log takes the hit
         boolean ok = combat.resolve(attacker, target);
         if (ok) familyEffects.afterAttack(attacker);                // Meiji Ōtorii
+        if (ok) minionEffects.followHero(attacker, target);       // Kosho strikes what its hero struck
         if (ok) checkGameOver();
         return ok;
     }

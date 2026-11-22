@@ -11,7 +11,7 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 import fr.onishintan.model.*;
-
+
 import fr.onishintan.engine.event.GameEvent;
 /** Rites: 4/4 Ancestors now, lasting bonus on the Ancestors summoned later. */
 class RiteTest {
@@ -64,12 +64,12 @@ class RiteTest {
     @Test
     void lastingBonusOnlyAppliesToLaterAncestorsAndStacks() {
         start();
-        play(rite(1, Set.of(), 1, 1, Set.of()), 0);     // 4/4
-        play(rite(1, Set.of(), 1, 1, Set.of()), 1);     // 5/5
-        play(rite(1, Set.of(), 1, 1, Set.of()), 2);     // 6/6
-        assertEquals(4, me.getSide().getAt(0).getAttack());
-        assertEquals(5, me.getSide().getAt(1).getHealth());
-        assertEquals(6, me.getSide().getAt(2).getAttack());
+        play(rite(1, Set.of(), 1, 1, Set.of()), 0);     // base Ancestor
+        play(rite(1, Set.of(), 1, 1, Set.of()), 1);     // base +1/+1
+        play(rite(1, Set.of(), 1, 1, Set.of()), 2);     // base +2/+2
+        assertEquals(RiteCard.ANCESTOR_ATK, me.getSide().getAt(0).getAttack());
+        assertEquals(RiteCard.ANCESTOR_HP + 1, me.getSide().getAt(1).getHealth());
+        assertEquals(RiteCard.ANCESTOR_ATK + 2, me.getSide().getAt(2).getAttack());
     }
 
     @Test

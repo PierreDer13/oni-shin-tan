@@ -23,7 +23,7 @@ public final class KeywordGuide {
             new Entry("Tatakae", "戦え", "Can attack the turn it is played."),
             new Entry("Trap", "罠", "Set face down. It goes off by itself on the enemy's turn when its condition happens."),
             new Entry("Shrine", "社", "Stands in a board slot for a few of your turns; its aura acts on the two minions beside it."),
-            new Entry("Ritual", "儀", "Summons 4/4 Ancestors now and makes every later Ancestor stronger."),
+            new Entry("Ritual", "儀", "Summons 2/2 Ancestors now and makes every later Ancestor stronger."),
             new Entry("Curse", "呪", "Goes into the enemy's hand or deck and hurts them. A Curse in hand is removed by paying its Ki."),
             new Entry("Sleep", "眠り", "Asleep: can't attack on its next turn."),
             new Entry("Shortcuts", "鍵", "In a match: Space ends your turn, D opens the deck tracker, H the play history, Esc the settings, G this guide."));

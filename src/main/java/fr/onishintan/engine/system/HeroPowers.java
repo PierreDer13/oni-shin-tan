@@ -43,7 +43,7 @@ public class HeroPowers {
             case NINJA -> {
                 if (!engine.targeting().isPowerTarget(target)) return false;
                 payPower(p, HERO_POWER_COST);
-                int dealt = target.takeDamage(engine.getRewards().effectDamage(p, false, target, SHURIKEN_DAMAGE + engine.ryu(p)));
+                int dealt = target.takeDamage(engine.getRewards().effectDamage(p, false, target, SHURIKEN_DAMAGE + engine.ryu(p) + engine.getMinionEffects().shurikenBonus(p)));
                 engine.publish(new GameEvent(GameEvent.Type.DAMAGE, p.getHero(), target, dealt));
             }
             case KANNUSHI -> {
