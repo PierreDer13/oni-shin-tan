@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Predicate;
 
 import fr.onishintan.model.Card;
 import fr.onishintan.model.Combatant;
@@ -21,6 +22,7 @@ import fr.onishintan.model.OathType;
 import fr.onishintan.model.Player;
 import fr.onishintan.model.Rarity;
 import fr.onishintan.model.Shrine;
+import fr.onishintan.model.ShrineCard;
 import fr.onishintan.model.SpellCard;
 import fr.onishintan.model.TrapCard;
 import fr.onishintan.engine.GameEngine;
@@ -42,6 +44,7 @@ public class OathRewards {
     static final int DISCIPLINE_KI_SPENT = 4;    // Discipline 3: spent 4+ Ki, +1 Ki next turn
     static final int DISCIPLINE_DRAW_EVERY = 6;  // Discipline 6: a card per 6 Ki spent
     public static final int PURITY_HEAL_BONUS = 2;      // Purity 3: healing +2
+    static final int PURITY_MINION_HEAL = 2;    // Purity 3: end of turn, heal your minions 2
     static final int PEACE_HP = 2;               // Peace 3: your minions +0/+2
     static final int PEACE_HEAL = 6;             // Peace 6: end of turn, heal your hero 6
     static final int DIVINITY_HEAL = 3;          // Divinity 6: end of turn, heal 3 and a random minion +1/+1
@@ -194,6 +197,7 @@ public class OathRewards {
 
     private void startTurn(Player p) {
         usedThisTurn.clear();
+        drawFamilyCard(p);
         Integer ki = kiNextTurn.remove(p);
         if (ki != null) {
             announce(p);
@@ -367,6 +371,9 @@ public class OathRewards {
             engine.heal(p.getHero(), DIVINITY_HEAL);
             randomMinion(p).ifPresent(m -> m.buff(DIVINITY_BUFF, DIVINITY_BUFF));
         }
+        if (has(p, OathType.PURITY, 3) && !has(p, OathType.PURITY, 9)) {   // Purity 3: heal your minions 2 (9 heals them fully)
+            for (Minion m : List.copyOf(p.getSide().getMinions())) engine.heal(m, PURITY_MINION_HEAL);
+        }
         if (has(p, OathType.PURITY, 9) && !p.getSide().getMinions().isEmpty()) {   // fully heal all your minions
             announce(p);
             for (Minion m : List.copyOf(p.getSide().getMinions())) engine.heal(m, m.getMaxHealth());
@@ -433,6 +440,18 @@ public class OathRewards {
     }
 
     /** EFFECT_TRIGGERED with the Oath as source, just before its reward acts. */
+    /** Deception and Divinity: a turn that starts with no Trap (Shrine) in hand draws one from the deck. */
+    private void drawFamilyCard(Player p) {
+        Predicate<Card> kind = null;
+        if (has(p, OathType.DECEPTION, 0)) kind = c -> c instanceof TrapCard;
+        if (has(p, OathType.DIVINITY, 0)) kind = c -> c instanceof ShrineCard;
+        if (kind == null || p.getHand().stream().anyMatch(kind)) return;
+        p.getDeck().getCards().stream().filter(kind).findFirst().ifPresent(card -> {
+            p.getDeck().remove(card);
+            engine.addToHand(p, card);
+        });
+    }
+
     private void announce(Player p) {
         engine.announce(p.getOath(), p);
     }
