@@ -2,6 +2,7 @@ package fr.onishintan.ui.match.hud;
 import fr.onishintan.ui.fx.Fx;
 
 import fr.onishintan.model.Combatant;
+import fr.onishintan.model.Hero;
 import fr.onishintan.model.Keyword;
 import fr.onishintan.model.Minion;
 
@@ -107,6 +108,38 @@ public final class StatusOverlay {
                 in.setFromValue(0);
                 in.setToValue(0.9);
                 in.play();
+            }
+        }
+    }
+
+    /** Kagemusha's clouds, as fractions of the hero's scroll: around its four corners while he guards it, over the portrait once he has saved it. */
+    private static final double[][] AROUND = { {-0.2, -0.2}, {0.7, -0.2}, {-0.2, 0.9}, {0.7, 0.9} };
+    private static final double[][] OVER = { {0.05, 0.1}, {0.45, 0.1}, {0.05, 0.45}, {0.45, 0.45} };
+    private static final Duration GATHER = Duration.millis(700);
+
+    /**
+     * Kagemusha: Shinobi clouds float around the frame of the hero's scroll (w x hgt at x, y) while his Banzai guards it;
+     * once the lethal hit is taken they gather over the hero, who can't be harmed or targeted until its next turn.
+     */
+    public void kagemusha(Hero h, double x, double y, double w, double hgt) {
+        boolean over = h.isUntouchable();
+        boolean gathering = over && isNew("kagemusha", h);   // the hit was just taken: the clouds fly in from the corners
+        for (int i = 0; i < AROUND.length; i++) {
+            ImageView c = BoardView.image("/images/fx/shinobi-cloud-" + (i + 1) + ".png");
+            c.setFitWidth(w / 2);
+            c.setPreserveRatio(true);
+            c.setOpacity(0.9);
+            double[] spot = AROUND[i];
+            if (over) {
+                spot = OVER[i];
+            }
+            add(c, x + spot[0] * w, y + spot[1] * hgt);
+            sway(c, 1 - 2 * (i % 2), 8);   // left clouds one way, right clouds the other
+            if (gathering) {
+                new Timeline(
+                        new KeyFrame(Duration.ZERO, new KeyValue(c.layoutXProperty(), x + AROUND[i][0] * w), new KeyValue(c.layoutYProperty(), y + AROUND[i][1] * hgt)),
+                        new KeyFrame(GATHER, new KeyValue(c.layoutXProperty(), x + spot[0] * w, Interpolator.EASE_OUT),
+                                new KeyValue(c.layoutYProperty(), y + spot[1] * hgt, Interpolator.EASE_OUT))).play();
             }
         }
     }

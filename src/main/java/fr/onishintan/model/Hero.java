@@ -37,6 +37,7 @@ public class Hero extends Combatant {
         if (lastStand && left >= health) {          // Kagemusha: lethal damage leaves the hero on 1 HP, untouchable
             lastStand = false;
             untouchable = true;
+            addStatus(Status.STEALTH);              // and no enemy can target it (TurnManager lifts it on its next turn)
             return super.takeDamage(health - 1);
         }
         return super.takeDamage(left);
@@ -44,6 +45,9 @@ public class Hero extends Combatant {
 
     /** Kagemusha: the next lethal damage leaves this hero on 1 HP instead (once). */
     public void armLastStand() { lastStand = true; }
+
+    /** True while Kagemusha's Banzai still waits for a lethal hit. */
+    public boolean hasLastStand() { return lastStand; }
 
     /** True while Kagemusha keeps this hero from any harm (until its owner's next turn). */
     public boolean isUntouchable() { return untouchable; }
