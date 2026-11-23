@@ -134,6 +134,7 @@ public class GameEngine {
         this.oathRules = new OathRules(combat);
         turns.setDrawRule(p -> !penalties.has(p, OathPenalties.Lasting.NO_DRAW));
         oathRules.setCost(this::costOf);
+        oathRules.setPlayable(this::canPlay);
         SpellEffects.register(cardEffects);
         combat.setPiercing(c -> rewards.pierces(c) || minionEffects.pierces(c));
         combat.setDamageRule((source, target, amount) ->
@@ -327,11 +328,11 @@ public class GameEngine {
         ending.getClock().pause(clock.now());
         if (clocksEnabled()) ending.getClock().add(ChessClock.INCREMENT_MS);
         publish(GameEvent.of(GameEvent.Type.TURN_ENDED, ending, null));
+        penalties.tick(ending);               // his lasting Oath penalties lose one of his turns
+        resolveOath(ending);                  // judged on the turn as played, before a reward draws a card (Discipline 6)
+        if (state.isOver()) return;           // an Oath break can kill its own hero
         rewards.endTurn(ending);              // end-of-turn Oath rewards (Allegiance 3, Peace 6...)
         if (state.isOver()) return;
-        penalties.tick(ending);               // his lasting Oath penalties lose one of his turns
-        resolveOath(ending);
-        if (state.isOver()) return;           // an Oath break can kill its own hero
         List<Optional<Card>> drawn = turns.endTurn();
         Player next = state.active();
         drawn.forEach(card -> hand.publishDraw(next, card));

@@ -222,6 +222,7 @@ public final class AIController {
         } else if (!targets.isEmpty()) {
             target = bestTarget(card, targets);
         }
+        if (!worthCasting(card, target)) return null;
         double score = 10 + engine.costOf(me, card) * 3 + targetBonus(card, target);
         if (difficulty == Difficulty.EXTREME && card instanceof MinionCard m && m.getKeywords().contains(Keyword.BANZAI)) {
             score += 30;   // EXTREME never holds a Banzai back: it plays it as soon as it can
@@ -229,6 +230,18 @@ public final class AIController {
         return new Scored(Move.play(card, slot, target, second), score);
     }
 
+
+    /** Chimatsuri only when the sacrificed minion's ATK kills the enemy hero; Suiton only to replay a Banzai minion. */
+    private boolean worthCasting(Card card, Combatant target) {
+        Hero hero = enemy().getHero();
+        if (card.getId().equals("chimatsuri")) {
+            return target != null && target.getAttack() >= hero.getHealth() + hero.getArmour();
+        }
+        if (card.getId().equals("suiton-no-jutsu")) {
+            return target instanceof Minion m && m.hasKeyword(Keyword.BANZAI);
+        }
+        return true;
+    }
 
     /** Where the AI puts a minion, Shrine or Rite: the free slot nearest the middle (3, then 2, 4, 1, 5, 0, 6); -1 if full. */
     private int centreSlot() {

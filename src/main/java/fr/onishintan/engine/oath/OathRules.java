@@ -33,6 +33,7 @@ public class OathRules {
     private final CombatResolver combat;
     private final Map<OathType, OathRule> rules = new EnumMap<>(OathType.class);
     private ToIntBiFunction<Player, Card> cost = (p, c) -> c.getKiCost();
+    private Predicate<Card> playable = c -> true;   // the engine's own check (targets, penalties)
 
     public OathRules(CombatResolver combat) {
         this.combat = Objects.requireNonNull(combat);
@@ -55,19 +56,24 @@ public class OathRules {
         this.cost = Objects.requireNonNull(cost);
     }
 
+    /** Whether the engine lets the active player play a card now (a spell needs a legal target). Set by GameEngine. */
+    public void setPlayable(Predicate<Card> playable) {
+        this.playable = Objects.requireNonNull(playable);
+    }
+
     public OathRule get(OathType type) {
         return rules.get(type);
     }
 
     // ---------- Samurai ----------
 
-    /** Honor: each turn, if one of your minions can attack, at least one attacks the enemy hero. */
+    /** Honor: each turn, if one of your minions can attack the enemy hero, at least one does; the others may attack anything. */
     private OathRule.Verdict honor(Player p, TurnTracker turn, GameState state) {
         if (turn.getHeroAttacks() > 0) return KEPT;
         Combatant enemyHero = state.opponentOf(p).getHero();
         boolean couldHit = p.getSide().getMinions().stream()
                 .anyMatch(m -> m.canAttack() && combat.legalTargets(m).contains(enemyHero));
-        return turn.getHeroSkipped() > 0 || couldHit ? BROKEN : UNABLE;
+        return couldHit ? BROKEN : UNABLE;
     }
 
     /** Allegiance: end your turn with at least 2 friendly minions. */
@@ -145,6 +151,8 @@ public class OathRules {
     /** Corruption: give the enemy at least 1 Curse every turn, if you have a Curse card. */
     private OathRule.Verdict corruption(Player p, TurnTracker turn, GameState state) {
         if (turn.getCursesGiven() > 0) return KEPT;
+        boolean holdsCurse = p.getHand().stream().anyMatch(c -> c instanceof CurseCard && !p.isHeldCurse(c));
+        if (!holdsCurse) return KEPT;   // no Curse card to give: the turn still counts
         return couldPlay(p, c -> c instanceof CurseCard) ? BROKEN : UNABLE;
     }
 
@@ -162,6 +170,7 @@ public class OathRules {
 
     private boolean playableNow(Player p, Card c) {
         if (!p.canAfford(cost.applyAsInt(p, c)) || p.isHeldCurse(c)) return false;
+        if (!playable.test(c)) return false;   // the engine refuses it (no legal target, a penalty)
         if (c instanceof TrapCard t) return p.canSetTrap(t);
         if (c instanceof MinionCard || c instanceof ShrineCard || c instanceof RiteCard) return !p.getSide().isFull();
         return true;
