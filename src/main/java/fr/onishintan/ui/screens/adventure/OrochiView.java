@@ -8,9 +8,11 @@ import fr.onishintan.model.Deck;
 import fr.onishintan.model.Hero;
 import fr.onishintan.model.Player;
 import fr.onishintan.ui.OniShinTanApp;
+import fr.onishintan.ui.app.AudioSettings;
 import fr.onishintan.ui.app.Images;
 import fr.onishintan.ui.app.SceneRouter;
 import fr.onishintan.ui.app.Screen;
+import fr.onishintan.ui.app.Sound;
 import fr.onishintan.ui.decks.DeckPickView;
 import fr.onishintan.ui.decks.DeckStore;
 import fr.onishintan.ui.decks.SavedDeck;
@@ -30,6 +32,7 @@ import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.media.MediaPlayer;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.transform.Scale;
@@ -51,6 +54,8 @@ public class OrochiView extends Pane {
     public static final String STORM = "orochi-storm";
     /** How the last fight ended, so the page opens on its story: null when there was none. */
     private static Boolean lastFightWon;
+    /** The storm under the battle music during his fight (the page's own music is the storm alone). */
+    private static MediaPlayer storm;
 
     private final Pane grid = new Pane();
     private final SceneRouter router;
@@ -158,11 +163,25 @@ public class OrochiView extends Pane {
                     if (won) {
                         new SaveManager().addOrochiKill();
                     }
+                    calmStorm();
                     lastFightWon = won;
                     open(router);
                 }));
-        router.setMusic(Screen.ADVENTURE_BATTLE, STORM);   // the same storm goes on through the fight
+        router.setMusic(Screen.ADVENTURE_BATTLE, "battle-music");   // the battle theme...
+        storm = Sound.music(STORM, AudioSettings.MUSIC.get());     // ...with the storm still raging under it
+        if (storm != null) {
+            storm.volumeProperty().bind(AudioSettings.MUSIC);      // follows the Settings slider
+        }
         router.goTo(Screen.ADVENTURE_BATTLE);
+    }
+
+    /** The fight is over: the storm under the battle music stops (the page's own storm takes over). */
+    private static void calmStorm() {
+        if (storm != null) {
+            storm.stop();
+            storm.dispose();
+            storm = null;
+        }
     }
 
     /** Cream text in the card font with a soft shadow, like the Adventure pages. */
