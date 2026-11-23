@@ -9,6 +9,7 @@ import fr.onishintan.model.Keyword;
 import fr.onishintan.model.Minion;
 import fr.onishintan.model.MinionCard;
 import fr.onishintan.model.Player;
+import fr.onishintan.model.Status;
 
 import java.util.Random;
 
@@ -63,9 +64,11 @@ class CardsV2Test {
     void kagemushaSavesTheHeroOnceUntilItsNextTurn() {
         start(HeroClass.NINJA, HeroClass.ONI);
         assertTrue(engine.playCard(inHand("kagemusha"), 0, null));
+        assertTrue(me.getHero().hasLastStand(), "the clouds guard the hero");
         engine.dealDamage(null, me.getHero(), 500);
         assertFalse(engine.getState().isOver());
         assertEquals(1, me.getHero().getHealth());
+        assertTrue(me.getHero().hasStatus(Status.STEALTH), "no enemy can target it");
         engine.dealDamage(null, me.getHero(), 50);
         assertEquals(1, me.getHero().getHealth(), "untouchable until my next turn");
         engine.endTurn();

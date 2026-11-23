@@ -1362,6 +1362,10 @@ public void passTo(String name, Runnable onReady) {
         }
         clickable(box, h, mine);
         place(box, W / 2 - wid / 2, zoneY + (119 - hgt) / 2);
+        if (h.hasLastStand() || h.isUntouchable()) {
+            status.follow(box);
+            status.kagemusha(h, W / 2 - wid / 2, zoneY + (119 - hgt) / 2, wid, hgt);
+        }
         if (h.hasStatus(Status.SLEEP)) {
             status.follow(box);
             status.sleep(h, W / 2 + wid / 2 - BoardView.MINION_W - 10, zoneY);   // zzz from the hero's top-right corner
