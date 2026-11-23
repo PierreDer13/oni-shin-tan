@@ -190,9 +190,9 @@ public class BoardView extends Pane {
     /** How many layers the table has once built: more means something lies over it, and Space waits. */
     private int fixedLayers;
     private Runnable onReswear = () -> {};
-    private final Label yourClock = hud(new Label(), 1441, 558, 130, 44, 22);
+    private final Label yourClock = hud(new Label(), 1413, 558, 130, 44, 22);
     private Predicate<Card> onTrade = card -> false;
-    private final Label enemyClock = hud(new Label(), 1441, 268, 130, 44, 22);
+    private final Label enemyClock = hud(new Label(), 1413, 268, 130, 44, 22);
     private CardPlayer player;
     /** A card dropped on the board that waits for its target(s): its slot, its legal targets and, for Kettō, the first minion picked. */
     private Card held;
