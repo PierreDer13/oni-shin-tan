@@ -12,6 +12,7 @@ public class Minion extends Combatant implements BoardEntity {
     private boolean hidden;     // Shinobi: untargetable until it attacks
     private int toriiStacks;    // each stack blocks one hit; Torii can be given several times
     private int armour;         // Yoroi: taken off before HP, after Torii
+    private int lastSlot = -1;  // the slot it stood in when it left the board (Matsunaga's explosion)
 
     public Minion(MinionCard source) {
         super(source.getBaseAttack(), source.getBaseHealth());
@@ -111,6 +112,25 @@ public class Minion extends Combatant implements BoardEntity {
     public boolean hasKeyword(Keyword k) { return keywords.contains(k); }
     public Set<Keyword> getKeywords() { return Collections.unmodifiableSet(keywords); }
     public MinionCard getSource() { return source; }
+    /** The board remembers where it stood when it dies (BoardSide.removeDead). */
+    public void rememberSlot(int slot) { lastSlot = slot; }
+
+    /** The slot it stood in when it left the board, or -1. */
+    public int getLastSlot() { return lastSlot; }
+
+    /** Godai, Wind: it may attack again this turn. */
+    public void refreshAttack() { hasAttackedThisTurn = false; }
+
+    /** Godai, Void: back to its printed card: printed ATK and max HP (damage kept, never above the max), no armour, no Torii. */
+    public void resetToPrinted() {
+        int damage = maxHealth - health;
+        attack = source.getBaseAttack();
+        maxHealth = source.getBaseHealth();
+        health = Math.max(1, maxHealth - damage);
+        armour = 0;
+        toriiStacks = 0;
+    }
+
     public boolean isSummonedThisTurn() { return summonedThisTurn; }
     public boolean isHidden() { return hidden; }
     public boolean hasTorii() { return toriiStacks > 0; }

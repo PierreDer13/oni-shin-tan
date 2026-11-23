@@ -29,6 +29,7 @@ import fr.onishintan.model.Player;
 import fr.onishintan.model.TrapCard;
 import fr.onishintan.engine.GameEngine;
 import fr.onishintan.engine.event.GameEvent;
+import fr.onishintan.model.GodaiElement;
 import fr.onishintan.model.KatanaTier;
 import fr.onishintan.model.Status;
 
@@ -44,6 +45,7 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 
 import javafx.util.Duration;
@@ -92,6 +94,8 @@ import javafx.scene.input.KeyEvent;
 
 import javafx.event.EventHandler;
 import fr.onishintan.ui.match.dialog.KatanaPicker;
+import fr.onishintan.ui.match.dialog.GodaiPicker;
+import fr.onishintan.ui.match.dialog.StealPicker;
 import fr.onishintan.ui.match.dialog.MulliganView;
 import fr.onishintan.ui.match.dialog.TrapView;
 import fr.onishintan.ui.match.fx.BoardAmbience;
@@ -201,6 +205,12 @@ public class BoardView extends Pane {
 
     private Predicate<Combatant> onPower = target -> false;
     private Predicate<KatanaTier> onKatana = tier -> false;
+    /** Takeda Shingen's Godai: who has it, the targets each element may take, and what using it does. */
+    private Predicate<Player> hasGodai = p -> false;
+    private BiPredicate<GodaiElement, Combatant> godaiTarget = (element, target) -> false;
+    private BiPredicate<GodaiElement, Combatant> onGodai = (element, target) -> false;
+    /** The Godai element waiting for its target, or null. */
+    private GodaiElement godaiAim;
     /** True after pressing a power that needs a target (Shuriken, Jikininki): the next click on a character aims it. */
     private boolean aiming;
     private Runnable onGameOver = () -> {};
@@ -225,7 +235,7 @@ public class BoardView extends Pane {
         bg = image("/images/boards/" + board + ".png");
         bg.setFitWidth(W);
         bg.setFitHeight(H);
-        bg.setOnMouseClicked(e -> { selected = null; aiming = false; held = null; render(); });
+        bg.setOnMouseClicked(e -> { selected = null; aiming = false; godaiAim = null; held = null; render(); });
         Scale scale = new Scale();
         table.getTransforms().add(scale);
         InvalidationListener fit = o -> {
@@ -452,7 +462,7 @@ public class BoardView extends Pane {
         for (int slot = 0; slot < BoardSide.MAX; slot++) {
             Minion m = enemy.getSide().getAt(slot);
             if (m != null && m.getSource() == card && !nodes.containsKey(m)) {
-                Node played = new MinionView(m, MINION_W);
+                Node played = new MinionView(m, MINION_W, "oishi-kuranosuke".equals(m.getSource().getId()));   // the AI's Oishi hides his stats
                 played.relocate(SLOT_X + 2 + slot * SLOT_STEP, ENEMY_Y);
                 TableFx.floatAndDrop(played);   // the AI's minion floats and drops too
                 nodes.put(m, played);   // its effects show on it, and it is not redrawn as a newcomer
@@ -955,6 +965,27 @@ public class BoardView extends Pane {
     /** What happens when the Samurai picks a blade: true if the engine accepted it. */
     public void setOnKatana(Predicate<KatanaTier> onKatana) { this.onKatana = onKatana; }
 
+    /** Takeda Shingen: who has Godai, which targets each element may take, and what using it does (true if accepted). */
+    public void setGodai(Predicate<Player> hasGodai, BiPredicate<GodaiElement, Combatant> godaiTarget, BiPredicate<GodaiElement, Combatant> onGodai) {
+        this.hasGodai = hasGodai;
+        this.godaiTarget = godaiTarget;
+        this.onGodai = onGodai;
+    }
+
+    /** Takeda Shingen: this player's hero shows another portrait (images/heroes/<portrait>.png) from the next redraw. */
+    public void setPortrait(Player p, String portrait) {
+        if (p == you) {
+            yourPortrait = portrait;
+        } else {
+            enemyPortrait = portrait;
+        }
+    }
+
+    /** Izanagi: the enemy hand laid open over the table; the clicked card goes to onPick. */
+    public void chooseSteal(List<Card> cards, Predicate<Card> canTake, Consumer<Card> onPick) {
+        table.getChildren().add(new StealPicker(cards, canTake, onPick));
+    }
+
     /** Start of your turn: the hero power can be used again. */
     public void resetPower() {
         render();
@@ -1175,7 +1206,7 @@ public void passTo(String name, Runnable onReady) {
             double x = SLOT_X + 2 + slot * SLOT_STEP;
             tableFx.groundShadow(x, y);
 
-            MinionView view = new MinionView(minion, MINION_W);
+            MinionView view = new MinionView(minion, MINION_W, p != you && "oishi-kuranosuke".equals(minion.getSource().getId()));   // Oishi hides his stats from the opponent
             clickable(view, minion, p == you);
             if (silenced.contains(minion)) {
                 view.setEffect(grey(view.getEffect()));   // silenced by Shike: no keywords, no effects
@@ -1530,10 +1561,10 @@ public void passTo(String name, Runnable onReady) {
     private void power(Player p, double zoneY, boolean mine) {
         boolean usable = mine && !powerUsed() && you.canAfford(cheapestPower());
         String effect = powerEffect(p);
-        HeroPowerView v = new HeroPowerView(p.getHero().getHeroClass(), effect, mine && powerUsed(), usable, this::previewCost,
+        HeroPowerView v = new HeroPowerView(p.getHero().getHeroClass(), hasGodai.test(p), effect, mine && powerUsed(), usable, this::previewCost,
                 this::pressPower);
         bigOnHover(v, () -> {
-            Node b = new HeroPowerView(p.getHero().getHeroClass(), effect, mine && powerUsed(), false, c -> {}, () -> {});
+            Node b = new HeroPowerView(p.getHero().getHeroClass(), hasGodai.test(p), effect, mine && powerUsed(), false, c -> {}, () -> {});
             b.setScaleX(2.5);
             b.setScaleY(2.5);
             return b;
@@ -1576,6 +1607,10 @@ public void passTo(String name, Runnable onReady) {
      * Samurai: pick a blade first.
      */
     private void pressPower() {
+        if (hasGodai.test(you)) {
+            chooseElement();   // Takeda Shingen: the gorinto rises
+            return;
+        }
         HeroClass heroClass = you.getHero().getHeroClass();
         if (heroClass == HeroClass.KANNUSHI) {
             onPower.test(null);   // accepted: the match replays it (the Miko's petals), then redraws
@@ -1585,6 +1620,27 @@ public void passTo(String name, Runnable onReady) {
             aiming = true;
             selected = null;   // stop any attack selection
             render();          // the targets now glow
+        }
+    }
+
+    /** Godai: the gorinto picker over the table; the picked element then aims, or lands at once when it has nothing to aim at. */
+    private void chooseElement() {
+        table.getChildren().add(new GodaiPicker(element -> {
+            if (godaiTarget.test(element, null)) {
+                godaiHit(element, null);   // Earth with no friendly minion: only the armour
+                return;
+            }
+            godaiAim = element;
+            aiming = true;
+            selected = null;
+            render();   // the element's targets now glow
+        }, () -> {}));
+    }
+
+    /** Godai lands: the engine applies the element, the match replays its effects and redraws. */
+    private void godaiHit(GodaiElement element, Combatant target) {
+        if (!onGodai.test(element, target)) {
+            render();   // refused by the engine: nothing happens
         }
     }
 
@@ -1599,6 +1655,9 @@ public void passTo(String name, Runnable onReady) {
 
     /** The least Ki your power can cost: the Bokken (1) for the Samurai, HERO_POWER_COST for the others. */
     private int cheapestPower() {
+        if (hasGodai.test(you)) {
+            return GameEngine.HERO_POWER_COST;   // Godai costs the same for every element
+        }
         if (you.getHero().getHeroClass() == HeroClass.SAMURAI) {
             return KatanaTier.BOKKEN.getKiCost();
         }
@@ -1622,6 +1681,7 @@ public void passTo(String name, Runnable onReady) {
             });
         } else {
             n.setOnMouseClicked(e -> {
+                godaiAim = null;
                 aiming = false;
                 render();
             });
@@ -1630,6 +1690,9 @@ public void passTo(String name, Runnable onReady) {
 
     /** Shuriken and Jikininki may hit any living character, except an enemy minion hidden by Shinobi or an enemy hero in Stealth. */
     private boolean canPowerTarget(Combatant c) {
+        if (godaiAim != null) {
+            return godaiTarget.test(godaiAim, c);   // Godai: each element has its own targets
+        }
         boolean enemyCharacter = c == enemy.getHero() || enemy.getSide().getMinions().contains(c);
         if (!enemyCharacter) {
             return true;
@@ -1645,6 +1708,12 @@ public void passTo(String name, Runnable onReady) {
 
     /** Shuriken or Jikininki hits `target`: sparks and the red damage number on it, a dead minion is cut, then the board redraws. */
     private void powerHit(Combatant target, Node node) {
+        if (godaiAim != null) {   // Godai: the chosen element lands on the clicked character
+            GodaiElement element = godaiAim;
+            godaiAim = null;
+            godaiHit(element, target);
+            return;
+        }
         if (!onPower.test(target)) {
             render();   // refused by the engine: nothing happens
             return;

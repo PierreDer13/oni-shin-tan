@@ -12,10 +12,12 @@ import java.util.regex.Pattern;
 
 import fr.onishintan.engine.GameEngine;
 import fr.onishintan.engine.effect.SpellTarget;
+import fr.onishintan.engine.system.HeroPowers;
 import fr.onishintan.model.BoardSide;
 import fr.onishintan.model.Card;
 import fr.onishintan.model.Combatant;
 import fr.onishintan.model.CurseCard;
+import fr.onishintan.model.GodaiElement;
 import fr.onishintan.model.Hero;
 import fr.onishintan.model.HeroClass;
 import fr.onishintan.model.KatanaTier;
@@ -143,8 +145,10 @@ public final class AIController {
             case ATTACK -> engine.attack(m.attacker(), m.target());
             case POWER -> engine.useHeroPower(m.target());
             case KATANA -> engine.useKatana(m.tier());
+            case GODAI -> engine.useGodai(m.element(), m.target());
         };
         if (!ok) refused.add(key(m));
+        if (ok && m.kind() == Move.Kind.PLAY && engine.pendingSteal() == me) stealBest();   // Izanagi: the AI takes its pick
         return ok;
     }
 
@@ -239,6 +243,7 @@ public final class AIController {
     /** The hero power with the Ki left once the cards are paid: after every card (score below any card). */
     private Scored powerMove() {
         if (engine.isHeroPowerUsed()) return null;
+        if (engine.hasGodai(me)) return godaiMove();   // Takeda Shingen: Godai instead of the class power
         HeroClass c = me.getHero().getHeroClass();
         if (c == HeroClass.SAMURAI) {
             KatanaTier best = null;
@@ -262,6 +267,41 @@ public final class AIController {
         }
         if (target instanceof Hero h && h.hasStatus(Status.STEALTH)) return null;
         return new Scored(Move.power(target), 5);
+    }
+
+    /**
+     * Godai for the AI: Fire on the best enemy minion it kills (or the hero on lethal), else Water on a wounded hero,
+     * else Wind on the strongest minion that has already attacked, else Earth on its toughest minion, else Fire on the hero.
+     */
+    private Scored godaiMove() {
+        if (!me.canAfford(GameEngine.HERO_POWER_COST)) return null;
+        int fire = HeroPowers.GODAI_FIRE;
+        Combatant prey = null;
+        for (Minion m : enemy().getSide().getMinions()) {
+            if (engine.isGodaiTarget(GodaiElement.KA, m) && m.getHealth() <= fire && !m.hasTorii() && (prey == null || value(m) > value(prey))) prey = m;
+        }
+        Hero foe = enemy().getHero();
+        if (foe.getHealth() <= fire && engine.isGodaiTarget(GodaiElement.KA, foe)) prey = foe;   // lethal first
+        if (prey != null) return new Scored(Move.godai(GodaiElement.KA, prey), 6);
+        if (me.getHero().getMaxHealth() - me.getHero().getHealth() >= HeroPowers.GODAI_HEAL) {
+            return new Scored(Move.godai(GodaiElement.SUI, me.getHero()), 6);
+        }
+        Minion striker = null;
+        for (Minion m : me.getSide().getMinions()) {
+            if (!m.canAttack() && m.getAttack() > 0 && (striker == null || m.getAttack() > striker.getAttack())) striker = m;
+        }
+        if (striker != null) return new Scored(Move.godai(GodaiElement.FU, striker), 6);
+        if (engine.isGodaiTarget(GodaiElement.KA, foe)) return new Scored(Move.godai(GodaiElement.KA, foe), 5);
+        Minion wall = me.getSide().getMinions().stream().max(Comparator.comparingInt(Minion::getHealth)).orElse(null);
+        return new Scored(Move.godai(GodaiElement.CHI, wall), 5);
+    }
+
+    /** Izanagi: the AI takes the most expensive card it may steal from the enemy hand. */
+    private void stealBest() {
+        enemy().getHand().stream()
+                .filter(c -> !enemy().isHeldCurse(c))
+                .max(Comparator.comparingInt(Card::getKiCost))
+                .ifPresent(engine::steal);
     }
 
     /** This attacker's best attack: a minion it kills (best if it survives), or the hero. Null if none is worth it. */

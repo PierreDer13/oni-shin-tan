@@ -10,6 +10,7 @@ import fr.onishintan.model.Card;
 import fr.onishintan.model.CurseCard;
 import fr.onishintan.model.CurseZone;
 import fr.onishintan.model.Combatant;
+import fr.onishintan.model.GodaiElement;
 import fr.onishintan.model.Hero;
 import fr.onishintan.model.HeroClass;
 import fr.onishintan.model.Keyword;
@@ -122,6 +123,7 @@ public class MatchController implements CardPlayer {
         board.setOnAttack(this::attack);
         board.setOnPower(this::useHeroPower);
         board.setOnKatana(this::useKatana);
+        board.setGodai(engine::hasGodai, engine::isGodaiTarget, this::useGodai);
         board.setOnTrade(this::trade);
         board.setOnEndTurn(this::endTurn);
         board.setOnGameOver(() -> onEnd.accept(firstWon()));
@@ -213,6 +215,18 @@ public class MatchController implements CardPlayer {
         engine.getBus().subscribe(GameEvent.Type.SHRINE_PLACED, event -> {
             Shrine shrine = (Shrine) event.target();
             board.announce("社", shrine.getSource().getNameRomaji(), "a shrine stands", SHRINE_LAVENDER);
+        });
+        engine.getBus().subscribe(GameEvent.Type.DICE_ROLLED, event -> {   // Kunisada Chuji
+            int roll = event.amount();
+            board.announce("賽", "Kunisada rolls a " + roll, roll + " damage, and " + roll + " less Ki next turn", OATH_BROKEN_RED);
+        });
+        engine.getBus().subscribe(GameEvent.Type.GODAI_GAINED, event -> {   // Takeda Shingen
+            board.setPortrait((Player) event.source(), "takeda-shingen");
+            board.announce("五大", "Godai", "the hero power is now Earth, Water, Fire, Wind or Void", OATH_GOLD);
+        });
+        engine.getBus().subscribe(GameEvent.Type.CARD_STOLEN, event -> {   // Izanagi
+            Card stolen = (Card) event.target();
+            board.announce("盗", stolen.getNameRomaji(), "taken from the enemy hand", OATH_BROKEN_RED);
         });
     }
 
@@ -361,6 +375,13 @@ public class MatchController implements CardPlayer {
         }
         int flying = added;
         board.replay(events, pauseBefore(card, events), EFFECT_SHOW, () -> board.dealDrawnCards(flying));
+        if (engine.pendingSteal() == engine.active()) {   // Izanagi: the enemy hand opens, you take one card
+            Player victim = engine.getState().opponent();
+            board.chooseSteal(List.copyOf(victim.getHand()), c -> !victim.isHeldCurse(c), stolen -> {
+                engine.steal(stolen);
+                board.render();   // the stolen card is now in your hand
+            });
+        }
         return true;
     }
 
@@ -426,6 +447,19 @@ public class MatchController implements CardPlayer {
         List<GameEvent> events = recorder.stop();
         if (used) {
             board.replay(events, POWER_PAUSE, EFFECT_SHOW, () -> {});   // the damage, a death, a trap, one step after the other
+        }
+        return used;
+    }
+
+    /** Takeda Shingen's Godai: the element on its target (null: Earth's armour alone). True if the engine accepted it. */
+    private boolean useGodai(GodaiElement element, Combatant target) {
+        recorder.start();
+        aimFirst = target;   // for the play history
+        boolean used = engine.useGodai(element, target);
+        aimFirst = null;
+        List<GameEvent> events = recorder.stop();
+        if (used) {
+            board.replay(events, POWER_PAUSE, EFFECT_SHOW, () -> {});   // the damage, heal or armour, then the redraw
         }
         return used;
     }

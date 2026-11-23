@@ -19,6 +19,8 @@ import fr.onishintan.model.TrapCard;
 import fr.onishintan.model.TrapTrigger;
 import fr.onishintan.model.Weapon;
 import fr.onishintan.model.WeaponCard;
+import fr.onishintan.model.GodaiElement;
+import fr.onishintan.model.Keyword;
 import fr.onishintan.model.HeroClass;
 import fr.onishintan.model.KatanaTier;
 import fr.onishintan.model.Rarity;
@@ -572,6 +574,31 @@ public class GameEngine {
     /** Samurai power: pay the blade's Ki and equip it (replaces the current weapon). */
     public boolean useKatana(KatanaTier tier) { return powers.useKatana(tier); }
 
+    // ---------- Uragiri ----------
+
+    /** Uragiri: true while p's Oath is broken, from the break until he swears it again. */
+    public boolean isOathbreaker(Player p) {
+        return p.getOath() != null && !p.getOath().isSworn();
+    }
+
+    /** Izanagi: the player who may now take a card from the enemy hand, or null. */
+    public Player pendingSteal() { return minionEffects.pendingSteal(); }
+
+    /** Izanagi: takes this card from the enemy hand. False if it cannot be taken. */
+    public boolean steal(Card card) { return minionEffects.steal(card); }
+
+    /** Takeda Shingen: p's hero power becomes Godai. */
+    public void grantGodai(Player p) { powers.grantGodai(p); }
+
+    /** True once p's hero power is Godai. */
+    public boolean hasGodai(Player p) { return powers.hasGodai(p); }
+
+    /** True if this Godai element may land on that target now (null: Earth with no friendly minion). */
+    public boolean isGodaiTarget(GodaiElement element, Combatant target) { return powers.isGodaiTarget(element, target); }
+
+    /** Godai: the element on its target; false if refused. */
+    public boolean useGodai(GodaiElement element, Combatant target) { return powers.useGodai(element, target); }
+
     public boolean isHeroPowerUsed() { return turns.isPowerUsedThisTurn(); }
 
         
@@ -581,6 +608,7 @@ public class GameEngine {
     /** Runs the effect a minion has for this trigger, if any. */
     public void runTrigger(Trigger trigger, Player owner, Minion source, Combatant target) {
         if (source == null || minionEffects.isSilenced(source)) return;   // Shike
+        if (source.getSource().getKeywords().contains(Keyword.URAGIRI) && !isOathbreaker(owner)) return;   // Uragiri: only while the Oath is broken
         Optional<Effect> effect = cardEffects.get(source.getSource().getId(), trigger);
         if (effect.isEmpty()) return;
         if (trigger != Trigger.BANZAI) announce(source, owner);            // a Banzai is announced by its CARD_PLAYED
