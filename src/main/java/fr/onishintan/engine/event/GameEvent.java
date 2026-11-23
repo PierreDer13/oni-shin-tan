@@ -42,6 +42,7 @@ public record GameEvent(Type type, Object source, Object target, int amount) {
         DICE_ROLLED,                // source = Player who rolled (Kunisada Chuji), target = the Minion, amount = the roll (1 to 6)
         CARD_STOLEN,                // source = the thief Player, target = the Card taken from the enemy hand (Izanagi)
         GODAI_GAINED,               // source = Player whose hero power is now Godai (Takeda Shingen)
+        CLOCK_CUT,                  // source = Player whose chess clock lost time (Akechi Mitsuhide), amount = the seconds taken
         GAME_OVER                   // target = winning Player, or null for a draw
     }
 

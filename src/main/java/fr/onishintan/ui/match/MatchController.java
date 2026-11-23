@@ -216,12 +216,7 @@ public class MatchController implements CardPlayer {
             Shrine shrine = (Shrine) event.target();
             board.announce("社", shrine.getSource().getNameRomaji(), "a shrine stands", SHRINE_LAVENDER);
         });
-        engine.getBus().subscribe(GameEvent.Type.DICE_ROLLED, event -> {   // Kunisada Chuji
-            int roll = event.amount();
-            board.announce("賽", "Kunisada rolls a " + roll, roll + " damage, and " + roll + " less Ki next turn", OATH_BROKEN_RED);
-        });
         engine.getBus().subscribe(GameEvent.Type.GODAI_GAINED, event -> {   // Takeda Shingen
-            board.setPortrait((Player) event.source(), "takeda-shingen");
             board.announce("五大", "Godai", "the hero power is now Earth, Water, Fire, Wind or Void", OATH_GOLD);
         });
         engine.getBus().subscribe(GameEvent.Type.CARD_STOLEN, event -> {   // Izanagi

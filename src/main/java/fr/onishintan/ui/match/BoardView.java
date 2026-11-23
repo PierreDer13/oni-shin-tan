@@ -685,6 +685,15 @@ public class BoardView extends Pane {
         if (event.type() == GameEvent.Type.EFFECT_TRIGGERED) {
             return trigger(event.source());
         }
+        if (event.type() == GameEvent.Type.DICE_ROLLED) {
+            return SignatureFx.dice(live, W / 2, H / 2, event.amount());   // Kunisada: the die lands first, his hit is the next step
+        }
+        if (event.type() == GameEvent.Type.CLOCK_CUT) {
+            return clockCut((Player) event.source(), event.amount());
+        }
+        if (event.type() == GameEvent.Type.GODAI_GAINED) {
+            return becomeShingen((Player) event.source());
+        }
         Node node = nodes.get(event.target());
         if (node == null) {
             return 0;   // not on screen before the action (summoned by it): it simply appears with the redraw
@@ -970,6 +979,24 @@ public class BoardView extends Pane {
         this.hasGodai = hasGodai;
         this.godaiTarget = godaiTarget;
         this.onGodai = onGodai;
+    }
+
+    /** Akechi Mitsuhide: a red "-30" pops over the robbed player's clock. */
+    private double clockCut(Player p, int seconds) {
+        Label clock = enemyClock;
+        if (p == you) {
+            clock = yourClock;
+        }
+        Fx.damageNumber(live, clock, seconds);
+        return STEP_MS;
+    }
+
+    /** Takeda Shingen: smoke wraps the hero's scroll and Shingen comes out of it; the redraw after the replay keeps him. */
+    private double becomeShingen(Player p) {
+        setPortrait(p, "takeda-shingen");
+        StackPane scroll = (StackPane) nodes.get(p.getHero());
+        ImageView face = (ImageView) scroll.getChildren().get(0);   // hero(): the portrait is the scroll's first layer
+        return SignatureFx.transform(live, scroll, face, Images.get("/images/heroes/takeda-shingen.png"));
     }
 
     /** Takeda Shingen: this player's hero shows another portrait (images/heroes/<portrait>.png) from the next redraw. */

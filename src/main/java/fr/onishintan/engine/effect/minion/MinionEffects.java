@@ -136,7 +136,9 @@ public final class MinionEffects {
 
     /** Akechi Mitsuhide (Uragiri): the night raid on Honno-ji: the enemy's chess clock loses 30 seconds. */
     private void akechi(EffectContext ctx) {
-        if (engine.clocksEnabled()) ctx.enemy().getClock().add(-AKECHI_MS);   // no clocks (Adventure): nothing to take
+        if (!engine.clocksEnabled()) return;   // no clocks (Adventure): nothing to take
+        ctx.enemy().getClock().add(-AKECHI_MS);
+        engine.publish(new GameEvent(GameEvent.Type.CLOCK_CUT, ctx.enemy(), null, (int) (AKECHI_MS / 1000)));
     }
 
     /** Kunisada Chuji (Uragiri): a die roll: that much damage to the enemy hero, and that much less Ki on his next turn. */
