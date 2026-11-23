@@ -207,6 +207,64 @@ public final class SignatureFx {
         rise.play();
     }
 
+    /** Which of the 3 x 3 spots of a face hold a pip, for 1 to 6. */
+    private static final int[][] PIPS = { {4}, {0, 8}, {0, 4, 8}, {0, 2, 6, 8}, {0, 2, 4, 6, 8}, {0, 2, 3, 5, 6, 8} };
+    /** How big the die is, how long it tumbles, and how long until it has faded. */
+    private static final double DIE = 90, DIE_ROLL_MS = 900, DIE_MS = 1800;
+
+    /** Kunisada Chūji: a die tumbles at (x, y), lands on `roll`, shows it, then fades. */
+    public static double dice(Pane layer, double x, double y, int roll) {
+        Pane die = new Pane();
+        die.setMouseTransparent(true);
+        die.relocate(x - DIE / 2, y - DIE / 2);
+        die.setEffect(new DropShadow(20, Color.rgb(0, 0, 0, 0.7)));
+        layer.getChildren().add(die);
+        Timeline tumble = new Timeline();
+        for (int ms = 0; ms < DIE_ROLL_MS; ms += 80) {
+            int shown = 1 + (int) (Math.random() * 6);   // a random face every 80 ms while it spins
+            tumble.getKeyFrames().add(new KeyFrame(Duration.millis(ms), e -> face(die, shown)));
+        }
+        tumble.getKeyFrames().add(new KeyFrame(Duration.millis(DIE_ROLL_MS), e -> face(die, roll)));
+        RotateTransition spin = new RotateTransition(Duration.millis(DIE_ROLL_MS), die);
+        spin.setByAngle(720);
+        spin.setInterpolator(Interpolator.EASE_OUT);
+        FadeTransition out = new FadeTransition(Duration.millis(300), die);
+        out.setDelay(Duration.millis(DIE_MS - DIE_ROLL_MS - 300));   // the roll stays readable
+        out.setToValue(0);
+        out.setOnFinished(e -> layer.getChildren().remove(die));
+        spin.setOnFinished(e -> out.play());
+        tumble.play();
+        spin.play();
+        return DIE_MS;
+    }
+
+    /** One face of the die: an ivory square and its pips (the 1 big and red, as on Japanese dice). */
+    private static void face(Pane die, int n) {
+        Rectangle body = new Rectangle(DIE, DIE, Color.web("#f3ede1"));
+        body.setArcWidth(20);
+        body.setArcHeight(20);
+        body.setStroke(Color.web("#1f1b17"));
+        die.getChildren().setAll(body);
+        for (int spot : PIPS[n - 1]) {
+            Circle pip = new Circle(DIE / 4 + spot % 3 * DIE / 4, DIE / 4 + spot / 3 * DIE / 4, DIE / 11, Color.web("#1f1b17"));
+            if (n == 1) {
+                pip.setRadius(DIE / 7);
+                pip.setFill(Color.web("#c41e1e"));
+            }
+            die.getChildren().add(pip);
+        }
+    }
+
+    /** Takeda Shingen: Kettō's smoke wraps the hero's scroll, the face changes inside it, and it clears on Shingen. */
+    public static double transform(Pane layer, Node hero, ImageView face, Image next) {
+        Bounds box = hero.getBoundsInParent();
+        for (int i = 0; i < DUEL_PUFFS; i++) {
+            cloud(layer, box.getCenterX() + (Math.random() - 0.5) * 160, box.getCenterY() + (Math.random() - 0.5) * 80, i * 60);
+        }
+        new Timeline(new KeyFrame(Duration.millis(DUEL_VANISH_MS), e -> face.setImage(next))).play();
+        return DUEL_MS;
+    }
+
     /** Inari Ōkami: a blue foxfire flares on the minion as it calls a kitsune. */
     public static void foxfire(Pane layer, Node minion) {
         Bounds box = minion.getBoundsInParent();

@@ -16,7 +16,8 @@ public final class EffectRecorder {
     private static final Set<GameEvent.Type> SHOWN = EnumSet.of(
             GameEvent.Type.DAMAGE, GameEvent.Type.HEAL, GameEvent.Type.MINION_DIED, GameEvent.Type.MINION_REMOVED,
             GameEvent.Type.TRAP_TRIGGERED, GameEvent.Type.CARD_ADDED, GameEvent.Type.ATTACK,
-            GameEvent.Type.EFFECT_TRIGGERED, GameEvent.Type.FATIGUE, GameEvent.Type.SILENCED, GameEvent.Type.CARD_PLAYED);
+            GameEvent.Type.EFFECT_TRIGGERED, GameEvent.Type.FATIGUE, GameEvent.Type.SILENCED, GameEvent.Type.CARD_PLAYED,
+            GameEvent.Type.DICE_ROLLED, GameEvent.Type.CLOCK_CUT, GameEvent.Type.GODAI_GAINED);
 
     private final List<GameEvent> events = new ArrayList<>();
     private boolean recording;
