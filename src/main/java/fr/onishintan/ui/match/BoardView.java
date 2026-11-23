@@ -181,6 +181,8 @@ public class BoardView extends Pane {
     private int kiBefore;
     private static final Image SWITCH_ON = Images.get("/images/hud/end-turn.png"),
             SWITCH_OFF = Images.get("/images/hud/end-turn-off.png");
+    /** The yellow glow around the End Turn paddle while it is your turn. */
+    private static final DropShadow YOUR_TURN_GLOW = new DropShadow(BlurType.GAUSSIAN, Color.web("#ffd84a"), 45, 0.45, 0, 0);
     private final ImageView endTurn = new ImageView(SWITCH_ON);
     private Runnable onEndTurn = () -> {};
     /** The keyboard shortcuts, kept so they can be taken off the window when the match leaves it. */
@@ -246,7 +248,7 @@ public class BoardView extends Pane {
         heightProperty().addListener(fit);
         endTurn.setFitHeight(200);
         endTurn.setPreserveRatio(true);
-        endTurn.setEffect(SHADOW);
+        switchEndTurn(true);   // the first turn is yours
         endTurn.relocate(1415, 335);
         endTurn.setOnMousePressed(e -> pressEndTurn());   // the mouse, or Space (shortcut)
         table.getChildren().addAll(bg, BoardAmbience.of(board), live, endTurn, yourClock, enemyClock);   // the ambience lies on the picture, behind the cards
@@ -317,12 +319,23 @@ public class BoardView extends Pane {
         if (table.getChildren().size() > fixedLayers) {
             return;   // something lies over the table (pass veil, mulligan, settings, an animation): wait for it
         }
-        endTurn.setDisable(true);   // one press per turn
+        switchEndTurn(false);   // one press per turn
         Sound.play(HomeView.CLICK);
-        endTurn.setImage(SWITCH_OFF);   // the paddle and the lights switch over
         PauseTransition wait = new PauseTransition(Duration.millis(200));
         wait.setOnFinished(f -> onEndTurn.run());
         wait.play();
+    }
+
+    /** The End Turn paddle on (your turn: lit, glowing yellow, pressable) or off (switched over, its plain shadow). */
+    private void switchEndTurn(boolean on) {
+        endTurn.setDisable(!on);
+        if (on) {
+            endTurn.setImage(SWITCH_ON);
+            endTurn.setEffect(YOUR_TURN_GLOW);
+        } else {
+            endTurn.setImage(SWITCH_OFF);
+            endTurn.setEffect(SHADOW);
+        }
     }
 
     /** Opens the settings, or closes them if they are already open (the button or Esc). */
@@ -1114,8 +1127,7 @@ public class BoardView extends Pane {
 
     /** Adventure: the AI's turn is over and you play again at the bottom (the board never flips): End turn works again. */
     public void yourTurn() {
-        endTurn.setImage(SWITCH_ON);
-        endTurn.setDisable(false);
+        switchEndTurn(true);
         selected = null;
         aiming = false;
         held = null;
@@ -1124,8 +1136,7 @@ public class BoardView extends Pane {
 
     /** Hotseat: the other player now sits at the bottom (their hand, Ki and hero power) and the board flips. */
     public void swapSides() {
-        endTurn.setImage(SWITCH_ON);
-        endTurn.setDisable(false);
+        switchEndTurn(true);
         Player p = you;
         you = enemy;
         enemy = p;
