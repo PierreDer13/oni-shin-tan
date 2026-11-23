@@ -4,12 +4,18 @@ import fr.onishintan.engine.GameEngine;
 import fr.onishintan.engine.GameState;
 import fr.onishintan.engine.event.GameEvent;
 import fr.onishintan.model.Combatant;
+import fr.onishintan.model.GodaiElement;
+import fr.onishintan.model.Keyword;
 import fr.onishintan.model.HeroClass;
 import fr.onishintan.model.KatanaTier;
 import fr.onishintan.model.Minion;
 import fr.onishintan.model.Player;
 import fr.onishintan.model.TrapTrigger;
 import fr.onishintan.model.Weapon;
+
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.Set;
 
 import static fr.onishintan.engine.GameEngine.HERO_POWER_COST;
 import static fr.onishintan.engine.GameEngine.JIKININKI_DRAIN;
@@ -22,6 +28,11 @@ import static fr.onishintan.engine.GameEngine.SHURIKEN_DAMAGE;
 public class HeroPowers {
 
     private final GameEngine engine;
+
+    /** Godai numbers: Earth's HP and armour, Water's heal, Fire's damage, Wind's ATK. */
+    public static final int GODAI_EARTH_HP = 4, GODAI_ARMOUR = 4, GODAI_HEAL = 8, GODAI_FIRE = 6, GODAI_WIND_ATK = 3;
+    /** The players whose hero power is Godai for the rest of the match (Takeda Shingen). */
+    private final Set<Player> godai = Collections.newSetFromMap(new IdentityHashMap<>());
 
     public HeroPowers(GameEngine engine) {
         this.engine = engine;
@@ -38,6 +49,7 @@ public class HeroPowers {
      */
     public boolean useHeroPower(Combatant target) {
         Player p = state().active();
+        if (hasGodai(p)) return false;   // Takeda Shingen: this player's power is Godai now (useGodai)
         if (state().isOver() || engine.turns().isPowerUsedThisTurn() || !p.canAfford(HERO_POWER_COST)) return false;
         switch (p.getHero().getHeroClass()) {
             case NINJA -> {
@@ -81,11 +93,73 @@ public class HeroPowers {
     /** Samurai power: pay the blade's Ki and equip it (replaces the current weapon). */
     public boolean useKatana(KatanaTier tier) {
         Player p = state().active();
-        if (state().isOver() || tier == null || p.getHero().getHeroClass() != HeroClass.SAMURAI
+        if (state().isOver() || tier == null || hasGodai(p) || p.getHero().getHeroClass() != HeroClass.SAMURAI
                 || engine.turns().isPowerUsedThisTurn() || !p.canAfford(tier.getKiCost())) return false;
         payPower(p, tier.getKiCost());
         p.getHero().equip(new Weapon(tier.toCard()));
         engine.publish(GameEvent.of(GameEvent.Type.WEAPON_EQUIPPED, p, p.getHero()));
+        return true;
+    }
+
+    /** Takeda Shingen: p's hero power becomes Godai for the rest of the match (GODAI_GAINED, once). */
+    public void grantGodai(Player p) {
+        if (godai.add(p)) engine.publish(GameEvent.of(GameEvent.Type.GODAI_GAINED, p, p.getHero()));
+    }
+
+    /** True once p's hero power is Godai. */
+    public boolean hasGodai(Player p) {
+        return godai.contains(p);
+    }
+
+    /**
+     * True if this element may land on t for the active player. Earth: a friendly minion, or null (armour alone) when he has none.
+     * Water: a friendly character. Fire: an enemy character the powers can reach. Wind: a friendly minion. Void: any reachable minion.
+     */
+    public boolean isGodaiTarget(GodaiElement element, Combatant t) {
+        Player me = state().active();
+        boolean friendlyMinion = t instanceof Minion m && me.getSide().slotOf(m) >= 0 && !m.isDead();
+        return switch (element) {
+            case CHI -> t == null ? me.getSide().getMinions().isEmpty() : friendlyMinion;
+            case SUI -> friendlyMinion || t == me.getHero();
+            case KA -> t != null && !friendlyMinion && t != me.getHero() && engine.targeting().isPowerTarget(t);
+            case FU -> friendlyMinion;
+            case KU -> t instanceof Minion && engine.targeting().isPowerTarget(t);
+        };
+    }
+
+    /** Godai: the chosen element on its target, for HERO_POWER_COST Ki, once per turn. */
+    public boolean useGodai(GodaiElement element, Combatant target) {
+        Player p = state().active();
+        if (state().isOver() || element == null || !hasGodai(p) || engine.turns().isPowerUsedThisTurn()
+                || !p.canAfford(HERO_POWER_COST) || !isGodaiTarget(element, target)) return false;
+        payPower(p, HERO_POWER_COST);
+        switch (element) {
+            case CHI -> {                                   // Earth: a wall, and armour for the hero
+                if (target instanceof Minion m) {
+                    m.buff(0, GODAI_EARTH_HP);
+                    m.giveKeyword(Keyword.SHIRODU);
+                }
+                engine.gainArmour(p, GODAI_ARMOUR);
+            }
+            case SUI -> {                                   // Water: heal, then draw
+                engine.heal(target, GODAI_HEAL);
+                engine.draw(p);
+            }
+            case KA -> engine.dealDamage(p.getHero(), target, GODAI_FIRE);   // Fire
+            case FU -> {                                    // Wind: stronger, and it may strike again
+                Minion m = (Minion) target;
+                m.buff(GODAI_WIND_ATK, 0);
+                m.giveKeyword(Keyword.TATAKAE);
+                m.refreshAttack();
+            }
+            case KU -> {                                    // Void: emptied, back to its printed card
+                Minion m = (Minion) target;
+                engine.getMinionEffects().silence(m);
+                m.resetToPrinted();
+            }
+        }
+        engine.combat().removeDead();
+        engine.checkGameOver();
         return true;
     }
 

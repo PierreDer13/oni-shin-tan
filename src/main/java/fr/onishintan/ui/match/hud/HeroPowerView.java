@@ -28,16 +28,23 @@ public class HeroPowerView extends StackPane {
             HeroClass.KANNUSHI, new String[] { "Miko", "巫女", "Summon a 3/3 Miko" },
             HeroClass.ONI, new String[] { "Jikininki", "食人鬼", "Drain 4 HP to heal your hero" },
             HeroClass.OROCHI, new String[] { "Yatsu-kubi", "八つ首", "8 bites of 1 damage at random" });
+    /** Takeda Shingen's Godai, which replaces any class's power. */
+    private static final String[] GODAI = { "Godai", "五大", "Choose Earth, Water, Fire, Wind or Void" };
 
     public HeroPowerView(HeroClass hero, String effect, boolean used, boolean usable, IntConsumer previewCost, Runnable onUse) {
+        this(hero, false, effect, used, usable, previewCost, onUse);
+    }
+
+    /** The same panel; godai: Takeda Shingen's Godai instead of the class's power. */
+    public HeroPowerView(HeroClass hero, boolean godai, String effect, boolean used, boolean usable, IntConsumer previewCost, Runnable onUse) {
         double k = SIZE / 160;
         ImageView frame = BoardView.image("/images/hud/hero-power.png");
         frame.setFitWidth(SIZE);
         frame.setPreserveRatio(true);
-        Label cost = new Label(costText(hero));
+        Label cost = new Label(godai ? String.valueOf(COST) : costText(hero));
         cost.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: " + 26 * k + "; -fx-font-weight: bold; -fx-text-fill: #1f1b17;");
         cost.setTranslateY(-SIZE * 0.28);
-        String[] info = POWER.get(hero);   // English name, Japanese name, effect
+        String[] info = godai ? GODAI : POWER.get(hero);   // English name, Japanese name, effect
         String effectText = info[2];
         if (effect != null) {
             effectText = effect;   // a power whose strength changes (Yatsu-kubi)

@@ -78,6 +78,7 @@ public class BoardSide {
         List<Minion> dead = new ArrayList<>();
         for (int i = 0; i < MAX; i++) {
             if (slots[i] instanceof Minion m && m.isDead()) {
+                m.rememberSlot(i);
                 dead.add(m);
                 slots[i] = null;
             }

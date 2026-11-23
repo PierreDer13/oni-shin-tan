@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
 
+import fr.onishintan.model.BoardSide;
 import fr.onishintan.model.Card;
 import fr.onishintan.model.Combatant;
 import fr.onishintan.model.CurseCard;
@@ -78,6 +79,13 @@ public final class MinionEffects {
     private final Map<Player, Integer> shurikenBonus = new IdentityHashMap<>();
     /** Gashadokuro: how many minions died this match, on both sides. */
     private int deaths;
+    /** Izanagi: the player who may now take one card from the enemy hand, or null. */
+    private Player pendingSteal;
+    /** Kunisada Chuji: the Ki each player loses at the start of his next turn (never below 1 Ki). */
+    private final Map<Player, Integer> kiDebt = new IdentityHashMap<>();
+    /** Uragiri numbers: Matsunaga's blast, Oishi's growth each turn, Akechi's cut from the enemy clock. */
+    static final int MATSUNAGA_BLAST = 6, OISHI_GROWTH = 2;
+    static final long AKECHI_MS = 30_000;
 
     public MinionEffects(GameEngine engine) {
         this.engine = engine;
@@ -114,6 +122,55 @@ public final class MinionEffects {
             cut += deaths;
         }
         return cut;
+    }
+
+    /** Matsunaga Hisahide (Uragiri): he blows up with his kettle: 6 damage to the enemy minion facing his slot and the two beside it. */
+    private void matsunaga(EffectContext ctx) {
+        int slot = ctx.source().getLastSlot();
+        for (int s = slot - 1; s <= slot + 1; s++) {
+            if (slot < 0 || s < 0 || s >= BoardSide.MAX) continue;
+            Minion facing = ctx.enemy().getSide().getAt(s);
+            if (facing != null) engine.dealDamage(ctx.source(), facing, MATSUNAGA_BLAST);
+        }
+    }
+
+    /** Akechi Mitsuhide (Uragiri): the night raid on Honno-ji: the enemy's chess clock loses 30 seconds. */
+    private void akechi(EffectContext ctx) {
+        if (engine.clocksEnabled()) ctx.enemy().getClock().add(-AKECHI_MS);   // no clocks (Adventure): nothing to take
+    }
+
+    /** Kunisada Chuji (Uragiri): a die roll: that much damage to the enemy hero, and that much less Ki on his next turn. */
+    private void kunisada(EffectContext ctx) {
+        int roll = 1 + engine.rng().nextInt(6);
+        engine.publish(new GameEvent(GameEvent.Type.DICE_ROLLED, ctx.owner(), ctx.source(), roll));
+        engine.dealDamage(ctx.source(), ctx.enemy().getHero(), roll);
+        kiDebt.merge(ctx.enemy(), roll, Integer::sum);
+    }
+
+    /** Start of p's turn: the Ki Kunisada took is lost now, but p always keeps at least 1 Ki. */
+    private void payKiDebt(Player p) {
+        Integer debt = kiDebt.remove(p);
+        if (debt == null) return;
+        int lost = Math.min(debt, p.getKi() - 1);
+        if (lost > 0) p.spendKi(lost);
+    }
+
+    /** Izanagi: the player who may now take one card from the enemy hand, or null. */
+    public Player pendingSteal() {
+        return pendingSteal;
+    }
+
+    /** Izanagi: the chosen card leaves the enemy hand for the thief's. False if it cannot be taken (not there, or a held Curse). */
+    public boolean steal(Card card) {
+        if (pendingSteal == null) return false;
+        Player thief = pendingSteal;
+        Player victim = engine.getState().opponent();
+        if (card == null || !victim.getHand().contains(card) || victim.isHeldCurse(card)) return false;
+        pendingSteal = null;
+        victim.removeFromHand(card);
+        engine.addToHand(thief, card);
+        engine.publish(GameEvent.of(GameEvent.Type.CARD_STOLEN, thief, card));
+        return true;
     }
 
     /** Shuriken-uchi: the extra damage p's Shuriken deals now. */
@@ -194,6 +251,15 @@ public final class MinionEffects {
             int miko = ctx.owner().getMikoCalls();
             ctx.source().buff(miko, miko);
         });
+        // Uragiri: GameEngine.runTrigger runs these only while their owner is an Oathbreaker.
+        seppuku(fx, "matsunaga-hisahide", this::matsunaga);
+        turnEnd(fx, "oishi-kuranosuke", ctx -> ctx.source().buff(OISHI_GROWTH, OISHI_GROWTH));
+        banzai(fx, "akechi-mitsuhide", this::akechi);
+        banzai(fx, "kunisada-chuji", this::kunisada);
+        banzai(fx, "izanagi", ctx -> {                  // the enemy hand is shown; the player picks one card (steal)
+            if (!ctx.enemy().getHand().isEmpty()) pendingSteal = ctx.owner();
+        });
+        banzai(fx, "takeda-shingen", ctx -> engine.grantGodai(ctx.owner()));
         banzai(fx, "kiji", ctx -> {                     // a copy of a random card of the opponent's hand (not a Curse he holds)
             List<Card> pool = ctx.enemy().getHand().stream().filter(c -> !ctx.enemy().isHeldCurse(c)).toList();
             if (!pool.isEmpty()) engine.addToHand(ctx.owner(), pool.get(engine.rng().nextInt(pool.size())));
@@ -269,9 +335,15 @@ public final class MinionEffects {
                 deaths++;   // Gashadokuro
                 hakahori((Player) e.source(), (Minion) e.target());
             }
-            case TURN_STARTED -> ((Player) e.source()).getHero().endUntouchable();   // Kagemusha's protection ends
+            case TURN_STARTED -> {
+                ((Player) e.source()).getHero().endUntouchable();   // Kagemusha's protection ends
+                payKiDebt((Player) e.source());                      // Kunisada's die
+            }
             case ATTACK -> yogake(e.source());
-            case TURN_ENDED -> wake((Player) e.source());
+            case TURN_ENDED -> {
+                wake((Player) e.source());
+                pendingSteal = null;   // Izanagi: a steal not taken this turn is lost
+            }
             default -> { }
         }
         refreshAuras();

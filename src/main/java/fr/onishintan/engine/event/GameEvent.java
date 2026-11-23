@@ -39,6 +39,9 @@ public record GameEvent(Type type, Object source, Object target, int amount) {
         CLOCK_TIMEOUT,              // source = Player, target = his Hero, amount = damage (ceil(HP / 2))       
         SHRINE_PLACED,              // source = Player, target = the Shrine, amount = slot
         SHRINE_EXPIRED,             // source = Player, target = the Shrine (its slot is free again)       
+        DICE_ROLLED,                // source = Player who rolled (Kunisada Chuji), target = the Minion, amount = the roll (1 to 6)
+        CARD_STOLEN,                // source = the thief Player, target = the Card taken from the enemy hand (Izanagi)
+        GODAI_GAINED,               // source = Player whose hero power is now Godai (Takeda Shingen)
         GAME_OVER                   // target = winning Player, or null for a draw
     }
 

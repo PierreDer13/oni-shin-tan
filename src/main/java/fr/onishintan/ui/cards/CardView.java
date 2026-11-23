@@ -108,8 +108,8 @@ public class CardView extends Group {
         int[] s = stats();
         if (s != null) {
             int[] base = printed();
-            stat(s[0], "攻撃 ATK", 27, statColour(s[0], base[0], false));
-            stat(s[1], card instanceof WeaponCard ? "耐久 DUR" : "体力 HP", 402, statColour(s[1], base[1], damaged()));
+            stat(s[0], "攻撃 ATK", 27, hiddenStats() ? statColour(base[0], base[0], false) : statColour(s[0], base[0], false));
+            stat(s[1], card instanceof WeaponCard ? "耐久 DUR" : "体力 HP", 402, hiddenStats() ? statColour(base[1], base[1], false) : statColour(s[1], base[1], damaged()));
         }
         descLabel = text(desc, 22, 154, 32 + 28 * kw, 208, 210 - 28 * kw);   // description, under the keyword lines
         descLabel.setFont(Font.font(SERIF, 22));
@@ -206,6 +206,9 @@ public class CardView extends Group {
     /** True for minions on the board: bigger, heavier numbers and no captions. */
     protected boolean onBoard() { return false; }
 
+    /** True when the opponent must not see this card's stats (Oishi Kuranosuke on their side): "?" is shown instead. */
+    protected boolean hiddenStats() { return false; }
+
     protected int[] stats() {
         return printed();
     }
@@ -294,12 +297,13 @@ public class CardView extends Group {
     }
 
     private void stat(int value, String caption, double x, Color color) {
+        String shown = hiddenStats() ? "?" : String.valueOf(value);
         if (!onBoard()) {
-            text(String.valueOf(value), 50, x, 600, 100, 82).setTextFill(color);
+            text(shown, 50, x, 600, 100, 82).setTextFill(color);
             text(caption, 14, x, 665, 100, 20);
             return;
         }
-        Label n = text(String.valueOf(value), 72, x, 604, 100, 82);
+        Label n = text(shown, 72, x, 604, 100, 82);
         n.setTextFill(color);
         n.setEffect(new DropShadow(BlurType.ONE_PASS_BOX, color, 3, 1.0, 0, 0));
     }
@@ -365,4 +369,4 @@ public class CardView extends Group {
         }
         face.getChildren().add(tag);
     }
-}
+}
