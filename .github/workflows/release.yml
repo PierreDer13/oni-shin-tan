@@ -1,10 +1,16 @@
-# Construit le jeu pour Windows, macOS et Linux (Java intégré)
-# et ajoute les 3 zips à la Release "oni-shin-tan-v1.0" du portfolio.
+# Construit le jeu pour Windows, macOS et Linux (Java intégré) et publie les 3 zips :
+#  1. dans la Release "latest" de CE dépôt (liens communs, utilisables par Pierre ET Kayne) :
+#     https://github.com/PierreDer13/oni-shin-tan/releases/latest/download/OniShinTan-<os>.zip
+#  2. dans la Release du portfolio de Pierre (si le secret PORTFOLIO_TOKEN existe)
 # Lancement manuel : onglet Actions → "Release builds" → Run workflow
 name: Release builds
 
 on:
   workflow_dispatch:
+
+# Autorise le GITHUB_TOKEN automatique à créer/modifier les Releases de ce dépôt
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -19,6 +25,9 @@ jobs:
           - os: ubuntu-latest
             name: linux
     runs-on: ${{ matrix.os }}
+    env:
+      # Vaut 'true' seulement si le secret existe (sinon l'envoi au portfolio est sauté)
+      HAS_PORTFOLIO_TOKEN: ${{ secrets.PORTFOLIO_TOKEN != '' }}
     defaults:
       run:
         shell: bash
@@ -56,7 +65,16 @@ jobs:
             zip -qr ../../OniShinTan-linux.zip OniShinTan
           fi
 
-      - name: Upload to the portfolio release
+      - name: Upload to this repository's release (shared links)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view v1.0 --repo ${{ github.repository }} >/dev/null 2>&1 \
+            || gh release create v1.0 --repo ${{ github.repository }} --title "Oni Shin Tan v1.0" --notes "Windows, macOS and Linux builds (Java bundled)." --latest || true
+          gh release upload v1.0 OniShinTan-${{ matrix.name }}.zip --clobber --repo ${{ github.repository }}
+
+      - name: Upload to Pierre's portfolio release
+        if: ${{ env.HAS_PORTFOLIO_TOKEN == 'true' }}
         env:
           GH_TOKEN: ${{ secrets.PORTFOLIO_TOKEN }}
         run: gh release upload oni-shin-tan-v1.0 OniShinTan-${{ matrix.name }}.zip --clobber --repo PierreDer13/PortFolio
