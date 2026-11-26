@@ -10,10 +10,14 @@ import java.util.Random;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import fr.onishintan.engine.GameEvent.Type;
-import fr.onishintan.model.*;
+import fr.onishintan.engine.event.GameEvent.Type;
+import fr.onishintan.model.*;
+import fr.onishintan.engine.effect.Effects;
+import fr.onishintan.engine.effect.SpellTarget;
+import fr.onishintan.engine.effect.Trigger;
+import fr.onishintan.engine.event.GameEvent;
 
-/** The 17 plain class spells (GDD spell table, MockCards ids), their targets, and Ryū's +4. */
+/** The 17 plain class spells (GDD spell table, cards.json ids), their targets, and Ryū's +4. */
 class SpellTest {
 
     private Player me;        // Samurai, plays first

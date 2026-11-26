@@ -2,16 +2,22 @@ package fr.onishintan.ui.screens;
 
 import fr.onishintan.ui.fx.Anim;
 import fr.onishintan.ui.fx.Fx;
+import fr.onishintan.ui.fx.EventBanner;
 import fr.onishintan.model.HeroClass;
 import fr.onishintan.ui.app.SceneRouter;
+import fr.onishintan.ui.app.Profile;
 import fr.onishintan.ui.decks.DecksView;
+import fr.onishintan.ui.decks.DeckPickView;
 import fr.onishintan.ui.app.Screen;
 import fr.onishintan.ui.app.Sound;
 import fr.onishintan.ui.app.Images;
+import fr.onishintan.ui.app.Rei;
 import javafx.animation.Animation;
 import javafx.animation.Interpolator;
 import javafx.animation.TranslateTransition;
+import javafx.animation.PauseTransition;
 import javafx.beans.InvalidationListener;
+import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.image.Image;
@@ -29,14 +35,14 @@ import javafx.scene.media.AudioClip;
 import javafx.scene.control.Label;
 import javafx.scene.control.Tooltip;
 import javafx.scene.Group;
+import javafx.scene.Scene;
+import javafx.scene.SnapshotParameters;
 
 /** The Home screen on a 1600 x 900 grid, scaled to the window. Layers, back to front:
  *  background, clouds, pines, sakura, waves, then banners, scroll and buttons. */
 public class HomeView extends Pane {
     public static final double W = 1600, H = 900;
     public static final int MAX_REI = 6000;
-    private static final String PLAYER_NAME = "Kayne";   // placeholders until the player profile is saved
-    private static final int PLAYER_REI = 2450;
     /** The BACK sign every screen uses to go back, and its height on screen. */
     private static final String BACK_SIGN = "/images/frames/back-button.png";
     private static final double BACK_H = 64;
@@ -51,9 +57,8 @@ public class HomeView extends Pane {
         Scale scale = new Scale();
         grid.getTransforms().add(scale);
         InvalidationListener fit = o -> {
-            double s = Math.min(getWidth() / W, getHeight() / H);
-            scale.setX(s);
-            scale.setY(s);
+            scale.setX(getWidth() / W);    // stretched to fill the window: no strip on a screen that isn't 16:9
+            scale.setY(getHeight() / H);
         };
         widthProperty().addListener(fit);
         heightProperty().addListener(fit);
@@ -79,21 +84,31 @@ public class HomeView extends Pane {
                 // 5. top layer: banners, scroll, buttons
         String[] classes = { "samurai", "ninja", "kannushi", "oni" };
         for (int i = 0; i < classes.length; i++) banner(classes[i], 960 + i * 160, 20, 150);
-        add("scroll", 175, 20, 170);
-        add("scroll", 175, 20, 170);
-        profile(175, 20, PLAYER_NAME, PLAYER_REI);
+        profile(175, 20, Profile.name(), Profile.stats().rei());
         button("adventure", 480, 610, 300, Screen.CLASS_SELECT);
-        button("pvp", 820, 610, 300, Screen.DECK_SELECT);
+        clickable(add("button-pvp", 820, 610, 300), false, () -> grid.getChildren().add(new DeckPickView(router)));   // laid over the home screen
         // Bottom bar: Deck Builder shows every deck, Inventory and Profile go to their screen, Settings opens over the home screen.
         clickable(add("button-deck-builder", 390, 790, 190), false, () -> DecksView.open(router, null));
         button("inventory", 600, 790, 190, Screen.INVENTORY);
         button("profile", 810, 790, 190, Screen.PROFILE);
         clickable(add("button-settings", 1020, 790, 190), false, () -> grid.getChildren().add(new SettingsPanel(null)));   // laid over the home screen
+        rankUp();   // a PvP win that reached a new Rei stone is celebrated once, here
+    }
+
+    /** A new Rei stone just reached: once the shōji doors have opened, its banner crosses the screen. */
+    private void rankUp() {
+        Rei.Stone stone = Profile.takeNewStone();
+        if (stone == null) {
+            return;   // no new stone: nothing to celebrate
+        }
+        PauseTransition doorsOpen = new PauseTransition(Duration.millis(900));   // the doors open first
+        doorsOpen.setOnFinished(event -> EventBanner.show(grid, stone.kanji(), "Rank up: " + stone.name(), "Your new Rei stone", Color.web("#ffd84a")));
+        doorsOpen.play();
     }
 
     /** Puts /images/home/<name>.png on the grid at (x, y), w wide (height follows the image), and returns it. */
     private ImageView add(String name, double x, double y, double w) {
-        ImageView v = new ImageView(new Image(getClass().getResourceAsStream("/images/home/" + name + ".png")));
+        ImageView v = new ImageView(Images.get("/images/home/" + name + ".png"));
         v.setFitWidth(w);
         v.setPreserveRatio(true);
         v.relocate(x, y);
@@ -107,7 +122,7 @@ public class HomeView extends Pane {
     }
 
     private void banner(String heroClass, double x, double y, double w) {
-        Group g = Fx.waving(new Image(getClass().getResourceAsStream("/images/home/banner-" + heroClass + ".png")), w, 45);
+        Group g = Fx.waving(Images.get("/images/home/banner-" + heroClass + ".png"), w, 45);
         g.relocate(x, y);
         grid.getChildren().add(g);
         clickable(g, true, () -> grid.getChildren().add(new HeroPicker(HeroClass.valueOf(heroClass.toUpperCase()))));   // pick this class's hero
@@ -153,19 +168,38 @@ public class HomeView extends Pane {
         n.sceneProperty().addListener((o, was, now) -> { if (now == null) t.stop(); });
     }
 
-    /** The player's name, then the Rei rank: 霊 as a title, the points labelled "Rei", out of 6000. Hover explains it. */
+    /** The profile scroll: the player's name, the Rei rank (霊, the points out of 6000) and its stone, drawn on the paper
+     *  so the writing waves with it like the banners. Hover explains the rank. */
     private void profile(double x, double y, String name, int rei) {
         int points = Math.max(0, Math.min(MAX_REI, rei));
+        Rei.Stone held = Rei.stoneOf(points);
+        ImageView stone = new ImageView(Images.get("/images/rei-stones/" + held.id() + ".png"));
+        stone.setFitWidth(50);
+        stone.setPreserveRatio(true);
         VBox text = new VBox(6,
                 label(name, 26),
                 label("霊", 40),
                 label(points + " Rei", 24),
-                label("/ " + MAX_REI, 14));
+                label("/ " + MAX_REI, 14),
+                stone,
+                label(held.name() + " " + held.kanji(), 18));
         text.setAlignment(Pos.TOP_CENTER);
+        VBox.setMargin(stone, new Insets(30, 0, 0, 0));   // the stone sits lower, apart from the Rei
         text.setPrefWidth(130);
-        text.relocate(x + 20, y + 90);
-        Tooltip.install(text, new Tooltip("Rei (霊): your rank, from 0 to " + MAX_REI + " points"));
-        grid.getChildren().add(text);
+        text.relocate(20, 90);
+        ImageView paper = new ImageView(Images.get("/images/home/scroll.png"));
+        paper.setFitWidth(170);
+        paper.setPreserveRatio(true);
+        Pane page = new Pane(paper, text);   // the paper with its writing, turned into one picture
+        page.setStyle("-fx-background-color: transparent;");   // no default light background behind the paper
+        new Scene(page, null);   // a scene of its own, so the labels get their look and size before the snapshot
+        SnapshotParameters sharp = new SnapshotParameters();
+        sharp.setFill(Color.TRANSPARENT);
+        sharp.setTransform(new Scale(2, 2));   // drawn twice as big, so it stays sharp in a big window
+        Group scroll = Fx.waving(page.snapshot(sharp, null), 170, 90);   // rod 90: 45 at twice the size
+        scroll.relocate(x, y);
+        Tooltip.install(scroll, new Tooltip("Rei (霊): your rank, from 0 to " + MAX_REI + " points. Your stone: " + held.name() + " " + held.kanji()));
+        grid.getChildren().add(scroll);
     }
 
     /** Dark ink text in the card font, centred and wrapping if too long. */

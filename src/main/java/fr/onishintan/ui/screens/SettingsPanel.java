@@ -1,5 +1,6 @@
 package fr.onishintan.ui.screens;
 
+import fr.onishintan.data.SaveManager;
 import fr.onishintan.ui.app.AudioSettings;
 import fr.onishintan.ui.app.ScreenGrid;
 import fr.onishintan.ui.app.Sound;
@@ -16,6 +17,7 @@ import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
 import javafx.stage.Stage;
+import fr.onishintan.engine.effect.Effects;
 
 /**
  * The settings, laid over the current screen (home or a match) on the 1600 x 900 grid: music and effect volumes,
@@ -84,7 +86,10 @@ public class SettingsPanel extends StackPane {
         for (int[] size : SIZES) {
             row.getChildren().add(button(size[0] + "×" + size[1], () -> resizeWindow(size[0], size[1])));
         }
-        row.getChildren().add(button("Fullscreen", () -> stage().setFullScreen(true)));
+        row.getChildren().add(button("Fullscreen", () -> {
+            stage().setFullScreen(true);
+            new SaveManager().saveWindow(new SaveManager.Window(stage().getWidth(), stage().getHeight(), true));   // fullscreen at the next start too
+        }));
         return row;
     }
 
@@ -95,6 +100,7 @@ public class SettingsPanel extends StackPane {
         stage.setWidth(width);
         stage.setHeight(height);
         stage.centerOnScreen();
+        new SaveManager().saveWindow(new SaveManager.Window(width, height, false));   // the same size at the next start
     }
 
     /** The game's window. */

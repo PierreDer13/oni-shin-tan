@@ -11,10 +11,13 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import fr.onishintan.engine.GameEngine;
-import fr.onishintan.engine.SpellTarget;
+import fr.onishintan.engine.effect.SpellTarget;
+import fr.onishintan.engine.system.HeroPowers;
+import fr.onishintan.model.BoardSide;
 import fr.onishintan.model.Card;
 import fr.onishintan.model.Combatant;
 import fr.onishintan.model.CurseCard;
+import fr.onishintan.model.GodaiElement;
 import fr.onishintan.model.Hero;
 import fr.onishintan.model.HeroClass;
 import fr.onishintan.model.KatanaTier;
@@ -25,6 +28,7 @@ import fr.onishintan.model.Player;
 import fr.onishintan.model.RiteCard;
 import fr.onishintan.model.ShrineCard;
 import fr.onishintan.model.Status;
+import fr.onishintan.model.BoardSide;
 
 /**
  * The Adventure opponent (GDD, Adventure): plays its turn through GameEngine only, like a player would.
@@ -42,17 +46,22 @@ import fr.onishintan.model.Status;
 public final class AIController {
 
     public enum Difficulty {
-        EASY(0.3), NORMAL(0.1), HARD(0);
+        EASY(0.3), NORMAL(0.1), HARD(0),
+        /** Yamata no Orochi only: HARD, plus it goes for the biggest threats first. forBattle() never gives it. */
+        EXTREME(0);
 
         /** How often a random legal move replaces the best one. */
         final double mistakes;
 
         Difficulty(double mistakes) { this.mistakes = mistakes; }
 
-        /** The Adventure gets harder battle by battle: Town EASY, Ocean NORMAL, Mount Fuji HARD. */
+        /** The Adventure gets harder battle by battle: Town EASY, Ocean NORMAL, Mount Fuji HARD (never EXTREME). */
         public static Difficulty forBattle(int battle) {
-            return values()[Math.max(0, Math.min(battle, values().length - 1))];
+            return values()[Math.max(0, Math.min(battle, HARD.ordinal()))];
         }
+
+        /** True for HARD and EXTREME: no mistakes, looks for lethal, removes its Curses. */
+        public boolean atLeastHard() { return compareTo(HARD) >= 0; }
     }
 
     /** Safety net: a turn never has more moves than this. */
@@ -95,6 +104,17 @@ public final class AIController {
         return done;
     }
 
+    /** Cards above this Ki go back at the mulligan. */
+    public static final int MULLIGAN_MAX_KI = 4;
+
+    /** The AI's mulligan: it sends back every opening card costing more than 4 Ki. Call engine.mulligan(me, this). */
+    public List<Card> mulliganChoice() {
+        List<Card> back = new ArrayList<>();
+        for (Card c : me.getHand()) if (engine.costOf(me, c) > MULLIGAN_MAX_KI) back.add(c);
+        return back;
+    }
+
+    
     /** The move to play now, or empty when the AI should end its turn. */
     public Optional<Move> nextMove() {
         if (!isMyTurn()) return Optional.empty();
@@ -125,8 +145,10 @@ public final class AIController {
             case ATTACK -> engine.attack(m.attacker(), m.target());
             case POWER -> engine.useHeroPower(m.target());
             case KATANA -> engine.useKatana(m.tier());
+            case GODAI -> engine.useGodai(m.element(), m.target());
         };
         if (!ok) refused.add(key(m));
+        if (ok && m.kind() == Move.Kind.PLAY && engine.pendingSteal() == me) stealBest();   // Izanagi: the AI takes its pick
         return ok;
     }
 
@@ -163,7 +185,7 @@ public final class AIController {
     /** Every move the engine should accept now, with its score (higher = better, 0 or less = not worth it). */
     List<Scored> legalMoves() {
         List<Scored> out = new ArrayList<>();
-        boolean lethal = difficulty == Difficulty.HARD && lethalOnHero();
+        boolean lethal = difficulty.atLeastHard() && lethalOnHero();
         for (Card card : List.copyOf(me.getHand())) {
             Scored s = cardMove(card);
             if (s != null && !lethal) out.add(s);
@@ -181,13 +203,13 @@ public final class AIController {
     /** Playing (or, for a held Curse, removing) this card, aimed at its best target. Null if it cannot be played. */
     private Scored cardMove(Card card) {
         if (card instanceof CurseCard c && me.isHeldCurse(c)) {
-            if (difficulty != Difficulty.HARD || !me.canAfford(c.getRemovalCost())) return null;
+            if (!difficulty.atLeastHard() || !me.canAfford(c.getRemovalCost())) return null;
             return new Scored(Move.play(card, -1, null, null), 1 + c.getRemovalCost());
         }
         if (!engine.canPlay(card)) return null;
         int slot = -1;
         if (card instanceof MinionCard || card instanceof ShrineCard || card instanceof RiteCard) {
-            slot = me.getSide().firstFree();
+            slot = centreSlot();
             if (slot < 0) return null;
         }
         List<Combatant> targets = card instanceof MinionCard ? engine.banzaiTargets(card) : engine.spellTargets(card);
@@ -200,13 +222,41 @@ public final class AIController {
         } else if (!targets.isEmpty()) {
             target = bestTarget(card, targets);
         }
+        if (!worthCasting(card, target)) return null;
         double score = 10 + engine.costOf(me, card) * 3 + targetBonus(card, target);
+        if (difficulty == Difficulty.EXTREME && card instanceof MinionCard m && m.getKeywords().contains(Keyword.BANZAI)) {
+            score += 30;   // EXTREME never holds a Banzai back: it plays it as soon as it can
+        }
         return new Scored(Move.play(card, slot, target, second), score);
     }
+
+
+    /** Chimatsuri only when the sacrificed minion's ATK kills the enemy hero; Suiton only to replay a Banzai minion. */
+    private boolean worthCasting(Card card, Combatant target) {
+        Hero hero = enemy().getHero();
+        if (card.getId().equals("chimatsuri")) {
+            return target != null && target.getAttack() >= hero.getHealth() + hero.getArmour();
+        }
+        if (card.getId().equals("suiton-no-jutsu")) {
+            return target instanceof Minion m && m.hasKeyword(Keyword.BANZAI);
+        }
+        return true;
+    }
+
+    /** Where the AI puts a minion, Shrine or Rite: the free slot nearest the middle (3, then 2, 4, 1, 5, 0, 6); -1 if full. */
+    private int centreSlot() {
+        int middle = BoardSide.MAX / 2;
+        for (int d = 0; d <= middle; d++) {
+            if (me.getSide().isFree(middle - d)) return middle - d;
+            if (middle + d < BoardSide.MAX && me.getSide().isFree(middle + d)) return middle + d;
+        }
+        return -1;
+    }    
 
     /** The hero power with the Ki left once the cards are paid: after every card (score below any card). */
     private Scored powerMove() {
         if (engine.isHeroPowerUsed()) return null;
+        if (engine.hasGodai(me)) return godaiMove();   // Takeda Shingen: Godai instead of the class power
         HeroClass c = me.getHero().getHeroClass();
         if (c == HeroClass.SAMURAI) {
             KatanaTier best = null;
@@ -215,6 +265,9 @@ public final class AIController {
             return new Scored(Move.katana(best), 5 + best.getAttack() / 10.0);
         }
         if (!me.canAfford(GameEngine.HERO_POWER_COST)) return null;
+        if (c == HeroClass.OROCHI) {                    // Yatsu-kubi: random targets, nothing to aim
+            return new Scored(Move.power(null), 5);
+        }
         if (c == HeroClass.KANNUSHI) {
             return me.getSide().firstFree() < 0 ? null : new Scored(Move.power(null), 5);
         }
@@ -227,6 +280,41 @@ public final class AIController {
         }
         if (target instanceof Hero h && h.hasStatus(Status.STEALTH)) return null;
         return new Scored(Move.power(target), 5);
+    }
+
+    /**
+     * Godai for the AI: Fire on the best enemy minion it kills (or the hero on lethal), else Water on a wounded hero,
+     * else Wind on the strongest minion that has already attacked, else Earth on its toughest minion, else Fire on the hero.
+     */
+    private Scored godaiMove() {
+        if (!me.canAfford(GameEngine.HERO_POWER_COST)) return null;
+        int fire = HeroPowers.GODAI_FIRE;
+        Combatant prey = null;
+        for (Minion m : enemy().getSide().getMinions()) {
+            if (engine.isGodaiTarget(GodaiElement.KA, m) && m.getHealth() <= fire && !m.hasTorii() && (prey == null || value(m) > value(prey))) prey = m;
+        }
+        Hero foe = enemy().getHero();
+        if (foe.getHealth() <= fire && engine.isGodaiTarget(GodaiElement.KA, foe)) prey = foe;   // lethal first
+        if (prey != null) return new Scored(Move.godai(GodaiElement.KA, prey), 6);
+        if (me.getHero().getMaxHealth() - me.getHero().getHealth() >= HeroPowers.GODAI_HEAL) {
+            return new Scored(Move.godai(GodaiElement.SUI, me.getHero()), 6);
+        }
+        Minion striker = null;
+        for (Minion m : me.getSide().getMinions()) {
+            if (!m.canAttack() && m.getAttack() > 0 && (striker == null || m.getAttack() > striker.getAttack())) striker = m;
+        }
+        if (striker != null) return new Scored(Move.godai(GodaiElement.FU, striker), 6);
+        if (engine.isGodaiTarget(GodaiElement.KA, foe)) return new Scored(Move.godai(GodaiElement.KA, foe), 5);
+        Minion wall = me.getSide().getMinions().stream().max(Comparator.comparingInt(Minion::getHealth)).orElse(null);
+        return new Scored(Move.godai(GodaiElement.CHI, wall), 5);
+    }
+
+    /** Izanagi: the AI takes the most expensive card it may steal from the enemy hand. */
+    private void stealBest() {
+        enemy().getHand().stream()
+                .filter(c -> !enemy().isHeldCurse(c))
+                .max(Comparator.comparingInt(Card::getKiCost))
+                .ifPresent(engine::steal);
     }
 
     /** This attacker's best attack: a minion it kills (best if it survives), or the hero. Null if none is worth it. */
@@ -258,6 +346,7 @@ public final class AIController {
         else if (kills) score = value(t) - mine;
         else if (t.hasTorii()) score = dies ? 2 - mine : 3;   // the hit takes one Torii off: the next one gets through
         else score = dies ? -mine : t.getHealth() < t.getMaxHealth() || attacker.getAttack() > 0 ? 1 : 0;
+        if (kills && difficulty == Difficulty.EXTREME) score += t.getAttack() * 2;   // the biggest hitters die first
         return score + pressure();
     }
 

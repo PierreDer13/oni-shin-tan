@@ -10,8 +10,11 @@ import java.util.Random;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import fr.onishintan.engine.GameEvent.Type;
-import fr.onishintan.model.*;
+import fr.onishintan.engine.event.GameEvent.Type;
+import fr.onishintan.model.*;
+import fr.onishintan.engine.effect.Trigger;
+import fr.onishintan.engine.event.GameEvent;
+import fr.onishintan.engine.oath.OathRewards;
 
 /** The 9 stack effects of the GDD Oath table, and what a break takes back. */
 class OathCardTest {
@@ -129,14 +132,20 @@ class OathCardTest {
     // ---------- Ninja ----------
 
     @Test
-    void silenceNineDuplicatesTheBiggestMinionPlayedThisTurn() {
+    void silenceNineClonesTheFirstMinionPlayedEachTurnAtOnce() {
         sworn(me, OathType.SILENCE, 9);
         Card played = me.getHand().get(0);
-        assertTrue(engine.playCard(played, 0, null));
+        assertTrue(engine.playCard(played, 3, null));
+        assertEquals(2, me.getSide().size());                       // cloned when played, not at the end of the turn
+        assertSame(played, me.getSide().getAt(0).getSource());      // the clone takes the leftmost free slot
+
+        me.gainTemporaryKi(5);
+        Card second = me.getHand().get(0);
+        assertTrue(engine.playCard(second, 5, null));
+        assertEquals(3, me.getSide().size());                       // only the first one each turn
 
         rewards.endTurn(me);
-        assertEquals(2, me.getSide().size());
-        assertSame(played, me.getSide().getAt(1).getSource());
+        assertEquals(3, me.getSide().size());                       // nothing more at the end of the turn
     }
 
     @Test

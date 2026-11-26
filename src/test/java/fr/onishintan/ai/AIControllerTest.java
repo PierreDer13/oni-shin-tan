@@ -14,19 +14,19 @@ import fr.onishintan.ai.AIController.Difficulty;
 import fr.onishintan.data.AdventureDecks;
 import fr.onishintan.engine.GameEngine;
 import fr.onishintan.model.*;
-import fr.onishintan.ui.MockCards;
+import fr.onishintan.data.CardRepository;
 
 /** The AI plays legal turns through the engine, every match ends, HARD beats EASY, and it takes lethal and good trades. */
 class AIControllerTest {
 
     private static final HeroClass[] CLASSES = { HeroClass.SAMURAI, HeroClass.NINJA, HeroClass.KANNUSHI, HeroClass.ONI };
-    private static final AdventureDecks ADVENTURE = new AdventureDecks(MockCards.ALL);
+    private static final AdventureDecks ADVENTURE = new AdventureDecks(CardRepository.all());
 
     /** Plays a whole match AI against AI; the winner, or null for a draw. Fails if it does not end in 300 turns. */
     private static Player match(Player first, Player second, Difficulty d1, Difficulty d2, long seed) {
         Random rng = new Random(seed);
         GameEngine engine = new GameEngine(first, second, rng);
-        engine.setCatalog(MockCards.ALL);
+        engine.setCatalog(CardRepository.all());
         engine.setTimeSource(() -> 0L);   // no chess clock timeouts in a test
         AIController a1 = new AIController(engine, first, d1, rng), a2 = new AIController(engine, second, d2, rng);
         engine.startMatch();
@@ -165,5 +165,27 @@ class AIControllerTest {
         Move m = ai.nextMove().orElseThrow();
         assertEquals(Move.Kind.KATANA, m.kind());
         assertEquals(KatanaTier.KATANA, m.tier());
+    }
+
+    @Test
+    void extremeIsNeverAnAdventureBattle() {
+        for (int battle = -1; battle < 10; battle++) assertNotEquals(Difficulty.EXTREME, Difficulty.forBattle(battle));
+        assertTrue(Difficulty.EXTREME.atLeastHard());
+        assertTrue(Difficulty.HARD.atLeastHard());
+        assertFalse(Difficulty.NORMAL.atLeastHard());
+    }
+
+    @Test
+    void extremeBeatsEasyMostOfTheTime() {
+        int extreme = 0, games = 40;
+        for (int g = 0; g < games; g++) {
+            HeroClass c = CLASSES[g % 4];
+            Player p = ADVENTURE.hero("Extreme", c), q = ADVENTURE.hero("Easy", c);
+            boolean extremeFirst = g % 2 == 0;
+            Player winner = extremeFirst ? match(p, q, Difficulty.EXTREME, Difficulty.EASY, g)
+                                         : match(q, p, Difficulty.EASY, Difficulty.EXTREME, g);
+            if (winner == p) extreme++;
+        }
+        assertTrue(extreme >= games * 0.6, "EXTREME won " + extreme + " of " + games);
     }
 }

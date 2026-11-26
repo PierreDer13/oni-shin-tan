@@ -10,9 +10,11 @@ import java.util.Random;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import fr.onishintan.model.*;
+import fr.onishintan.model.*;
+import fr.onishintan.engine.effect.SpellTarget;
+import fr.onishintan.engine.event.GameEvent;
 
-/** The minion effects of MockCards by id: Banzai and their targets, Seppuku, passives, auras, Rokurokubi, Yogake. */
+/** The minion effects of cards.json by id: Banzai and their targets, Seppuku, passives, auras, Rokurokubi, Yogake. */
 class MinionEffectTest {
 
     private Player me;        // Samurai, plays first
@@ -100,6 +102,18 @@ class MinionEffectTest {
         engine.endTurn();
         engine.endTurn();                                        // his turn ended: no armour from a silenced Hatamoto
         assertEquals(0, enemy.getHero().getArmour());
+    }
+
+    @Test
+    void shikePublishesSilencedWithTheOwnerAndTheMinion() {
+        Minion hatamoto = place(enemy, 0, card("hatamoto", 5, 7, Keyword.SHIRODU));
+        List<GameEvent> heard = new ArrayList<>();
+        engine.getBus().subscribe(GameEvent.Type.SILENCED, heard::add);
+        assertTrue(play(card("shike", 10, 12), 0, hatamoto));
+
+        assertEquals(1, heard.size());
+        assertSame(enemy, heard.get(0).source());
+        assertSame(hatamoto, heard.get(0).target());
     }
 
     @Test

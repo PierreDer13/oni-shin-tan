@@ -206,9 +206,9 @@ class OathRulesTest {
     }
 
     @Test
-    void corruptionUnableWithoutACurse() {
+    void corruptionKeptWithoutACurse() {
         start(HeroClass.ONI, OathType.CORRUPTION);
         engine.endTurn();
-        assertUnable();
+        assertKept(1);   // no Curse card to give: the turn still counts
     }
 }

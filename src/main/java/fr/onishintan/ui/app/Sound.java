@@ -27,6 +27,19 @@ public final class Sound {
         }
     }
 
+    /** A spoken line from /sounds/voice/<name>.mp3, played once at the effects volume; null if there is no such file.
+     *  Keep the returned player in a field, or it gets garbage-collected and the voice stops. */
+    public static MediaPlayer voice(String name) {
+        try {
+            MediaPlayer p = new MediaPlayer(new Media(Sound.class.getResource("/sounds/voice/" + name + ".mp3").toExternalForm()));
+            p.setVolume(AudioSettings.EFFECTS.get());
+            p.play();
+            return p;
+        } catch (RuntimeException | LinkageError e) {
+            return null;   // no file for this line: the page stays silent there
+        }
+    }
+
     /** A background track from /sounds/<name>.mp3, looping at the given volume; null if audio is unavailable.
      *  Keep the returned player in a field, or it gets garbage-collected and the music stops. */
     public static MediaPlayer music(String name, double volume) {

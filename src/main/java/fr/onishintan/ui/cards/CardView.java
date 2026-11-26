@@ -11,12 +11,17 @@ import fr.onishintan.ui.fx.CurseFumes;
 
 import java.io.InputStream;
 import java.util.Map;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import javafx.animation.ScaleTransition;
 import javafx.geometry.HPos;
 import javafx.geometry.NodeOrientation;
 import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
 import javafx.scene.Group;
 import javafx.scene.control.Label;
+import javafx.scene.control.ContentDisplay;
 import javafx.scene.effect.BlurType;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.image.Image;
@@ -31,17 +36,26 @@ import javafx.scene.text.FontWeight;
 import javafx.scene.text.TextAlignment;
 import javafx.scene.transform.Scale;
 import javafx.scene.text.Text;
+import javafx.scene.text.TextFlow;
+import javafx.util.Duration;
 
 /** One card in the karuta layout: drawn at the art's size (530 x 742), then scaled to the width asked. */
 public class CardView extends Group {
     public static final double W = 530, H = 742;
     private static final String SERIF = "Yu Mincho";
+    /** Every English name's size, the widest a name may be before it is made smaller, and the paper left on each side of it. */
+    private static final double NAME_SIZE = 26, MAX_NAME_W = 340, NAME_PAD = 10;
     private static final Color INK = Color.web("#1f1b17");
     private static final Color DAMAGED = Color.web("#c41e1e");
     /** Better than printed: a Ki cost lowered by Yōi or an Oath, ATK or HP above the card's own. */
     private static final Color GREEN = Color.web("#1f7a3a");
+    /** Keyword names on a card. */
+    private static final Color KEYWORD_RED = Color.web("#8b1a1a");
     /** From this width a card is a big copy (hover previews are 280 or 300): it shows its keyword notes beside it. */
     private static final double NOTES_FROM = 250;
+    /** The numbers the engine's bonus applies to: "N damage", and the first number after heal / restore. */
+    private static final Pattern DAMAGE = Pattern.compile("(\\d+) damage");
+    private static final Pattern HEAL = Pattern.compile("(?i)\\b(?:heal|restore)[^0-9;.]*?(\\d+)");
     /** The edge tags (SPELL on the left, the family on the right), in card coordinates (530 x 742):
      *  width, top, height per letter and the extra height around the letters (SPELL: 30 + 5 x 24 = 150). */
     private static final double SIDE_TAG_W = 40, SIDE_TAG_Y = 345, SIDE_TAG_LETTER_H = 24, SIDE_TAG_PADDING = 30;
@@ -52,6 +66,8 @@ public class CardView extends Group {
     private final Pane face = new Pane();
     /** The number in the Ki circle (showCost changes it). */
     private Label kiLabel;
+    /** The description (showBonus rewrites its damage or healing number). */
+    private Label descLabel;
 
     public CardView(Card card, double width) {
         this.card = card;
@@ -71,30 +87,32 @@ public class CardView extends Group {
 
         /** Rebuilds the card face from the card's data. */
     public void render() {
-        face.getChildren().setAll(artView());
+        String name = card.getNameRomaji();
+        double nameSize = Math.min(NAME_SIZE, NAME_SIZE * MAX_NAME_W / width(name, NAME_SIZE));   // only a very long name is made smaller
+        double gap = width(name, nameSize) + 2 * NAME_PAD;
+        NameGap.Opened art = NameGap.open(card.getId(), art(), gap);   // the line under the art opened just wide enough for the name
+        face.getChildren().setAll(artView(art.image()));
         kiLabel = text(String.valueOf(card.getKiCost()), 50, 25, 24, 100, 82);          // Ki circle
         text("気 Ki", 14, 25, 88, 100, 20);
         String kanji = card.getNameKanji();
         vertical(kanji, Math.min(56, 200 / kanji.length()), 370, 30, 135, 210);           // Japanese name, top right
-        String name = card.getNameRomaji();
-        Text probe = new Text(name);
-        probe.setFont(Font.font(SERIF, FontWeight.BOLD, 24));
-        text(name, Math.min(24, 24 * 84 / probe.getLayoutBounds().getWidth()), 222, 240, 86, 34); // English name, in the gap
+        text(name, nameSize, NameGap.CENTRE_X - gap / 2, art.lineY() - 22, gap, 44);   // English name, in the gap, centred on the line
         String desc = card.getEffectText();
         int kw = 0;
         if (card instanceof MinionCard m) {
             for (Keyword k : m.getKeywords()) {
-                vertical(k.getDisplayName().toUpperCase(), 18, 150 + 24 * kw++, 32, 24, 210);
+                keywordLine(k, 32 + 28 * kw++);
                 desc = desc.replaceAll(k.getDisplayName() + "([.:]\\s*|$)", "");
             }
         }
         int[] s = stats();
         if (s != null) {
             int[] base = printed();
-            stat(s[0], "攻撃 ATK", 27, statColour(s[0], base[0], false));
-            stat(s[1], card instanceof WeaponCard ? "耐久 DUR" : "体力 HP", 402, statColour(s[1], base[1], damaged()));
+            stat(s[0], "攻撃 ATK", 27, hiddenStats() ? statColour(base[0], base[0], false) : statColour(s[0], base[0], false));
+            stat(s[1], card instanceof WeaponCard ? "耐久 DUR" : "体力 HP", 402, hiddenStats() ? statColour(base[1], base[1], false) : statColour(s[1], base[1], damaged()));
         }
-        text(desc, 22, 154 + 24 * kw, 32, 208 - 24 * kw, 210).setFont(Font.font(SERIF, 22)); // description, top middle
+        descLabel = text(desc, 22, 154, 32 + 28 * kw, 208, 210 - 28 * kw);   // description, under the keyword lines
+        descLabel.setFont(Font.font(SERIF, 22));
         if (card.getRarity() == Rarity.LEGENDARY)
             rarityTag("伝説 LEGENDARY", 190, "#8a6a1c, #f7e08a 30%, #fff6c8 50%, #d4ab4a 70%, #8a6a1c", "#3a2a05", Color.GOLD);
         if (card.getRarity() == Rarity.MYTHIC)
@@ -124,6 +142,50 @@ public class CardView extends Group {
         }
     }
 
+    /** Yōi: the Ki number swells twice with a golden glow. */
+    public void sparkleCost() {
+        kiLabel.setEffect(new DropShadow(12, Color.GOLD));
+        ScaleTransition pulse = new ScaleTransition(Duration.millis(250), kiLabel);
+        pulse.setToX(1.8);
+        pulse.setToY(1.8);
+        pulse.setAutoReverse(true);
+        pulse.setCycleCount(4);
+        pulse.setOnFinished(e -> kiLabel.setEffect(null));
+        pulse.play();
+    }
+
+    /**
+     * Adds `bonus` to the damage or healing number of the description (used by the hand) and writes that number in bold green.
+     * The same numbers as the engine's bonusOf: "N damage", or the first number after heal / restore.
+     */
+    public void showBonus(int bonus) {
+        if (bonus <= 0) {
+            return;
+        }
+        String desc = descLabel.getText();
+        Matcher number = DAMAGE.matcher(desc);
+        if (!number.find()) {
+            number = HEAL.matcher(desc);
+            if (!number.find()) {
+                return;
+            }
+        }
+        Text before = new Text(desc.substring(0, number.start(1)));
+        Text boosted = new Text(String.valueOf(Integer.parseInt(number.group(1)) + bonus));
+        Text after = new Text(desc.substring(number.end(1)));
+        for (Text part : List.of(before, after)) {
+            part.setFont(Font.font(SERIF, 22));
+            part.setFill(INK);
+        }
+        boosted.setFont(Font.font(SERIF, FontWeight.BOLD, 22));
+        boosted.setFill(GREEN);
+        TextFlow flow = new TextFlow(before, boosted, after);
+        flow.setTextAlignment(TextAlignment.CENTER);
+        flow.setMaxWidth(descLabel.getPrefWidth());
+        descLabel.setGraphic(flow);   // the same place and width as the plain text, which is hidden
+        descLabel.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+    }
+
 
     /** Darkens a Curse the enemy put in your hand and stamps its removal cost on it (used by the hand). */
     public void showAsHeldCurse(int removalCost) {
@@ -143,6 +205,9 @@ public class CardView extends Group {
 
     /** True for minions on the board: bigger, heavier numbers and no captions. */
     protected boolean onBoard() { return false; }
+
+    /** True when the opponent must not see this card's stats (Oishi Kuranosuke on their side): "?" is shown instead. */
+    protected boolean hiddenStats() { return false; }
 
     protected int[] stats() {
         return printed();
@@ -185,12 +250,19 @@ public class CardView extends Group {
      * The card's art fitted to the card's size (W x H), whatever the PNG's own size is.
      * Some art is drawn at twice the size (1061 x 1483); without this only its top-left quarter would show.
      */
-    private ImageView artView() {
-        ImageView view = new ImageView(art());
+    private ImageView artView(Image art) {
+        ImageView view = new ImageView(art);
         view.setFitWidth(W);
         view.setFitHeight(H);
         view.setSmooth(true);
         return view;
+    }
+
+    /** How wide `name` is in the bold card font at `size`. */
+    private static double width(String name, double size) {
+        Text probe = new Text(name);
+        probe.setFont(Font.font(SERIF, FontWeight.BOLD, size));
+        return probe.getLayoutBounds().getWidth();
     }
 
     /** Text written top to bottom, one character per line; extra columns go right to left. */
@@ -211,13 +283,27 @@ public class CardView extends Group {
         face.getChildren().add(col);
     }
 
+    /** One keyword line above the description: its game-guide logo, then its name in bold dark red. */
+    private void keywordLine(Keyword k, double y) {
+        ImageView logo = new ImageView(Images.get("/images/logos/" + k.name().toLowerCase() + "-logo.png", 26, 26));   // same logo as the game guide
+        Label line = new Label(k.getDisplayName(), logo);
+        line.setFont(Font.font(SERIF, FontWeight.BOLD, 22));
+        line.setTextFill(KEYWORD_RED);
+        line.setGraphicTextGap(6);
+        line.setPrefWidth(208);
+        line.setAlignment(Pos.CENTER);
+        line.relocate(154, y + 2);
+        face.getChildren().add(line);
+    }
+
     private void stat(int value, String caption, double x, Color color) {
+        String shown = hiddenStats() ? "?" : String.valueOf(value);
         if (!onBoard()) {
-            text(String.valueOf(value), 50, x, 600, 100, 82).setTextFill(color);
+            text(shown, 50, x, 600, 100, 82).setTextFill(color);
             text(caption, 14, x, 665, 100, 20);
             return;
         }
-        Label n = text(String.valueOf(value), 72, x, 604, 100, 82);
+        Label n = text(shown, 72, x, 604, 100, 82);
         n.setTextFill(color);
         n.setEffect(new DropShadow(BlurType.ONE_PASS_BOX, color, 3, 1.0, 0, 0));
     }

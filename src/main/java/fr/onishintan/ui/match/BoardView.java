@@ -1,14 +1,18 @@
 package fr.onishintan.ui.match;
 import fr.onishintan.ui.cards.CardView;
+import fr.onishintan.ui.cards.CardPreview;
 import fr.onishintan.ui.cards.MinionView;
 import fr.onishintan.ui.cards.ShrineView;
 import fr.onishintan.ui.fx.EventBanner;
 import fr.onishintan.ui.fx.Fx;
+import fr.onishintan.ui.fx.HeroBurn;
+import fr.onishintan.ui.screens.GuidePanel;
 import fr.onishintan.ui.screens.HomeView;
 import fr.onishintan.ui.screens.SettingsPanel;
 import fr.onishintan.ui.app.Images;
 import fr.onishintan.ui.app.Sound;
-
+import javafx.scene.media.AudioClip;
+import javafx.application.Platform;
 import fr.onishintan.model.Hero;
 import fr.onishintan.model.BoardSide;
 import fr.onishintan.model.BoardEntity;
@@ -17,38 +21,52 @@ import fr.onishintan.model.Keyword;
 import fr.onishintan.model.Card;
 import fr.onishintan.model.Combatant;
 import fr.onishintan.model.Minion;
+import fr.onishintan.model.MinionCard;
 import fr.onishintan.model.Oath;
 import fr.onishintan.model.Shrine;
+import fr.onishintan.model.ShrineCard;
 import fr.onishintan.model.Player;
 import fr.onishintan.model.TrapCard;
 import fr.onishintan.engine.GameEngine;
+import fr.onishintan.engine.event.GameEvent;
+import fr.onishintan.model.GodaiElement;
 import fr.onishintan.model.KatanaTier;
 import fr.onishintan.model.Status;
 
+import java.util.HashSet;
+import java.util.Set;
+import javafx.scene.effect.Effect;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 
 import javafx.util.Duration;
 
 import javafx.animation.Animation;
+import javafx.animation.FadeTransition;
 import javafx.animation.Interpolator;
 import javafx.animation.KeyFrame;
 import javafx.animation.KeyValue;
 import javafx.animation.PauseTransition;
+import javafx.animation.RotateTransition;
+import javafx.animation.ScaleTransition;
 import javafx.animation.Timeline;
 import javafx.animation.TranslateTransition;
 
 import javafx.beans.InvalidationListener;
 
 import javafx.geometry.Insets;
+import javafx.geometry.Bounds;
 import javafx.geometry.Pos;
-
+import javafx.scene.Cursor;
 import javafx.scene.Group;
 import javafx.scene.Node;
 import javafx.scene.control.Label;
@@ -66,31 +84,48 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
+import javafx.scene.shape.Ellipse;
 import javafx.scene.shape.Rectangle;
-import javafx.scene.transform.Rotate;
 import javafx.scene.transform.Scale;
 import javafx.scene.layout.Region;
 import javafx.scene.input.MouseEvent;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
 
 import javafx.event.EventHandler;
+import fr.onishintan.ui.match.dialog.KatanaPicker;
+import fr.onishintan.ui.match.dialog.GodaiPicker;
+import fr.onishintan.ui.match.dialog.StealPicker;
+import fr.onishintan.ui.match.dialog.MulliganView;
+import fr.onishintan.ui.match.dialog.TrapView;
+import fr.onishintan.ui.match.fx.BoardAmbience;
+import fr.onishintan.ui.match.fx.SignatureFx;
+import fr.onishintan.ui.match.fx.TargetArrow;
+import fr.onishintan.ui.match.fx.TradeAnimation;
+import fr.onishintan.ui.match.hud.DeckTracker;
+import fr.onishintan.ui.match.hud.EndHaiku;
+import fr.onishintan.ui.match.hud.PlayHistory;
+import fr.onishintan.ui.match.hud.HeroPowerView;
+import fr.onishintan.ui.match.hud.KiBarView;
+import fr.onishintan.ui.match.hud.OathView;
+import fr.onishintan.ui.match.hud.StatusOverlay;
 
 /** The match table on a 1600 x 900 grid (zones from the Izakaya mock-up), scaled to fit the window. */
 public class BoardView extends Pane {
     public static final double DECK_X = 1227, DECK_Y = 632;
     public static final double W = 1600, H = 900;
     /** The shadow every object on the table casts: down and to the right. */
-    static final DropShadow SHADOW = new DropShadow(15, 8, 6, Color.rgb(0, 0, 0, 0.6));
+    public static final DropShadow SHADOW = new DropShadow(15, 8, 6, Color.rgb(0, 0, 0, 0.6));
     public static final double SLOT_X = 352, SLOT_STEP = 130.5, ENEMY_Y = 257, YOUR_Y = 443, MINION_W = 114;
+    /** A played minion floats above its slot for FLOAT_MS, then takes DROP_MS to drop onto it. */
+    static final double FLOAT_MS = 300, DROP_MS = 150;
 
     private Player enemy, you;
     private String enemyPortrait, yourPortrait;
     private final Pane table = new Pane();
     private final ImageView bg;
-    private final boolean izakaya;
-    /** Izakaya props cut out of the table: file, x, y. */
-    private static final String[] PROPS = { "cup-1 130 46", "dice-1 306 105", "pot 1274 13", "dice-2 1271 681", "cup-2 1376 602" };
     private Combatant selected;
-    private BiConsumer<Combatant, Combatant> onAttack = (a, t) -> {};
+    private BiFunction<Combatant, Combatant, List<GameEvent>> onAttack = (a, t) -> List.of();
     private final Map<Combatant, Node> nodes = new HashMap<>();
     /** Every character's HP at the last redraw: a higher HP at the next one plays the heal effect. */
     private Map<Combatant, Integer> healthSeen = new HashMap<>();
@@ -99,10 +134,34 @@ public class BoardView extends Pane {
         + " -fx-background-radius: 10; -fx-alignment: center; -fx-text-alignment: center;";
 
     private final Pane live = new Pane();
-    private final StatusOverlay status = new StatusOverlay(live, () -> impact(0, true));
+    private final TableFx tableFx = new TableFx(table, live);
+    private final HeldEffects heldEffects = new HeldEffects();
+    private final DeckTracker deckTracker;
+    private final PlayHistory history;
+    private final StatusOverlay status = new StatusOverlay(live, () -> tableFx.impact(0, true));
     private KiBarView ki;
     private HandView hand;
     private boolean dealt;   // the hand stays hidden until the opening deal
+    private boolean rising;   // the card just played brings dead minions back (black smoke on them)
+    private boolean yoi;      // Yōi was just played: the costs in hand sparkle after the redraw
+    /** The sound of any hit (sounds/hit.wav). */
+    private static final AudioClip HIT = Sound.clip("hit");
+    /** The tick of a clock in a hurry: the shōji doors' wooden tap (sounds/door-tap.wav). */
+    private static final AudioClip TICK = Sound.clip("door-tap");
+    /** The last second that ticked on a clock in a hurry, so each second ticks only once (the clocks redraw every 200 ms). */
+    private String lastHurrySecond = "";
+    /** The minions Shike has silenced: drawn grey for the rest of the match. */
+    private final Set<Minion> silenced = new HashSet<>();
+    /** A silenced minion's look: colours drained, a little darker, over its other effect (its yellow outline). */
+    private static ColorAdjust grey(Effect over) {
+        ColorAdjust drained = new ColorAdjust(0, -1, -0.15, 0);
+        drained.setInput(over);
+        return drained;
+    }
+    private String signature = "";   // the card just played, for its own move before its effects (SignatureFx)
+    private boolean burnt;           // the dead hero has already burned (only once, then the seal straight away)
+    private int signatureSlot;       // and its slot (Nue's shockwave starts there)
+    private final Map<Combatant, Integer> duelHp = new HashMap<>();   // Kettō: each duellist's HP just before the duel
     /** Opening hand: deals the bottom player's cards in from their deck. */
     public void dealHand() {
         dealt = true;
@@ -115,25 +174,45 @@ public class BoardView extends Pane {
     }
     
     private Player kiOwner;   // who the Ki bar showed at the last redraw, and how much Ki they had
+    /** Where the opponent's Ki shows: just right of its hero power. */
+    private static final double ENEMY_KI_X = 1116, ENEMY_KI_Y = 150;
+    /** How many Oath stacks each player's counter showed last time, so a new one pops in once. */
+    private final Map<Player, Integer> stacksShown = new HashMap<>();
     private int kiBefore;
-    private static final Image SWITCH_ON = new Image(BoardView.class.getResourceAsStream("/images/hud/end-turn.png")),
-            SWITCH_OFF = new Image(BoardView.class.getResourceAsStream("/images/hud/end-turn-off.png"));
+    private static final Image SWITCH_ON = Images.get("/images/hud/end-turn.png"),
+            SWITCH_OFF = Images.get("/images/hud/end-turn-off.png");
+    /** The yellow glow around the End Turn paddle while it is your turn. */
+    private static final DropShadow YOUR_TURN_GLOW = new DropShadow(BlurType.GAUSSIAN, Color.web("#ffd84a"), 45, 0.45, 0, 0);
     private final ImageView endTurn = new ImageView(SWITCH_ON);
     private Runnable onEndTurn = () -> {};
+    /** The keyboard shortcuts, kept so they can be taken off the window when the match leaves it. */
+    private final EventHandler<KeyEvent> shortcuts = this::shortcut;
+    /** How many layers the table has once built: more means something lies over it, and Space waits. */
+    private int fixedLayers;
     private Runnable onReswear = () -> {};
-    private final Label yourClock = hud(new Label(), 1441, 558, 130, 44, 22);
+    private final Label yourClock = hud(new Label(), 1413, 558, 130, 44, 22);
     private Predicate<Card> onTrade = card -> false;
-    private final Label enemyClock = hud(new Label(), 1441, 268, 130, 44, 22);
+    private final Label enemyClock = hud(new Label(), 1413, 268, 130, 44, 22);
     private CardPlayer player;
     /** A card dropped on the board that waits for its target(s): its slot, its legal targets and, for Kettō, the first minion picked. */
     private Card held;
     private int heldSlot;
     private List<Combatant> heldTargets = List.of();
     private Combatant firstPick;
+    /** The arrow from what aims (an attacker, a held card, a hero power) to the mouse. */
+    private final TargetArrow arrow = new TargetArrow();
+    /** The red rings on a legal target under the mouse while something aims, and how wide they are drawn. */
+    private final ImageView targetMark = image("/images/fx/target.png");
+    private static final double MARK_W = 90;
 
-    private boolean powerUsed;
     private Predicate<Combatant> onPower = target -> false;
     private Predicate<KatanaTier> onKatana = tier -> false;
+    /** Takeda Shingen's Godai: who has it, the targets each element may take, and what using it does. */
+    private Predicate<Player> hasGodai = p -> false;
+    private BiPredicate<GodaiElement, Combatant> godaiTarget = (element, target) -> false;
+    private BiPredicate<GodaiElement, Combatant> onGodai = (element, target) -> false;
+    /** The Godai element waiting for its target, or null. */
+    private GodaiElement godaiAim;
     /** True after pressing a power that needs a target (Shuriken, Jikininki): the next click on a character aims it. */
     private boolean aiming;
     private Runnable onGameOver = () -> {};
@@ -156,47 +235,133 @@ public class BoardView extends Pane {
         this.enemyPortrait = enemyPortrait;
         this.yourPortrait = yourPortrait;
         bg = image("/images/boards/" + board + ".png");
-        izakaya = board.equals("izakaya");
         bg.setFitWidth(W);
         bg.setFitHeight(H);
-        bg.setOnMouseClicked(e -> { selected = null; aiming = false; held = null; render(); });
+        bg.setOnMouseClicked(e -> { selected = null; aiming = false; godaiAim = null; held = null; render(); });
         Scale scale = new Scale();
         table.getTransforms().add(scale);
         InvalidationListener fit = o -> {
-            double s = Math.min(getWidth() / W, getHeight() / H);
-            scale.setX(s);
-            scale.setY(s);
+            scale.setX(getWidth() / W);    // stretched to fill the window: no strip on a screen that isn't 16:9
+            scale.setY(getHeight() / H);
         };
         widthProperty().addListener(fit);
         heightProperty().addListener(fit);
         endTurn.setFitHeight(200);
         endTurn.setPreserveRatio(true);
-        endTurn.setEffect(SHADOW);
+        switchEndTurn(true);   // the first turn is yours
         endTurn.relocate(1415, 335);
-        endTurn.setOnMousePressed(e -> {
-            endTurn.setDisable(true);   // one press per turn
-            Sound.play(HomeView.CLICK);
-            endTurn.setImage(SWITCH_OFF);   // the paddle and the lights switch over
-            PauseTransition wait = new PauseTransition(Duration.millis(200));
-            wait.setOnFinished(f -> onEndTurn.run());
-            wait.play();
-        });
-        table.getChildren().addAll(bg, live, endTurn, yourClock, enemyClock);
+        endTurn.setOnMousePressed(e -> pressEndTurn());   // the mouse, or Space (shortcut)
+        table.getChildren().addAll(bg, BoardAmbience.of(board), live, endTurn, yourClock, enemyClock);   // the ambience lies on the picture, behind the cards
+        live.setPickOnBounds(false);   // a click on empty table goes through to the board (cancels an aim)
         // Settings, top left: volumes, window size and Surrender (which asks first).
-        Label settings = darkButton("設定  SETTINGS", () -> table.getChildren().add(new SettingsPanel(this::askSurrender)));
+        Label settings = darkButton("設定  SETTINGS", this::toggleSettings);
         settings.relocate(20, 20);
         table.getChildren().add(settings);
+        // Deck tracker, right side: the cards left in your deck (opens and closes with its tab).
+        deckTracker = new DeckTracker(new CardPreview(table));
+        table.getChildren().add(deckTracker);
+        // Play history, left side: every card played, attack and hero power, with their targets (opens and closes with its tab).
+        history = new PlayHistory(new CardPreview(table));
+        table.getChildren().add(history);
+        targetMark.setFitWidth(MARK_W);
+        targetMark.setPreserveRatio(true);
+        targetMark.setMouseTransparent(true);   // clicks still reach the target under it
+        targetMark.setVisible(false);
+        table.getChildren().add(targetMark);    // under the arrow
+        // The targeting arrow, above the board: from what aims to the mouse.
+        table.getChildren().add(arrow);
+        table.addEventFilter(MouseEvent.MOUSE_MOVED, e -> pointArrow(e.getX(), e.getY()));
+        arrow.visibleProperty().addListener((property, wasShown, shown) -> {
+            if (shown) {
+                table.setCursor(Cursor.NONE);   // while aiming, the arrowhead is the cursor
+            } else {
+                table.setCursor(null);          // back to the game's brush cursor
+            }
+        });
         getChildren().add(table);
+        fixedLayers = table.getChildren().size();   // anything added later lies over the table (veil, panel, animation)
+        // Keyboard shortcuts (listed in the game guide), heard on the whole window while this board is on it.
+        sceneProperty().addListener((property, oldScene, newScene) -> {
+            if (oldScene != null) {
+                oldScene.removeEventFilter(KeyEvent.KEY_PRESSED, shortcuts);
+            }
+            if (newScene != null) {
+                newScene.addEventFilter(KeyEvent.KEY_PRESSED, shortcuts);
+            }
+        });
         setStyle("-fx-background-color: black;");
         render();
+    }
+
+    /** A key pressed during the match: Space ends your turn, D opens the deck tracker, H the play history, Esc the settings, G the game guide. */
+    private void shortcut(KeyEvent event) {
+        if (event.getCode() == KeyCode.SPACE) {
+            pressEndTurn();
+        } else if (event.getCode() == KeyCode.D) {
+            deckTracker.toggle();
+        } else if (event.getCode() == KeyCode.ESCAPE) {
+            toggleSettings();
+        } else if (event.getCode() == KeyCode.G) {
+            toggleGuide();
+        } else if (event.getCode() == KeyCode.H) {
+            history.toggle();
+        } else {
+            return;   // any other key is left to the screen
+        }
+        event.consume();
+    }
+
+    /** The End Turn paddle pressed, with the mouse or Space: once per turn, and never through a veil or a panel. */
+    private void pressEndTurn() {
+        if (endTurn.isDisable()) {
+            return;   // not your turn, or already pressed
+        }
+        if (table.getChildren().size() > fixedLayers) {
+            return;   // something lies over the table (pass veil, mulligan, settings, an animation): wait for it
+        }
+        switchEndTurn(false);   // one press per turn
+        Sound.play(HomeView.CLICK);
+        PauseTransition wait = new PauseTransition(Duration.millis(200));
+        wait.setOnFinished(f -> onEndTurn.run());
+        wait.play();
+    }
+
+    /** The End Turn paddle on (your turn: lit, glowing yellow, pressable) or off (switched over, its plain shadow). */
+    private void switchEndTurn(boolean on) {
+        endTurn.setDisable(!on);
+        if (on) {
+            endTurn.setImage(SWITCH_ON);
+            endTurn.setEffect(YOUR_TURN_GLOW);
+        } else {
+            endTurn.setImage(SWITCH_OFF);
+            endTurn.setEffect(SHADOW);
+        }
+    }
+
+    /** Opens the settings, or closes them if they are already open (the button or Esc). */
+    private void toggleSettings() {
+        boolean wasOpen = table.getChildren().removeIf(node -> node instanceof SettingsPanel);
+        if (!wasOpen) {
+            table.getChildren().add(new SettingsPanel(this::askSurrender));
+        }
+    }
+
+    /** Opens the game guide, or closes it if it is already open (G). */
+    private void toggleGuide() {
+        boolean wasOpen = table.getChildren().removeIf(node -> node instanceof GuidePanel);
+        if (!wasOpen) {
+            table.getChildren().add(new GuidePanel());
+        }
     }
 
     /** Redraws everything that changes during a match: heroes, minions, Ki and decks. */
     public void render() {
         live.getChildren().clear();
-        if (izakaya) props();
+        arrow.setVisible(false);   // shown again as soon as the mouse moves, if something still aims
+        targetMark.setVisible(false);
         nodes.clear();
         status.clear();
+        deckTracker.show(you);   // the deck tracker follows the player at the bottom
         hero(enemy.getHero(), enemyPortrait, 107, false);
         oath(enemy, 107);
         oath(you, 637);
@@ -204,6 +369,10 @@ public class BoardView extends Pane {
         hero(you.getHero(), yourPortrait, 637, true);
         power(enemy, 112, false);
         power(you, 639, true);
+        Label enemyKi = new Label("気 " + enemy.getKi() + " / " + enemy.getMaxKi());   // the opponent's Ki, next to its hero power
+        enemyKi.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 22; -fx-font-weight: bold; -fx-text-fill: #f3ede1;");
+        enemyKi.setEffect(new DropShadow(6, Color.BLACK));
+        place(enemyKi, ENEMY_KI_X, ENEMY_KI_Y);
         row(enemy, ENEMY_Y);
         row(you, YOUR_Y);
         place(ki = new KiBarView(you, you == kiOwner ? kiBefore : you.getKi()), 0, 0);
@@ -213,11 +382,11 @@ public class BoardView extends Pane {
         traps(enemy, TRAPS_X, ENEMY_TRAPS_Y);
         traps(you, TRAPS_X, YOUR_TRAPS_Y);
         deck(enemy, 182, 239);
-        live.getChildren().add(hand = new HandView(you, this::drop, this::trade, this::previewCost, this::costOf, this::canPlay));
-        hand.setVisible(dealt);
+        drawHand();
         enemyHand(enemy);
         healEffects();
-        if (enemy.getHero().isDead() || you.getHero().isDead()) gameOver(enemy.getHero().isDead());
+        table.lookupAll("#arrival-smoke").forEach(Node::toFront);   // a minion just drawn stays behind its smoke
+        if (enemy.getHero().isDead() || you.getHero().isDead()) endGame(enemy.getHero().isDead());
     }
 
     /**
@@ -267,6 +436,340 @@ public class BoardView extends Pane {
         TrapView.reveal(table, trap);   // the table, not `live`: a redraw in the middle would erase it
     }
 
+    /** The card just played, big on the right of the table: its width and top-left corner. */
+    private static final double PLAYED_W = 220, BIG_X = 1350, BIG_Y = 20;
+    /** Where the AI's card shows big: on the left of the table. */
+    private static final double ENEMY_BIG_X = 30, ENEMY_BIG_Y = 184, ENEMY_BIG_W = 380;   // left, centred: (900 - the card's 532 px) / 2
+    /** How long each AI card shows on the left, and when the spot is free for the next one (System.currentTimeMillis). */
+    private static final long ENEMY_CARD_MS = 2000;
+    private long enemyCardFree;
+
+    /** The card just played, big at `x` on the table (right for yours, left for the AI's), to read while its effects play (the redraw takes it away). */
+    private Node bigCard(Card card, double x) {
+        CardView big = new CardView(card, PLAYED_W);
+        big.relocate(x, BIG_Y);
+        big.setMouseTransparent(true);
+        return big;
+    }
+
+    /**
+     * Adventure, right after the AI has played: its card shows big on the left, and a minion appears in its slot at once,
+     * so its Banzai, smoke and damage play on it (like yours in showPlayed). Its Traps stay hidden.
+     */
+    public void showAiPlayed(Card card) {
+        TableFx.afterLanding(card, () -> TableFx.heavyLanding(card));   // the thud when its minion hits the slot
+        if (card instanceof TrapCard) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        long start = Math.max(now, enemyCardFree);   // after the AI's previous card, if it is still showing
+        enemyCardFree = start + ENEMY_CARD_MS;
+        CardView big = new CardView(card, ENEMY_BIG_W);   // much bigger than yours, easy to read
+        big.relocate(ENEMY_BIG_X, ENEMY_BIG_Y);
+        big.setMouseTransparent(true);
+        big.setVisible(false);
+        table.getChildren().add(big);   // on the table: a redraw does not cut the queue short
+        new Timeline(
+                new KeyFrame(Duration.millis(start - now), e -> big.setVisible(true)),
+                new KeyFrame(Duration.millis(start - now + ENEMY_CARD_MS), e -> table.getChildren().remove(big))).play();
+        for (int slot = 0; slot < BoardSide.MAX; slot++) {
+            Minion m = enemy.getSide().getAt(slot);
+            if (m != null && m.getSource() == card && !nodes.containsKey(m)) {
+                Node played = new MinionView(m, MINION_W, "oishi-kuranosuke".equals(m.getSource().getId()));   // the AI's Oishi hides his stats
+                played.relocate(SLOT_X + 2 + slot * SLOT_STEP, ENEMY_Y);
+                TableFx.floatAndDrop(played);   // the AI's minion floats and drops too
+                nodes.put(m, played);   // its effects show on it, and it is not redrawn as a newcomer
+                live.getChildren().add(played);
+            }
+        }
+    }
+
+    /**
+     * The card just played appears at once, before its effects: a minion in its slot (as a board minion), a Shrine in its slot,
+     * a spell big in the middle; the hand is drawn again without it. The redraw after the effects replaces all of this.
+     */
+    public void showPlayed(Card card, int slot) {
+        rising = card.getId().equals("kuchiyose") || card.getId().equals("izanami");
+        yoi = card.getId().equals("yoi");
+        signature = card.getId();
+        signatureSlot = slot;
+        drawHand();
+        Node played;
+        if (card instanceof MinionCard && you.getSide().getAt(slot) != null) {
+            played = new MinionView(you.getSide().getAt(slot), MINION_W);
+            played.relocate(SLOT_X + 2 + slot * SLOT_STEP, YOUR_Y);
+            nodes.put(you.getSide().getAt(slot), played);   // its effects show on this card, and it gets no smoke
+        } else if (card instanceof MinionCard || card instanceof ShrineCard) {
+            played = new CardView(card, MINION_W);   // already gone (a trap killed it): its card shows in the slot
+            played.relocate(SLOT_X + 2 + slot * SLOT_STEP, YOUR_Y);
+        } else {
+            return;   // your spells no longer show big on the right: only the opponent's plays do
+        }
+        played.setMouseTransparent(true);
+        TableFx.floatAndDrop(played);   // it floats above its slot, then drops onto it, before its effects
+        live.getChildren().add(played);
+        if (card instanceof MinionCard) {
+            Minion minion = you.getSide().getAt(slot);
+            if (minion != null && minion.hasKeyword(Keyword.BANZAI)) {
+                status.follow(played);
+                TableFx.afterLanding(card, () -> status.banzai(minion, SLOT_X + 2 + slot * SLOT_STEP, YOUR_Y));   // 万歳! bursts out once it has landed
+            }
+        }
+    }
+
+    /** Your hand, drawn again from your cards (after a play, the card is no longer in it). */
+    private void drawHand() {
+        live.getChildren().remove(hand);
+        hand = new HandView(you, this::drop, this::trade, this::previewCost, this::costOf, this::bonusOf, this::canPlay);
+        hand.setVisible(dealt);
+        live.getChildren().add(hand);
+    }
+
+    /**
+     * Shows what an engine action did, then redraws: waits `pauseMs` (the card just played stays where it was dropped),
+     * plays the effects one step after the other on the cards still on screen, holds `showMs`, then redraws and runs `then`.
+     * With nothing to show, the hold is skipped.
+     */
+    public void replay(List<GameEvent> events, double pauseMs, double showMs, Runnable then) {
+        double hold = showMs;
+        if (events.isEmpty()) {
+            hold = 0;
+        }
+        double holdMs = hold;
+        PauseTransition pause = new PauseTransition(Duration.millis(pauseMs));
+        pause.setOnFinished(e -> afterSignature(events, () -> showFrom(events, 0, () -> {   // the card's move, the effects step by step, the hold
+            arrivals();   // the minions that just came: smoke or petals
+            PauseTransition wait = new PauseTransition(Duration.millis(holdMs));
+            wait.setOnFinished(f -> {
+                render();
+                if (yoi) {
+                    hand.sparkleCosts();   // the hand is new now, with its lowered costs
+                    yoi = false;
+                }
+                then.run();
+            });
+            wait.play();
+        })));
+        pause.play();
+    }
+
+
+    /** The card just played makes its own move first (Iaidō's draw, Nue's shockwave, Sakasama's flip…), then `then` runs. */
+    private void afterSignature(List<GameEvent> events, Runnable then) {
+        double ms = 0;
+        switch (signature) {
+            case "iaido" -> ms = SignatureFx.iaido(live);
+            case "nue" -> ms = SignatureFx.shockwave(live, SLOT_X + 2 + signatureSlot * SLOT_STEP + MINION_W / 2, YOUR_Y + 80);
+            case "enma" -> ms = SignatureFx.judgement(live);
+            case "sakasama" -> {
+                List<Node> enemies = new ArrayList<>();
+                for (Minion m : enemy.getSide().getMinions()) {
+                    enemies.add(nodes.get(m));
+                }
+                ms = SignatureFx.upsideDown(enemies);
+            }
+            case "chiburi", "katana-kaji" -> {
+                if (nodes.get(you.getHero()).getProperties().get("weapon") instanceof Node blade) {
+                    Fx.sparks(live, blade);
+                    ms = 400;
+                }
+            }
+            case "raijin" -> ms = SignatureFx.slices(live, raijinCuts(events));
+            case "ketto" -> ms = duel();
+            default -> { }   // no move of its own
+        }
+        signature = "";
+        PauseTransition wait = new PauseTransition(Duration.millis(ms));
+        wait.setOnFinished(e -> then.run());
+        wait.play();
+    }
+
+    /** Raijin: one cut per point of damage on each character it hit, in a random order (12 in all). */
+    private List<Node> raijinCuts(List<GameEvent> events) {
+        List<Node> cuts = new ArrayList<>();
+        for (GameEvent e : events) {
+            Node target = nodes.get(e.target());
+            boolean raijinHit = e.type() == GameEvent.Type.DAMAGE && e.source() instanceof Minion m && m.getSource().getId().equals("raijin");
+            if (raijinHit && target != null) {
+                for (int i = 0; i < e.amount(); i++) {
+                    cuts.add(target);
+                }
+            }
+        }
+        Collections.shuffle(cuts);
+        return cuts;
+    }
+
+    /** Kettō: the two minions clash inside a cloud of smoke that clears on the survivor; then the winner shows the HP it lost. */
+    private double duel() {
+        List<Combatant> pair = new ArrayList<>(duelHp.keySet());
+        if (pair.size() < 2 || nodes.get(pair.get(0)) == null || nodes.get(pair.get(1)) == null) {
+            return 0;
+        }
+        Node loser = null;
+        for (Combatant c : pair) {
+            if (c.isDead()) {
+                loser = nodes.get(c);   // vanishes inside the smoke
+            }
+        }
+        double ms = SignatureFx.duel(live, nodes.get(pair.get(0)), nodes.get(pair.get(1)), loser);
+        for (Combatant c : pair) {
+            if (!c.isDead()) {
+                Node winner = nodes.get(c);
+                int lost = duelHp.get(c) - c.getHealth();
+                PauseTransition back = new PauseTransition(Duration.millis(ms));
+                back.setOnFinished(e -> Fx.damageNumber(live, winner, lost));
+                back.play();
+            }
+        }
+        return ms;
+    }
+
+    /** How long one step of effects plays before the next one starts, and how long a trap takes to flip, be read and start its cut. */
+    private static final double STEP_MS = 450, TRAP_STEP_MS = 900, LUNGE_MS = 700;
+    /** How long an effect's banner shows before the effect itself plays. */
+    private static final double TRIGGER_MS = 1000;
+
+    /** An effect about to go off (Seppuku, a turn effect, a Shrine, Gaki): its card's name on a banner, then the effect. */
+    private double trigger(Object source) {
+        Card card = null;
+        String what = "Effect";
+        Color colour = Color.web("#c9a227");
+        if (source instanceof Minion m) {
+            card = m.getSource();
+            if (m.isDead()) {
+                what = "Seppuku";
+                colour = Color.CRIMSON;
+            }
+        } else if (source instanceof Shrine s) {
+            card = s.getSource();
+            what = "Shrine";
+            colour = Color.web("#9a86c4");
+        } else if (source instanceof Card c) {
+            card = c;
+            what = "Curse";
+            colour = Color.web("#6b2d8b");
+        }
+        if (card == null) {
+            return 0;   // an Oath: its reward already has its stamp and banner
+        }
+        EventBanner.show(table, card.getNameKanji(), card.getNameRomaji(), what, colour);
+        Node node = nodes.get(source);
+        if (node != null && card.getId().equals("fuma-kotaro")) {
+            Bounds box = node.getBoundsInParent();
+            SignatureFx.puff(live, box.getCenterX(), box.getCenterY());   // Yogake: he vanishes into smoke
+        }
+        if (node != null && card.getId().equals("inari-okami")) {
+            SignatureFx.foxfire(live, node);   // calls a kitsune at the end of the turn
+        }
+        return TRIGGER_MS;
+    }
+
+    /**
+     * Shows the effects from index `from` one step after the other, then runs `then`. A step is a run of the same effect
+     * from the same source (an area spell hits everyone at once); a trap is always a step of its own.
+     */
+    private void showFrom(List<GameEvent> events, int from, Runnable then) {
+        if (from >= events.size()) {
+            then.run();
+            return;
+        }
+        GameEvent first = events.get(from);
+        int next = from;
+        double stepMs = 0;
+        do {
+            stepMs = Math.max(stepMs, show(events.get(next)));
+            next++;
+        } while (next < events.size() && first.type() != GameEvent.Type.TRAP_TRIGGERED
+                && events.get(next).type() == first.type() && events.get(next).source() == first.source());
+        int after = next;
+        PauseTransition step = new PauseTransition(Duration.millis(stepMs));
+        step.setOnFinished(e -> showFrom(events, after, then));
+        step.play();
+    }
+
+    /** One effect: a slash and the red number for damage, the healing number, the cut for a death, a trap flipping face up.
+     *  Returns how long it plays, so the next step waits for it. */
+    private double show(GameEvent event) {
+        if (event.type() == GameEvent.Type.TRAP_TRIGGERED) {
+            revealTrap((TrapCard) event.target());
+            return TRAP_STEP_MS;
+        }
+        if (event.type() == GameEvent.Type.EFFECT_TRIGGERED) {
+            return trigger(event.source());
+        }
+        if (event.type() == GameEvent.Type.DICE_ROLLED) {
+            return SignatureFx.dice(live, W / 2, H / 2, event.amount());   // Kunisada: the die lands first, his hit is the next step
+        }
+        if (event.type() == GameEvent.Type.CLOCK_CUT) {
+            return clockCut((Player) event.source(), event.amount());
+        }
+        if (event.type() == GameEvent.Type.GODAI_GAINED) {
+            return becomeShingen((Player) event.source());
+        }
+        Node node = nodes.get(event.target());
+        if (node == null) {
+            return 0;   // not on screen before the action (summoned by it): it simply appears with the redraw
+        }
+        switch (event.type()) {
+            case DAMAGE -> {
+                Sound.play(HIT);   // every hit: attacks, minion effects, hero powers, spells
+                Fx.slash(live, node);
+                Fx.damageNumber(live, node, event.amount());
+            }
+            case HEAL -> Fx.heal(live, node, event.amount());
+            case MINION_DIED -> {
+                if (event.target() instanceof Minion m && m.hasKeyword(Keyword.SEPPUKU)) {
+                    SignatureFx.seppuku(live, node);   // the blade drives in; its Seppuku effect is the next step
+                }
+                Fx.deathCut(live, node);
+            }
+            case MINION_REMOVED -> SignatureFx.vanish(node);   // Kamikakushi: spirited away
+            case SILENCED -> {
+                silenced.add((Minion) event.target());   // Shike: grey for the rest of the match
+                node.setEffect(grey(node.getEffect()));
+            }
+            case FATIGUE -> EventBanner.show(table, "疲労", "Fatigue", event.amount() + " damage: the deck is empty", Color.web("#8b0000"));
+            case ATTACK -> {
+                Node attacker = nodes.get(event.source());
+                if (attacker != null) {
+                    Fx.attack(attacker, node, () -> { });   // Yogake: each enemy minion lunges at another one
+                }
+                return LUNGE_MS;
+            }
+            default -> {
+                return 0;   // nothing to show (a card added to the hand flies in after the redraw)
+            }
+        }
+        return STEP_MS;
+    }
+
+    /**
+     * Your minions that were not on screen before the action make their entrance: black smoke for the dead brought back
+     * (Kuchiyose, Izanami), white smoke for an Ancestor, sakura petals for a Miko.
+     */
+    private void arrivals() {
+        for (int slot = 0; slot < BoardSide.MAX; slot++) {
+            Minion m = you.getSide().getAt(slot);
+            if (m == null || nodes.containsKey(m)) {
+                continue;   // empty, or already on screen
+            }
+            double x = SLOT_X + 2 + slot * SLOT_STEP;
+            String id = m.getSource().getId();
+            if (rising) {
+                tableFx.smoke(x, false);
+            } else if (id.equals("ancestor")) {   // RiteCard.ancestorCard()
+                tableFx.smoke(x, true);
+            } else if (id.equals(GameEngine.MIKO_ID)) {
+                tableFx.petals(x);
+            }
+        }
+        rising = false;
+    }
+
+
+
+
     /** You just set a trap: it is shown big, flips, and glides to its place next to your hero. */
     public void showTrapSet(TrapCard trap) {
         int index = you.getTraps().indexOf(trap);
@@ -278,48 +781,24 @@ public class BoardView extends Pane {
         });
     }
 
-
-    /** True from the end of a turn until the pass veil is clicked: banners and stamps wait, so the veil doesn't hide them. */
-    private boolean holdingEffects;
-    /** The banners and stamps waiting for the veil to lift, in order. */
-    private final List<Runnable> heldEffects = new ArrayList<>();
-    /** Time between two held effects, so they don't play on top of each other. */
-    private static final Duration HELD_GAP = Duration.millis(1900);
-
     /** From now until the next pass veil is clicked, banners and stamps wait (MatchController calls it as a turn ends). */
     public void holdEffects() {
-        holdingEffects = true;
+        heldEffects.hold();
     }
 
-    /** Runs the effect now, or keeps it for when the pass veil lifts. */
-    private void runOrHold(Runnable effect) {
-        if (holdingEffects) {
-            heldEffects.add(effect);
-            return;
-        }
-        effect.run();
-    }
 
-    /** The veil has lifted: the waiting effects play one after the other. */
-    private void releaseEffects() {
-        holdingEffects = false;
-        for (int i = 0; i < heldEffects.size(); i++) {
-            Runnable effect = heldEffects.get(i);
-            PauseTransition wait = new PauseTransition(HELD_GAP.multiply(i));
-            wait.setOnFinished(event -> effect.run());
-            wait.play();
-        }
-        heldEffects.clear();
-    }
+
+
+
 
     /** A short announcement across the middle of the table (Curses, Rites, Shrines, Oaths). On `table`, so a redraw doesn't erase it. */
     public void announce(String kanji, String title, String subtitle, Color colour) {
-        runOrHold(() -> EventBanner.show(table, kanji, title, subtitle, colour));
+        heldEffects.runOrHold(() -> EventBanner.show(table, kanji, title, subtitle, colour));
     }
 
     /** An Oath reward (3, 6 or 9 stacks): the red seal slams onto the player's small Oath scroll. */
     public void stampOath(Player p) {
-        runOrHold(() -> {
+        heldEffects.runOrHold(() -> {
             // Where the player's small scroll is now (the board may have flipped since the reward).
             double zoneY = 107;
             if (p == you) {
@@ -349,6 +828,21 @@ public class BoardView extends Pane {
         });
     }
 
+    /** A hero has died: the first time, it burns into dust before the Victory / Defeat seal; after that, only the seal. */
+    private void endGame(boolean won) {
+        Hero dead = you.getHero();
+        if (won) {
+            dead = enemy.getHero();
+        }
+        Node node = nodes.get(dead);
+        if (burnt || node == null) {
+            gameOver(won);
+            return;
+        }
+        burnt = true;
+        HeroBurn.play(node, () -> gameOver(won));
+    }
+
     /** Game over: a dark veil over the whole table blocks every click, with the 勝利 Victory or 敗北 Defeat seal in the middle. */
     private void gameOver(boolean won) {
         ImageView seal = image(DEFEAT);
@@ -357,7 +851,10 @@ public class BoardView extends Pane {
         }
         seal.setFitHeight(END_H);
         seal.setPreserveRatio(true);
-        StackPane end = new StackPane(new Rectangle(W, H, Color.rgb(0, 0, 0, 0.6)), seal);
+        // The seal, and under it a haiku for the class at the bottom (EndHaiku).
+        VBox sealAndHaiku = new VBox(10, seal, EndHaiku.of(you.getHero().getHeroClass(), won));
+        sealAndHaiku.setAlignment(Pos.CENTER);
+        StackPane end = new StackPane(new Rectangle(W, H, Color.rgb(0, 0, 0, 0.6)), sealAndHaiku);
         end.setOnMousePressed(e -> onGameOver.run());
         table.getChildren().add(end);
     }
@@ -399,14 +896,33 @@ public class BoardView extends Pane {
         enemyClock.setVisible(false);
     }
 
-    /** Both chess clocks: the active one is big and bright, the other small and grey (GDD). */
-    public void showClocks(String yours, String theirs, boolean yourTurn) {
+    /**
+     * Both chess clocks: the active one is big and bright, the other small and grey (GDD).
+     * In a hurry (under 30 s), the bottom clock turns red, and each new second it pops and ticks.
+     */
+    public void showClocks(String yours, String theirs, boolean yourTurn, boolean hurry) {
         yourClock.setVisible(true);
         enemyClock.setVisible(true);
         yourClock.setText(yours);
         enemyClock.setText(theirs);
         clock(yourClock, yourTurn);
         clock(enemyClock, !yourTurn);
+
+        String style = HUD + " -fx-font-size: 22;";
+        if (hurry) {
+            style = style + " -fx-text-fill: #ff3b30;";   // red
+            if (!yours.equals(lastHurrySecond)) {   // a new second: tick and pop, once
+                lastHurrySecond = yours;
+                Sound.play(TICK);
+                ScaleTransition pop = new ScaleTransition(Duration.millis(300), yourClock);
+                pop.setFromX(1.25);
+                pop.setFromY(1.25);
+                pop.setToX(1);
+                pop.setToY(1);
+                pop.play();
+            }
+        }
+        yourClock.setStyle(style);
     }
 
 
@@ -471,17 +987,58 @@ public class BoardView extends Pane {
     /** What happens when the Samurai picks a blade: true if the engine accepted it. */
     public void setOnKatana(Predicate<KatanaTier> onKatana) { this.onKatana = onKatana; }
 
+    /** Takeda Shingen: who has Godai, which targets each element may take, and what using it does (true if accepted). */
+    public void setGodai(Predicate<Player> hasGodai, BiPredicate<GodaiElement, Combatant> godaiTarget, BiPredicate<GodaiElement, Combatant> onGodai) {
+        this.hasGodai = hasGodai;
+        this.godaiTarget = godaiTarget;
+        this.onGodai = onGodai;
+    }
+
+    /** Akechi Mitsuhide: a red "-30" pops over the robbed player's clock. */
+    private double clockCut(Player p, int seconds) {
+        Label clock = enemyClock;
+        if (p == you) {
+            clock = yourClock;
+        }
+        Fx.damageNumber(live, clock, seconds);
+        return STEP_MS;
+    }
+
+    /** Takeda Shingen: smoke wraps the hero's scroll and Shingen comes out of it; the redraw after the replay keeps him. */
+    private double becomeShingen(Player p) {
+        setPortrait(p, "takeda-shingen");
+        StackPane scroll = (StackPane) nodes.get(p.getHero());
+        ImageView face = (ImageView) scroll.getChildren().get(0);   // hero(): the portrait is the scroll's first layer
+        return SignatureFx.transform(live, scroll, face, Images.get("/images/heroes/takeda-shingen.png"));
+    }
+
+    /** Takeda Shingen: this player's hero shows another portrait (images/heroes/<portrait>.png) from the next redraw. */
+    public void setPortrait(Player p, String portrait) {
+        if (p == you) {
+            yourPortrait = portrait;
+        } else {
+            enemyPortrait = portrait;
+        }
+    }
+
+    /** Izanagi: the enemy hand laid open over the table; the clicked card goes to onPick. */
+    public void chooseSteal(List<Card> cards, Predicate<Card> canTake, Consumer<Card> onPick) {
+        table.getChildren().add(new StealPicker(cards, canTake, onPick));
+    }
+
     /** Start of your turn: the hero power can be used again. */
     public void resetPower() {
-        powerUsed = false;
         render();
     }
 
     /** What happens when you pick an attacker and then a target (the match will call the engine here). */
-    public void setOnAttack(BiConsumer<Combatant, Combatant> onAttack) { this.onAttack = onAttack; }
+    public void setOnAttack(BiFunction<Combatant, Combatant, List<GameEvent>> onAttack) { this.onAttack = onAttack; }
 
     /** Dims, with a slow pulse, the part of your available Ki that a hovered card or power would cost (0 = none). */
     public void previewCost(int cost) { ki.preview(cost); }
+
+    /** The play history on the left, for MatchController to fill. */
+    public PlayHistory getHistory() { return history; }
 
     public void setOnEndTurn(Runnable r) { onEndTurn = r; }
     /** What happens when you click "Swear again" on your Oath once Oathbreaker is over. */
@@ -490,6 +1047,13 @@ public class BoardView extends Pane {
     /** Start of a match: the class's Oath choice covers the table until one is sworn (GDD, Oaths). */
     public void chooseOath(HeroClass c, Consumer<String> onSworn) { table.getChildren().add(new OathView(c, onSworn)); }
 
+
+    /** Start of a match: p's opening hand covers the table; `exchange` swaps the cards sent back (engine.mulligan), then onDone. */
+    public void mulligan(Player p, Function<List<Card>, List<Card>> exchange, Runnable onDone) {
+        table.getChildren().add(new MulliganView(p, exchange, onDone));
+    }
+    
+    
     private final Map<Player, String> oaths = new HashMap<>();
     /** Records the Oath a player swore; it then shows next to their hero. */
     public void swear(Player p, String oath) { oaths.put(p, oath); render(); }
@@ -522,17 +1086,35 @@ public class BoardView extends Pane {
         }
     }
 
-    /** Your Oath stacks, bottom left: 9 marks, the 3 / 6 / 9 reward marks bigger with a gold ring; earned marks are red. */
+    /** Your Oath stacks, bottom left: a tag, then 9 marks (the 3 / 6 / 9 reward marks bigger with a gold ring; earned marks are red). A newly earned mark pops in. */
     private void stackCounter() {
         if (!oaths.containsKey(you)) return;
         int n = stacksOf(you);
+        int before = stacksShown.getOrDefault(you, n);   // what this player's counter showed last time
+        stacksShown.put(you, n);
+        place(hud(new Label("誓約  OATH STACKS"), 0, 0, 150, 22, 13), 55, 808);
         for (int i = 1; i <= 9; i++) {
             Circle c = new Circle(i % 3 == 0 ? 11 : 7, i <= n ? Color.web("#c41e1e") : Color.rgb(0, 0, 0, 0.35));
             c.setStroke(i % 3 == 0 ? Color.GOLD : Color.web("#f3ede1"));
             c.setStrokeWidth(2);
             place(c, 40 + i * 30, 840);
+            if (i > before && i <= n) {
+                pop(c);   // just earned
+            }
         }
         place(hud(new Label("誓 " + n + " / 9"), 0, 0, 90, 30, 16), 340, 829);
+    }
+
+    /** A just-earned Oath mark: it appears big and glowing gold, then settles into its place. */
+    private static void pop(Circle mark) {
+        mark.setEffect(new DropShadow(18, Color.GOLD));
+        ScaleTransition settle = new ScaleTransition(Duration.millis(450), mark);
+        settle.setFromX(2.4);
+        settle.setFromY(2.4);
+        settle.setToX(1);
+        settle.setToY(1);
+        settle.setInterpolator(Interpolator.EASE_OUT);
+        settle.play();
     }
 
     /** The player's Oath stacks, read from the engine's Oath (0 before an Oath is sworn). */
@@ -545,10 +1127,8 @@ public class BoardView extends Pane {
 
     /** Adventure: the AI's turn is over and you play again at the bottom (the board never flips): End turn works again. */
     public void yourTurn() {
-        endTurn.setImage(SWITCH_ON);
-        endTurn.setDisable(false);
+        switchEndTurn(true);
         selected = null;
-        powerUsed = false;
         aiming = false;
         held = null;
         render();
@@ -556,8 +1136,7 @@ public class BoardView extends Pane {
 
     /** Hotseat: the other player now sits at the bottom (their hand, Ki and hero power) and the board flips. */
     public void swapSides() {
-        endTurn.setImage(SWITCH_ON);
-        endTurn.setDisable(false);
+        switchEndTurn(true);
         Player p = you;
         you = enemy;
         enemy = p;
@@ -565,7 +1144,6 @@ public class BoardView extends Pane {
         yourPortrait = enemyPortrait;
         enemyPortrait = s;
         selected = null;
-        powerUsed = false;
         aiming = false;
         held = null;
         render();
@@ -576,7 +1154,7 @@ public void passTo(String name, Runnable onReady) {
         Label text = new Label("次の番\nPass to " + name + "\n\nclick when ready");
         text.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 56; -fx-font-weight: bold; -fx-text-alignment: center; -fx-text-fill: #f3ede1;");
         StackPane veil = new StackPane(new Rectangle(W, H, Color.rgb(0, 0, 0, 0.95)), text);
-        veil.setOnMousePressed(e -> { table.getChildren().remove(veil); onReady.run(); releaseEffects(); });
+        veil.setOnMousePressed(e -> { table.getChildren().remove(veil); onReady.run(); heldEffects.release(); });
         table.getChildren().add(veil);
     }
 
@@ -599,7 +1177,14 @@ public void passTo(String name, Runnable onReady) {
         }
         if (top != null) Tooltip.install(top, new Tooltip(n + " cards left"));
         double tx = bx - (layers - 1) * 1.5, ty = by - (layers - 1) * 1.5;
-        place(hud(new Label(String.valueOf(n)), 0, 0, 44, 30, 18), tx + MINION_W / 2 - 22, ty + cardH - 40);
+        Label count = hud(new Label(String.valueOf(n)), 0, 0, 44, 30, 18);
+        if (n == 0 && player != null) {
+            int fatigue = player.nextFatigue(p);
+            count.setText("-" + fatigue);   // empty deck: the damage of the next draw, in red
+            count.setStyle(count.getStyle() + " -fx-text-fill: #ff5a4a;");
+            Tooltip.install(count, new Tooltip("Empty deck: the next draw deals " + fatigue + " damage to the hero"));
+        }
+        place(count, tx + MINION_W / 2 - 22, ty + cardH - 40);
     }
 
     /** A card back w wide, with the cards' rounded corners. */
@@ -657,12 +1242,12 @@ public void passTo(String name, Runnable onReady) {
             }
 
             double x = SLOT_X + 2 + slot * SLOT_STEP;
-            groundShadow(x, y);
+            tableFx.groundShadow(x, y);
 
-            MinionView view = new MinionView(minion, MINION_W);
+            MinionView view = new MinionView(minion, MINION_W, p != you && "oishi-kuranosuke".equals(minion.getSource().getId()));   // Oishi hides his stats from the opponent
             clickable(view, minion, p == you);
-            if (minion.isHidden() && view.getEffect() == null) {
-                view.setEffect(new ColorAdjust(0, -0.4, -0.45, 0));   // Shinobi: darkened while hidden
+            if (silenced.contains(minion)) {
+                view.setEffect(grey(view.getEffect()));   // silenced by Shike: no keywords, no effects
             }
 
             // The big preview opens on the left for the right-hand slots, so it stays on screen.
@@ -682,24 +1267,27 @@ public void passTo(String name, Runnable onReady) {
                 status.flag(minion, x, y);   // after the gates, so the flag lies on top of a Shirodu gate
             }
             if (minion.isHidden()) {
-                status.shinobi(x, y);
+                status.shinobi(view, minion, x, y);
             }
             if (minion.hasKeyword(Keyword.SEPPUKU)) {
                 status.seppuku(x, y);
+            }
+            if (minion.getArmour() > 0) {
+                status.armour(minion, x, y);
             }
             if (minion.hasKeyword(Keyword.BANZAI)) {
                 status.banzai(minion, x, y);
             }
             if (minion.hasStatus(Status.SLEEP)) {
-                status.sleep(x, y);
+                status.sleep(minion, x, y);
             }
         }
     }
 
-    /** A Shrine in its slot: its card with the turns it has left, a big copy on hover, and its aura glowing on the two slots beside it. */
+    /** A Shrine in its slot: its card with the turns it has left, a big copy on hover, and its aura glowing on the slots it reaches. */
     private void shrine(Shrine shrine, int slot, double y) {
         double x = SLOT_X + 2 + slot * SLOT_STEP;
-        groundShadow(x, y);
+        tableFx.groundShadow(x, y);
         ShrineView view = new ShrineView(shrine, MINION_W);
         place(view, x, y);
 
@@ -713,11 +1301,15 @@ public void passTo(String name, Runnable onReady) {
         double bigY = Math.max(10, Math.min(H - bigH - 10, y + 80 - bigH / 2));
         bigOnHover(view, () -> new ShrineView(shrine, bigW), bigX, bigY);
 
-        if (slot > 0) {
-            auraGlow(slot - 1, y);
+        // Its aura glows on the slots it reaches: 2 on each side for Motonosumi Jinja, 1 for every other Shrine.
+        int reach = 1;
+        if (shrine.getSource().getId().equals("motonosumi-shrine")) {
+            reach = 2;   // same as FamilyEffects.MOTONOSUMI_REACH in the engine
         }
-        if (slot < BoardSide.MAX - 1) {
-            auraGlow(slot + 1, y);
+        for (int other = slot - reach; other <= slot + reach; other++) {
+            if (other != slot && other >= 0 && other < BoardSide.MAX) {
+                auraGlow(other, y);
+            }
         }
     }
 
@@ -781,9 +1373,13 @@ public void passTo(String name, Runnable onReady) {
         }
         clickable(box, h, mine);
         place(box, W / 2 - wid / 2, zoneY + (119 - hgt) / 2);
+        if (h.hasLastStand() || h.isUntouchable()) {
+            status.follow(box);
+            status.kagemusha(h, W / 2 - wid / 2, zoneY + (119 - hgt) / 2, wid, hgt);
+        }
         if (h.hasStatus(Status.SLEEP)) {
             status.follow(box);
-            status.sleep(W / 2 + wid / 2 - BoardView.MINION_W - 10, zoneY);   // zzz from the hero's top-right corner
+            status.sleep(h, W / 2 + wid / 2 - BoardView.MINION_W - 10, zoneY);   // zzz from the hero's top-right corner
         }
         if (h.getHeroClass() == HeroClass.SAMURAI) weaponSlot(h, box, zoneY);
     }
@@ -818,7 +1414,7 @@ public void passTo(String name, Runnable onReady) {
     }
 
     /** A picture from the resources in a new ImageView; the picture itself is decoded only once (Images keeps it). */
-    static ImageView image(String path) {
+    public static ImageView image(String path) {
         return new ImageView(Images.get(path));
     }
 
@@ -844,6 +1440,7 @@ public void passTo(String name, Runnable onReady) {
             n.setEffect(new DropShadow(BlurType.GAUSSIAN, Color.GOLD, 28, 0.45, 0, 0));   // Kettō: the first minion already picked
             n.setOnMouseClicked(e -> cancelHeld());
         } else if (heldTargets.contains(c)) {
+            markOnHover(n);
             n.setEffect(new DropShadow(30, Color.LIMEGREEN));
             n.setOnMouseClicked(e -> pick(c));
         } else {
@@ -878,8 +1475,16 @@ public void passTo(String name, Runnable onReady) {
         held = null;
         firstPick = null;
         int cost = costOf(card);   // read before the card leaves the hand
+        duelHp.clear();   // Kettō: both duellists' HP before the duel, to show what the winner loses
+        if (first != null && second != null) {
+            duelHp.put(first, first.getHealth());
+            duelHp.put(second, second.getHealth());
+        }
         if (player.play(card, slot, first, second)) {
-            impact(cost, false);
+            TableFx.afterLanding(card, () -> {
+                tableFx.impact(cost, false);   // the shake and the thud come when the minion hits its slot
+                TableFx.heavyLanding(card);
+            });
         }
     }
 
@@ -897,6 +1502,14 @@ public void passTo(String name, Runnable onReady) {
             return false;
         }
         return player.canPlay(card);
+    }
+
+    /** What to add to the damage or healing number of a hand card (Ryū, Oaths, Chikara); 0 until the match is plugged in. */
+    private int bonusOf(Card card) {
+        if (player == null) {
+            return 0;
+        }
+        return player.bonus(card);
     }
 
     /** Attack selection on one character. Yours that can attack: yellow border (thicker on hover, gold glow when picked),
@@ -918,6 +1531,7 @@ public void passTo(String name, Runnable onReady) {
             n.setOnMouseExited(e -> { if (c != selected) n.setEffect(border(8)); });
             n.setOnMouseClicked(e -> { selected = c == selected ? null : c; render(); });
         } else if (!mine && selected != null && canTarget(c)) {
+            markOnHover(n);
             n.setEffect(new DropShadow(30, Color.CRIMSON));
             n.setOnMouseClicked(e -> {
                 Combatant attacker = selected;
@@ -930,59 +1544,104 @@ public void passTo(String name, Runnable onReady) {
     }
 
     /** The yellow "ready to attack" border: a crisp outline whose thickness grows with the radius. */
-    static DropShadow border(double radius) {
+    public static DropShadow border(double radius) {
         return new DropShadow(BlurType.GAUSSIAN, Color.web("#ffd84a"), radius, 0.8, 0, 0);
     }
 
-    /** Stand-in for the engine's validTargets: visible Shirodu minions must be hit first, hidden Shinobi can't be targeted (a hidden Shirodu does not guard). */
+    /** Whether the selected attacker may hit t, by the engine's own rule (Shirodu first, no hidden Shinobi, Stealth…). */
     private boolean canTarget(Combatant t) {
-        List<Minion> walls = enemy.getSide().shirodus().stream().filter(m -> !m.isHidden()).toList();
-        if (t instanceof Minion m) return !m.isHidden() && (walls.isEmpty() || walls.contains(m));
-        return walls.isEmpty();
+        return player.attackTargets(selected).contains(t);
     }
 
-    /** A soft dark patch under a card so it looks like it lies on the table. */
-    private void groundShadow(double x, double y) {
-        Rectangle r = new Rectangle(x - 4, y - 1, MINION_W + 8, MINION_W * CardView.H / CardView.W + 9);
-        r.setArcWidth(16);
-        r.setArcHeight(16);
-        r.setFill(Color.rgb(0, 0, 0, 0.45));
-        r.setEffect(new GaussianBlur(10));
-        r.setMouseTransparent(true);
-        live.getChildren().add(r);
+    /** While aiming: the target rings appear centred on n when the mouse is over it, and go away when it leaves. */
+    private void markOnHover(Node n) {
+        n.addEventHandler(MouseEvent.MOUSE_ENTERED, e -> {
+            Bounds box = table.sceneToLocal(n.localToScene(n.getBoundsInLocal()));
+            targetMark.relocate(box.getCenterX() - MARK_W / 2, box.getCenterY() - MARK_W / 2);
+            targetMark.setVisible(true);
+        });
+        n.addEventHandler(MouseEvent.MOUSE_EXITED, e -> targetMark.setVisible(false));
     }
 
-    /** Screen shake when a card lands: 6+ Ki shakes; 10+ Ki shakes longer and harder, and every minion on the board wobbles. */
-    private void impact(int ki, boolean attack) {
-        if (ki < 6 && !attack) return;
-        double strength = ki >= 10 ? 14 : ki >= 6 ? 6 : 3;
-        int jolts = ki >= 10 ? 15 : ki >= 6 ? 10 : 6;
-        List<MinionView> cards = ki < 10 ? List.of()
-                : live.getChildren().stream().filter(MinionView.class::isInstance).map(MinionView.class::cast).toList();
-        Timeline t = new Timeline();
-        for (int i = 0; i <= jolts; i++) {
-            double fade = 1 - (double) i / jolts;
-            List<KeyValue> moves = new ArrayList<>(List.of(
-                    new KeyValue(table.translateXProperty(), (Math.random() * 2 - 1) * strength * fade),
-                    new KeyValue(table.translateYProperty(), (Math.random() * 2 - 1) * strength * fade)));
-            for (MinionView c : cards) moves.add(new KeyValue(c.rotateProperty(), (Math.random() * 2 - 1) * 8 * fade));
-            t.getKeyFrames().add(new KeyFrame(Duration.millis(i * 35), moves.toArray(KeyValue[]::new)));
+    /** Where the targeting arrow starts: the selected attacker, or your hero for a held card or a hero power; null when nothing aims. */
+    private Node arrowSource() {
+        if (selected != null) {
+            return nodes.get(selected);
         }
-        t.play();
+        if (held != null || aiming) {
+            return nodes.get(you.getHero());
+        }
+        return null;
+    }
+
+    /** Points the targeting arrow from its source to the mouse at (x, y) on the table; hides it when nothing aims. */
+    private void pointArrow(double x, double y) {
+        Node from = arrowSource();
+        if (from == null) {
+            arrow.setVisible(false);
+            return;
+        }
+        Bounds box = table.sceneToLocal(from.localToScene(from.getBoundsInLocal()));
+        arrow.span(box.getCenterX(), box.getCenterY(), x, y);
+        arrow.setVisible(true);
+    }
+
+
+
+
+
+
+    /** The hero power's text when its strength changes: Yatsu-kubi's current damage per bite; null for the others. */
+    private static String powerEffect(Player p) {
+        if (p.getHero().getHeroClass() != HeroClass.OROCHI) {
+            return null;
+        }
+        return "8 bites of " + GameEngine.yatsuKubiDamage(p) + " damage at random";   // angrier as he is wounded
     }
 
     /** A hero power in its mock-up zone; yours can be pressed once per turn (pays the Ki), the opponent's is only shown. */
     private void power(Player p, double zoneY, boolean mine) {
-        boolean usable = mine && !powerUsed && you.canAfford(cheapestPower());
-        HeroPowerView v = new HeroPowerView(p.getHero().getHeroClass(), mine && powerUsed, usable, this::previewCost,
+        boolean usable = mine && !powerUsed() && you.canAfford(cheapestPower());
+        String effect = powerEffect(p);
+        HeroPowerView v = new HeroPowerView(p.getHero().getHeroClass(), hasGodai.test(p), effect, mine && powerUsed(), usable, this::previewCost,
                 this::pressPower);
         bigOnHover(v, () -> {
-            Node b = new HeroPowerView(p.getHero().getHeroClass(), mine && powerUsed, false, c -> {}, () -> {});
+            Node b = new HeroPowerView(p.getHero().getHeroClass(), hasGodai.test(p), effect, mine && powerUsed(), false, c -> {}, () -> {});
             b.setScaleX(2.5);
             b.setScaleY(2.5);
             return b;
         }, 900, 330);
         place(v, 948 + (158 - HeroPowerView.SIZE) / 2, zoneY + (113 - HeroPowerView.SIZE) / 2);
+        if (p.getHero().getHeroClass() == HeroClass.KANNUSHI) {
+            mikoCounter(p, zoneY);
+        }
+    }
+
+    /** One slot of the Miko counter, and the gap between two. */
+    private static final double MIKO_SLOT_W = 20, MIKO_SLOT_GAP = 5;
+
+    /**
+     * The Kannushi's Miko counter under its hero power: one slot per Miko of the next +1/+1 (GameEngine.MIKO_BONUS_EVERY),
+     * filled for each Miko called since the last bonus; at the bonus they all empty again.
+     */
+    private void mikoCounter(Player p, double zoneY) {
+        int filled = p.getMikoCalls() % GameEngine.MIKO_BONUS_EVERY;
+        HBox row = new HBox(MIKO_SLOT_GAP);
+        for (int i = 0; i < GameEngine.MIKO_BONUS_EVERY; i++) {
+            String state = "empty";
+            if (i < filled) {
+                state = "full";
+            }
+            ImageView slot = image("/images/fx/miko-counter-" + state + ".png");
+            slot.setFitWidth(MIKO_SLOT_W);
+            slot.setPreserveRatio(true);
+            Circle ring = new Circle(MIKO_SLOT_W / 2, Color.TRANSPARENT);
+            ring.setStroke(Color.web("#1f1b17"));
+            ring.setStrokeWidth(2.5);   // a thick dark edge, so the small slots stay readable
+            row.getChildren().add(new StackPane(slot, ring));
+        }
+        double width = GameEngine.MIKO_BONUS_EVERY * (MIKO_SLOT_W + MIKO_SLOT_GAP) - MIKO_SLOT_GAP;
+        place(row, 948 + (158 - width) / 2, zoneY + (113 + HeroPowerView.SIZE) / 2 + 4);   // just under the hero power
     }
 
     /**
@@ -990,12 +1649,13 @@ public void passTo(String name, Runnable onReady) {
      * Samurai: pick a blade first.
      */
     private void pressPower() {
+        if (hasGodai.test(you)) {
+            chooseElement();   // Takeda Shingen: the gorinto rises
+            return;
+        }
         HeroClass heroClass = you.getHero().getHeroClass();
         if (heroClass == HeroClass.KANNUSHI) {
-            if (onPower.test(null)) {
-                powerUsed = true;
-            }
-            render();
+            onPower.test(null);   // accepted: the match replays it (the Miko's petals), then redraws
         } else if (heroClass == HeroClass.SAMURAI) {
             chooseBlade();
         } else {
@@ -1005,12 +1665,31 @@ public void passTo(String name, Runnable onReady) {
         }
     }
 
+    /** Godai: the gorinto picker over the table; the picked element then aims, or lands at once when it has nothing to aim at. */
+    private void chooseElement() {
+        table.getChildren().add(new GodaiPicker(element -> {
+            if (godaiTarget.test(element, null)) {
+                godaiHit(element, null);   // Earth with no friendly minion: only the armour
+                return;
+            }
+            godaiAim = element;
+            aiming = true;
+            selected = null;
+            render();   // the element's targets now glow
+        }, () -> {}));
+    }
+
+    /** Godai lands: the engine applies the element, the match replays its effects and redraws. */
+    private void godaiHit(GodaiElement element, Combatant target) {
+        if (!onGodai.test(element, target)) {
+            render();   // refused by the engine: nothing happens
+        }
+    }
+
     /** Samurai: the blade picker over the table; the picked blade is equipped if the engine accepts it. */
     private void chooseBlade() {
         KatanaPicker picker = new KatanaPicker(you.getKi(), tier -> {
-            if (onKatana.test(tier)) {
-                powerUsed = true;
-            }
+            onKatana.test(tier);
             render();   // the blade appears on the rack, with the ATK badge
         }, () -> {});
         table.getChildren().add(picker);
@@ -1018,15 +1697,25 @@ public void passTo(String name, Runnable onReady) {
 
     /** The least Ki your power can cost: the Bokken (1) for the Samurai, HERO_POWER_COST for the others. */
     private int cheapestPower() {
+        if (hasGodai.test(you)) {
+            return GameEngine.HERO_POWER_COST;   // Godai costs the same for every element
+        }
         if (you.getHero().getHeroClass() == HeroClass.SAMURAI) {
             return KatanaTier.BOKKEN.getKiCost();
         }
         return GameEngine.HERO_POWER_COST;
     }
 
+
+    /** True once your hero power was used this turn: the engine's count, so Kuji-in's refresh shows at once. */
+    private boolean powerUsed() {
+        return player != null && player.powerUsed();
+    }
+
     /** While aiming a hero power: each character it may hit glows violet and takes the power on click; anything else cancels. */
     private void aimable(Node n, Combatant c) {
         if (canPowerTarget(c)) {
+            markOnHover(n);
             n.setEffect(new DropShadow(30, Color.web("#b36bff")));
             n.setOnMouseClicked(e -> {
                 aiming = false;
@@ -1034,6 +1723,7 @@ public void passTo(String name, Runnable onReady) {
             });
         } else {
             n.setOnMouseClicked(e -> {
+                godaiAim = null;
                 aiming = false;
                 render();
             });
@@ -1042,6 +1732,9 @@ public void passTo(String name, Runnable onReady) {
 
     /** Shuriken and Jikininki may hit any living character, except an enemy minion hidden by Shinobi or an enemy hero in Stealth. */
     private boolean canPowerTarget(Combatant c) {
+        if (godaiAim != null) {
+            return godaiTarget.test(godaiAim, c);   // Godai: each element has its own targets
+        }
         boolean enemyCharacter = c == enemy.getHero() || enemy.getSide().getMinions().contains(c);
         if (!enemyCharacter) {
             return true;
@@ -1057,20 +1750,22 @@ public void passTo(String name, Runnable onReady) {
 
     /** Shuriken or Jikininki hits `target`: sparks and the red damage number on it, a dead minion is cut, then the board redraws. */
     private void powerHit(Combatant target, Node node) {
-        int lifeBefore = life(target);
+        if (godaiAim != null) {   // Godai: the chosen element lands on the clicked character
+            GodaiElement element = godaiAim;
+            godaiAim = null;
+            godaiHit(element, target);
+            return;
+        }
         if (!onPower.test(target)) {
             render();   // refused by the engine: nothing happens
             return;
         }
-        powerUsed = true;
-        Fx.sparks(live, node);
-        Fx.damageNumber(live, node, lifeBefore - life(target));
-        if (target.isDead()) {
-            Fx.deathCut(live, node);
+        Node hero = nodes.get(you.getHero());   // the match replays the damage and any death or trap, then redraws
+        if (you.getHero().getHeroClass() == HeroClass.ONI) {
+            SignatureFx.siphon(live, node, hero);   // Jikininki: a black beam drains the target into your hero
+        } else {
+            SignatureFx.shuriken(live, hero, node);   // a spinning star thrown from your hero
         }
-        PauseTransition wait = new PauseTransition(Duration.millis(900));
-        wait.setOnFinished(e -> render());
-        wait.play();
     }
 
     /** Plays an attack (GDD): lunge, slash, red damage on both, dead minions cut in half; the board redraws after. */
@@ -1084,7 +1779,7 @@ public void passTo(String name, Runnable onReady) {
      */
     public void aiAttack(Combatant attacker, Combatant target, Runnable then) {
         if (nodes.get(attacker) == null || nodes.get(target) == null) {
-            onAttack.accept(attacker, target);   // not on screen (should not happen): attack without the animation
+            onAttack.apply(attacker, target);   // not on screen (should not happen): attack without the animation
             render();
             then.run();
             return;
@@ -1093,27 +1788,45 @@ public void passTo(String name, Runnable onReady) {
     }
 
     private void fight(Combatant attacker, Combatant target, Runnable then) {
+        List<GameEvent> events = onAttack.apply(attacker, target);   // the engine first: a trap may move or cancel the attack
+        int attackAt = -1;
+        for (int i = 0; i < events.size(); i++) {
+            if (events.get(i).type() == GameEvent.Type.ATTACK) {
+                attackAt = i;
+                break;
+            }
+        }
+        if (attackAt < 0) {
+            replay(events, 0, 700, then);   // no attack (Otoshiana, or Shikomi andon killed the attacker): only its effects
+            return;
+        }
+        Combatant hit = (Combatant) events.get(attackAt).target();
+        if (hit != target) {
+            // Kawarimi: the trap and the log first (the redraw puts the log on screen), then the lunge at the log.
+            List<GameEvent> after = events.subList(attackAt + 1, events.size());
+            replay(events.subList(0, attackAt), 0, 0, () -> lunge(attacker, hit, after, then));
+            return;
+        }
+        List<GameEvent> rest = new ArrayList<>(events);
+        rest.remove(attackAt);   // this attack lunges now; any other ATTACK (Yogake's forced fights) lunges in the replay
+        lunge(attacker, target, rest, then);
+    }
+
+    /** The lunge at `target`, then on impact the hits, deaths and anything else the attack did, step by step, then the redraw. */
+    private void lunge(Combatant attacker, Combatant target, List<GameEvent> events, Runnable then) {
         Node a = nodes.get(attacker), t = nodes.get(target);
+        if (a == null || t == null) {
+            replay(events, 0, 700, then);
+            return;
+        }
         if (a.getProperties().get("float") instanceof Animation f) { f.stop(); a.setTranslateY(0); }
-        int aHp = life(attacker), tHp = life(target);
         Fx.attack(a, t, () -> {
-            onAttack.accept(attacker, target);
             status.broken(target);
             status.broken(attacker);
             crack(target, t);
             crack(attacker, a);
-            Fx.slash(live, t);
-            impact(attacker instanceof Minion m ? m.getSource().getKiCost() : 0, true);
-            Fx.damageNumber(live, t, tHp - life(target));
-            Fx.damageNumber(live, a, aHp - life(attacker));
-            if (target.isDead()) Fx.deathCut(live, t);
-            if (attacker.isDead()) Fx.deathCut(live, a);
-            PauseTransition wait = new PauseTransition(Duration.millis(attacker instanceof Hero ? 1300 : 1100));
-            wait.setOnFinished(e -> {
-                render();
-                then.run();
-            });
-            wait.play();
+            tableFx.impact(attacker instanceof Minion m ? m.getSource().getKiCost() : 0, true);
+            replay(events, 0, 700, then);   // the hits, a trap, the deaths, one step after the other, then the redraw
         });
     }
 
@@ -1123,13 +1836,21 @@ public void passTo(String name, Runnable onReady) {
         if (h.getArmour() == 0 && n.getProperties().get("armour") instanceof Node plate) Fx.deathCut(live, plate);
         if (h.getWeapon() == null && n.getProperties().get("weapon") instanceof Node blade) {
             PauseTransition back = new PauseTransition(Duration.millis(650));   // once the hero has glided back
-            back.setOnFinished(e -> { Fx.sparks(live, blade); Fx.deathCut(live, blade); impact(0, true); });
+            back.setOnFinished(e -> { Fx.sparks(live, blade); Fx.deathCut(live, blade); tableFx.impact(0, true); });
             back.play();
         }
     }
 
-    /** What a hit can take away: HP, plus armour for a hero. */
-    private static int life(Combatant c) { return c.getHealth() + (c instanceof Hero h ? h.getArmour() : 0); }
+    /** What a hit can take away: HP plus armour (heroes, and minions given armour by Yoroi). */
+    private static int life(Combatant c) {
+        if (c instanceof Hero h) {
+            return c.getHealth() + h.getArmour();
+        }
+        if (c instanceof Minion m) {
+            return c.getHealth() + m.getArmour();
+        }
+        return c.getHealth();
+    }
 
     /** Hovering a node for half a second shows a big copy at (x, y); leaving or clicking hides it. */
     private void bigOnHover(Node n, Supplier<Node> big, double x, double y) {
@@ -1141,16 +1862,24 @@ public void passTo(String name, Runnable onReady) {
             preview.relocate(x, y);
             live.getChildren().add(preview);
         });
-        EventHandler<MouseEvent> hide = e -> { delay.stop(); live.getChildren().remove(preview); };
+        // Removed on the next pulse: MOUSE_EXITED also fires while render() clears the table,
+        // and removing a child in the middle of that clear() throws (it froze the AI's turn).
+        EventHandler<MouseEvent> hide = e -> {
+            delay.stop();
+            Node shown = preview;
+            if (shown != null) {
+                Platform.runLater(() -> live.getChildren().remove(shown));
+            }
+        };
         n.addEventHandler(MouseEvent.MOUSE_ENTERED, e -> delay.playFromStart());
         n.addEventHandler(MouseEvent.MOUSE_EXITED, hide);
         n.addEventHandler(MouseEvent.MOUSE_PRESSED, hide);
     }
 
-    /** A board card's big copy: on the left for the three right-hand slots, on the right otherwise. */
+    /** A board card's big copy, as printed on its card (its original stats): on the left for the three right-hand slots, on the right otherwise. */
     private void readable(MinionView v, Minion m, double x, double y, boolean left) {
         double w = 280, h = w * CardView.H / CardView.W;
-        bigOnHover(v, () -> new MinionView(m, w), left ? x - 20 - w : x + MINION_W + 20, Math.max(10, Math.min(H - h - 10, y + 80 - h / 2)));
+        bigOnHover(v, () -> new CardView(m.getSource(), w), left ? x - 20 - w : x + MINION_W + 20, Math.max(10, Math.min(H - h - 10, y + 80 - h / 2)));   // the card as printed, not its current state
     }
 
     /** A slow float for a character that can attack: rises 6 px and back, about every 3 seconds; stops when removed. */
@@ -1164,20 +1893,5 @@ public void passTo(String name, Runnable onReady) {
         t.playFrom(Duration.seconds(Math.random() * 1.4));
         n.getProperties().put("float", t);
         n.sceneProperty().addListener((o, was, now) -> { if (now == null) t.stop(); });
-    }
-
-    /** Izakaya: the dice, sake flask and cups lie on the table; click one to make it jiggle. */
-    private void props() {
-        for (String p : PROPS) {
-            String[] a = p.split(" ");
-            ImageView v = image("/images/boards/izakaya/" + a[0] + ".png");
-            Rotate r = new Rotate(0, v.getImage().getWidth() / 2, v.getImage().getHeight());   // tilts on its base
-            v.getTransforms().add(r);
-            v.setOnMouseClicked(e -> new Timeline(new KeyFrame(Duration.millis(80), new KeyValue(r.angleProperty(), -5)),
-                    new KeyFrame(Duration.millis(170), new KeyValue(r.angleProperty(), 4)),
-                    new KeyFrame(Duration.millis(250), new KeyValue(r.angleProperty(), -2)),
-                    new KeyFrame(Duration.millis(320), new KeyValue(r.angleProperty(), 0))).play());
-            place(v, Double.parseDouble(a[1]), Double.parseDouble(a[2]));
-        }
     }
 }

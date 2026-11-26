@@ -10,9 +10,14 @@ import java.util.Random;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import fr.onishintan.engine.GameEvent.Type;
+import fr.onishintan.engine.event.GameEvent.Type;
 import fr.onishintan.model.*;
-
+
+import fr.onishintan.engine.event.GameEvent;
+import fr.onishintan.engine.effect.Effects;
+import fr.onishintan.engine.effect.Trigger;
+import fr.onishintan.engine.event.EventBus;
+import fr.onishintan.engine.turn.TurnManager;
 class EventsTest {
 
     private Player first;

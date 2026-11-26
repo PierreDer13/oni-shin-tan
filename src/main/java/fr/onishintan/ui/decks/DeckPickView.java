@@ -4,9 +4,7 @@ import fr.onishintan.model.Deck;
 import fr.onishintan.model.Hero;
 import fr.onishintan.model.HeroClass;
 import fr.onishintan.model.Player;
-import fr.onishintan.ui.MockCards;
 import fr.onishintan.ui.OniShinTanApp;
-import fr.onishintan.ui.app.Images;
 import fr.onishintan.ui.app.SceneRouter;
 import fr.onishintan.ui.app.Screen;
 import fr.onishintan.ui.app.ScreenGrid;
@@ -28,14 +26,13 @@ import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
 
 /**
- * PvP, before the match: Player 1, then Player 2, chooses the deck they play with.
- * Every legal saved deck is offered, plus a starter deck of each class (MockCards), so a match can start before any deck is built.
+ * PvP, laid over the home screen: Player 1, then Player 2, chooses the deck they play with.
+ * Every legal saved deck is offered (the starter decks are saved decks too, see DeckStore).
  * Once both have chosen, they pick the battlefield (BoardPicker) and the match starts there.
  */
 public class DeckPickView extends Pane {
     private static final double W = ScreenGrid.W, H = ScreenGrid.H;
     private static final double HOLDER_W = 170;
-    private static final HeroClass[] CLASSES = { HeroClass.SAMURAI, HeroClass.NINJA, HeroClass.KANNUSHI, HeroClass.ONI };
 
     private final SceneRouter router;
     /** Everything is placed on this 1600 x 900 grid, which is scaled to fit the window. */
@@ -47,7 +44,7 @@ public class DeckPickView extends Pane {
 
     public DeckPickView(SceneRouter router) {
         this.router = router;
-        ScreenGrid.fitToWindow(this, grid);
+        getChildren().add(grid);   // laid over the home screen's grid, which is already scaled to the window
         showChoice("Player 1");
     }
 
@@ -61,7 +58,7 @@ public class DeckPickView extends Pane {
         choices.setPrefWidth(W - 200);
         choices.relocate(100, 170);
         for (SavedDeck deck : decksToOffer()) {
-            choices.getChildren().add(choice(deck));
+            choices.getChildren().add(choice(deck, () -> choose(deck)));
         }
         grid.getChildren().add(choices);
     }
@@ -76,12 +73,11 @@ public class DeckPickView extends Pane {
         grid.getChildren().add(boards);
     }
 
-    /** Clears the screen and draws its frame: the shelves under a dark veil, the title at the top, and RETURN. */
+    /** Clears the panel and draws its frame: a dark veil over the home screen, the title at the top, and RETURN. */
     private void page(String title) {
         grid.getChildren().clear();
 
-        ImageView shelves = new ImageView(Images.get("/images/deck-builder/shelves.png", W, H));
-        Rectangle veil = new Rectangle(W, H, Color.rgb(0, 0, 0, 0.55));
+        Rectangle veil = new Rectangle(W, H, Color.rgb(0, 0, 0, 0.8));   // over the home screen, until the painted background exists
 
         Label titleLabel = DecksView.text(title, 40, DecksView.PAPER);
         HBox titleRow = new HBox(titleLabel);
@@ -89,11 +85,16 @@ public class DeckPickView extends Pane {
         titleRow.setPrefWidth(W);
         titleRow.relocate(0, 60);
 
-        ImageView back = HomeView.back(() -> router.goTo(Screen.HOME));
-        grid.getChildren().addAll(shelves, veil, titleRow, back);
+        ImageView back = HomeView.back(this::close);
+        grid.getChildren().addAll(veil, titleRow, back);
     }
 
-    /** The legal saved decks, then one starter deck per class. */
+    /** Takes the deck and board choice off the home screen. */
+    private void close() {
+        ((Pane) getParent()).getChildren().remove(this);
+    }
+
+    /** The legal saved decks (the starter decks are saved decks too, see DeckStore). */
     private List<SavedDeck> decksToOffer() {
         List<SavedDeck> decks = new ArrayList<>();
         for (SavedDeck deck : DeckStore.all()) {
@@ -101,16 +102,11 @@ public class DeckPickView extends Pane {
                 decks.add(deck);
             }
         }
-        for (HeroClass heroClass : CLASSES) {
-            SavedDeck starter = new SavedDeck("Starter " + heroClass.getDisplayName(), heroClass);
-            starter.setCards(MockCards.deckCards(heroClass));
-            decks.add(starter);
-        }
         return decks;
     }
 
-    /** One deck to choose: its holder seen from the front, its name, then its class and size. Clicking it chooses it. */
-    private VBox choice(SavedDeck deck) {
+    /** One deck to choose: its holder seen from the front, its name, then its class and size. Clicking it runs onPick (PvP, Orochi). */
+    public static VBox choice(SavedDeck deck, Runnable onPick) {
         ImageView holder = DeckHolderView.front(deck.getHeroClass(), HOLDER_W);
         Label name = DecksView.text(deck.getName(), 20, DecksView.PAPER);
         String size = deck.getHeroClass().getDisplayName() + " · " + deck.getCards().size() + " cards";
@@ -119,7 +115,7 @@ public class DeckPickView extends Pane {
         VBox choice = new VBox(6, holder, name, details);
         choice.setAlignment(Pos.TOP_CENTER);
         choice.setPrefWidth(HOLDER_W + 20);
-        HomeView.clickable(choice, false, () -> choose(deck));
+        HomeView.clickable(choice, false, onPick);
         return choice;
     }
 

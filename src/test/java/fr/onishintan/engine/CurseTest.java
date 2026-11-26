@@ -10,7 +10,8 @@ import java.util.Random;
 import org.junit.jupiter.api.Test;
 
 import fr.onishintan.model.*;
-
+
+import fr.onishintan.engine.event.GameEvent;
 /** Curses: hand Curses act while held and can be removed, deck Curses act when drawn. */
 class CurseTest {
 
@@ -61,6 +62,22 @@ class CurseTest {
         enemy.gainTemporaryKi(10);
         assertFalse(engine.playCard(curse, 0, null));
         assertTrue(enemy.getHand().contains(curse));
+    }
+
+    @Test
+    void curseCannotBeTraded() {
+        start(Deck.SIZE);
+        CurseCard mine = handCurse();
+        me.addToHand(mine);
+        assertFalse(GameEngine.isTradeable(mine));
+        assertFalse(engine.trade(mine));                   // yours to give: refused
+        assertTrue(me.getHand().contains(mine));
+        assertTrue(engine.playCard(mine, 0, null));
+        engine.endTurn();
+        enemy.gainTemporaryKi(10);
+        assertFalse(engine.trade(mine));                   // held by the enemy: refused too
+        assertTrue(enemy.getHand().contains(mine));
+        assertFalse(seen.contains(GameEvent.Type.CARD_TRADED));
     }
 
     @Test

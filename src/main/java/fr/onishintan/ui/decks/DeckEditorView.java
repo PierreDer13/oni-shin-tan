@@ -3,13 +3,14 @@ package fr.onishintan.ui.decks;
 import fr.onishintan.model.Card;
 import fr.onishintan.model.Deck;
 import fr.onishintan.model.HeroClass;
-import fr.onishintan.ui.MockCards;
+import fr.onishintan.data.CardRepository;
 import fr.onishintan.ui.app.SceneRouter;
 import fr.onishintan.ui.app.Screen;
 import fr.onishintan.ui.app.ScreenGrid;
 import fr.onishintan.ui.app.Sound;
 import fr.onishintan.ui.app.Images;
 import fr.onishintan.ui.cards.CardPreview;
+import fr.onishintan.ui.match.hud.OathView;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -87,7 +88,9 @@ public class DeckEditorView extends Pane {
         cancel.relocate(1180, 712);
         Label save = DecksView.button("Save", this::save);
         save.relocate(1460, 712);
-        grid.getChildren().addAll(plaque, nameField, countLabel, messageLabel, cancel, save);
+        Label oaths = DecksView.button("誓  Oaths", () -> grid.getChildren().add(OathView.browse(deck.getHeroClass())));   // the class's 3 Oaths, to read
+        oaths.relocate(1310, 712);
+        grid.getChildren().addAll(plaque, nameField, countLabel, messageLabel, cancel, oaths, save);
 
                // Left: the filter bar, then every card this deck may hold. Right: the deck.
         allowed = cardsAllowed();
@@ -114,11 +117,11 @@ public class DeckEditorView extends Pane {
 
     /**
      * The cards of the deck's class, then the Neutral ones; each group cheapest first, then by name.
-     * Placeholder: every test card from MockCards, until the player's own collection is saved.
+     * Placeholder: every card the player owns (CardRepository.collectible(): rewards only once claimed).
      */
     private List<Card> cardsAllowed() {
         List<Card> allowed = new ArrayList<>();
-        for (Card card : MockCards.ALL) {
+        for (Card card : CardRepository.collectible()) {
             HeroClass cardClass = card.getHeroClass();
             if (cardClass == deck.getHeroClass() || cardClass == HeroClass.NEUTRAL) {
                 allowed.add(card);
@@ -199,6 +202,7 @@ public class DeckEditorView extends Pane {
             deck.setName(name);
         }
         deck.setCards(cards);
+        DeckStore.save();   // the edited deck is written to disk
         DecksView.open(router, listClass);
     }
 

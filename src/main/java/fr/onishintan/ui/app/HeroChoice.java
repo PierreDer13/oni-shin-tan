@@ -1,6 +1,7 @@
 package fr.onishintan.ui.app;
 
 import fr.onishintan.model.HeroClass;
+import fr.onishintan.data.SaveManager;
 
 import java.util.EnumMap;
 import java.util.Map;
@@ -11,7 +12,13 @@ public final class HeroChoice {
             HeroClass.SAMURAI, "yasuke",
             HeroClass.NINJA, "hattori-hanzo",
             HeroClass.KANNUSHI, "kada-no-azumamaro",
-            HeroClass.ONI, "shuten-doji"));
+            HeroClass.ONI, "shuten-doji",
+            HeroClass.OROCHI, "yamata-no-orochi-the-8-headed-dragon"));
+    private static final SaveManager SAVES = new SaveManager();
+
+    static {
+        CHOSEN.putAll(SAVES.loadHeroes());   // the heroes picked in earlier games; a class never picked keeps its default
+    }
 
     private HeroChoice() {
         // Only static state: nobody creates a HeroChoice.
@@ -25,5 +32,6 @@ public final class HeroChoice {
     /** From now on, this class plays with this hero. */
     public static void choose(HeroClass heroClass, String portrait) {
         CHOSEN.put(heroClass, portrait);
+        SAVES.saveHeroes(CHOSEN);   // kept for the next games
     }
 }

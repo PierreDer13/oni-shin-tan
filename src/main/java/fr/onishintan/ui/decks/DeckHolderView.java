@@ -201,7 +201,7 @@ class DeckHolderView extends Pane {
         return view;
     }
 
-    /** The hover tag above the spine: the deck's name, then n / 50 (with a check mark once the deck can be played). */
+    /** The hover tag above the spine: the deck's name, then n / 40 (with a check mark once the deck can be played). */
     private static Label tag(SavedDeck deck, double spineX, double spineW) {
         String words = deck.getName() + "\n" + deck.getCards().size() + " / " + Deck.SIZE + " cards";
         if (deck.isLegal()) {

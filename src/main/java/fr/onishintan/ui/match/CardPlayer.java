@@ -2,6 +2,7 @@ package fr.onishintan.ui.match;
 
 import fr.onishintan.model.Card;
 import fr.onishintan.model.Combatant;
+import fr.onishintan.model.Player;
 
 import java.util.List;
 
@@ -21,4 +22,16 @@ public interface CardPlayer {
 
     /** True if the engine would accept this card now (Ki, a legal target, a weapon for Iaidō, room on the board…). */
     boolean canPlay(Card card);
+
+    /** What to add to this hand card's damage or healing number now (Ryū, Oaths, Chikara), shown in green. */
+    int bonus(Card card);
+
+    /** The characters this attacker may hit now (the engine's rule: Shirodu first, no hidden Shinobi, Stealth…). */
+    List<Combatant> attackTargets(Combatant attacker);
+
+    /** True once the active player's hero power was used this turn (Kuji-in gives it back). */
+    boolean powerUsed();
+
+    /** The damage the next draw from p's empty deck deals to p's hero (1, then 2, then 3…). */
+    int nextFatigue(Player p);
 }

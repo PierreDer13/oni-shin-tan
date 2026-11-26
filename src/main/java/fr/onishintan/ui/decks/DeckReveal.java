@@ -3,6 +3,7 @@ package fr.onishintan.ui.decks;
 import fr.onishintan.model.Card;
 import fr.onishintan.model.Deck;
 import fr.onishintan.ui.app.ScreenGrid;
+import fr.onishintan.ui.app.ScrollTheme;
 import fr.onishintan.ui.cards.CardView;
 
 import java.util.ArrayList;
@@ -69,6 +70,7 @@ class DeckReveal extends Pane {
         scroll.relocate(60, 85);
         scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         scroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
+        ScrollTheme.apply(scroll);
 
         Map<Card, Integer> copies = SavedDeck.copiesByKi(deck.getCards());
         if (copies.isEmpty()) {

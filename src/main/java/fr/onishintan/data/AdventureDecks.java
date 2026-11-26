@@ -19,7 +19,7 @@ import fr.onishintan.model.Player;
  *
  * An enemy deck = its class core (30 cards) + the battle's 10 neutral cards: small minions in the town,
  * mid-curve minions on the sea, the neutral legendaries on Mount Fuji, so each battle is harder.
- * The cards come from the catalog given to the constructor (MockCards.ALL until cards.json exists).
+ * The cards come from the catalog given to the constructor (CardRepository.all(), read from cards.json).
  * The kami rewards and Amaterasu are never in these decks.
  */
 public final class AdventureDecks {
@@ -81,9 +81,31 @@ public final class AdventureDecks {
             "sakana-uri 2, sendaiku 2, taiko-uchi 2, tora 2, maiko 2",
             "tora 2, taiko-uchi 2, raijin 1, fujin 1, shike 1, yokozuna 1, ryu 1, tenno 1" };
 
+    /** Yamata no Orochi's HP. */
+    public static final int OROCHI_HEALTH = 200;
+    /** Yamata no Orochi's Ki: 2 on his first turn, up to 20. */
+    public static final int OROCHI_START_KI = 2, OROCHI_MAX_KI = 20;
+
+    /**
+     * Yamata no Orochi's 100 cards (1 to 10 Ki), from the 4 classes and the neutrals: no kami, no Amaterasu,
+     * no family card (Trap, Shrine, Curse, Rite). Not a legal deck (Deck.SIZE is 40): it is never validated.
+     * Curve: 1 Ki 5, 2 Ki 6, 3 Ki 11, 4 Ki 19, 5 Ki 15, 6 Ki 15, 7 Ki 17, 8 Ki 8, 9 Ki 2, 10 Ki 2.
+     */
+    public static final String OROCHI_DECK = """
+            genin 2, miko 2,
+            komuso 2, noppera-bo 2, kemuri-dama 1, taisha-zukuri 1,
+            kappa 3, rokurokubi 2, ueta-rikishi 2, kitsune-no-bakashiya 1, yoroi 1, kamikakushi 1,
+            tengu 3, hatamoto 2, yamabushi 2, jushoku 2, taiko-uchi 1, ketto 2, harae 1,
+            ronin 3, jorogumo 3, onmyoji 3, tora 3, sakasama 3, tamashii-gui 3, kakuremino 2,
+            jonin 3, oiwa 3, jujutsu-shihan 3, kiseki 3, senbon-torii 3,
+            nue 3, daimyo 3, raijin 3, fujin 3, shike 3, kuchiyose 3, fuma-kotaro 1, susanoo 1,
+            shinigami 3, kagura 3, yokozuna 1, inari-okami 1,
+            shogun 1, ryu 1,
+            tenno 1, enma 1""";
+
     private final Map<String, Card> catalog = new HashMap<>();
 
-    /** The cards the decks are built from, found by id (MockCards.ALL for now). */
+    /** The cards the decks are built from, found by id (CardRepository.all()). */
     public AdventureDecks(Collection<? extends Card> cards) {
         for (Card c : cards) catalog.put(c.getId(), c);
     }
@@ -127,6 +149,18 @@ public final class AdventureDecks {
         return new Player(name, new Hero(foe), new Deck(enemyDeck(you, battle)));
     }
 
+    /** Yamata no Orochi's 100 cards, a new list each call. */
+    public List<Card> orochiDeck() {
+        return cards(OROCHI_DECK);
+    }
+
+    /** Yamata no Orochi: class OROCHI, 200 HP, its 100-card deck. */
+    public Player orochi() {
+        Player orochi = new Player("Yamata no Orochi", new Hero(HeroClass.OROCHI, OROCHI_HEALTH), new Deck(orochiDeck()));
+        orochi.setKiRules(OROCHI_START_KI, OROCHI_MAX_KI);
+        return orochi;
+    }
+
     /** "id n, id n, ..." to the cards, each copy the same Card from the catalog. Unknown id: an exception naming it. */
     private List<Card> cards(String list) {
         List<Card> out = new ArrayList<>();
@@ -146,7 +180,7 @@ public final class AdventureDecks {
     }
 
     private static HeroClass classOnly(HeroClass c) {
-        if (c == null || c == HeroClass.NEUTRAL) throw new IllegalArgumentException("Adventure needs a class, not " + c);
+        if (c == null || c == HeroClass.NEUTRAL || c == HeroClass.OROCHI) throw new IllegalArgumentException("Adventure needs a class, not " + c);
         return c;
     }
 

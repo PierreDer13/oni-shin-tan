@@ -1,5 +1,7 @@
 package fr.onishintan.ui.fx;
 
+import fr.onishintan.ui.app.Sound;
+import javafx.scene.media.AudioClip;
 import javafx.animation.AnimationTimer;
 import javafx.animation.Interpolator;
 import javafx.animation.KeyFrame;
@@ -24,6 +26,8 @@ import javafx.scene.Group;
 
 /** Combat effects on the board (GDD, "Match: cards on the board"). Positions are in the layer's own space. */
 public final class Fx {
+    /** The sound of any heal (sounds/heal.wav). */
+    private static final AudioClip HEAL = Sound.clip("heal");
     private Fx() {}
 
     /** The attacker grows and hovers, lunges most of the way to the target, then glides back; hit runs on impact. */
@@ -92,6 +96,7 @@ public final class Fx {
         if (amount <= 0) {
             return;
         }
+        Sound.play(HEAL);   // every heal, with the green number
         Bounds b = over.getBoundsInParent();
         healMotes(layer, b);
         healGlow(over);

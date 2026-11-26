@@ -47,6 +47,6 @@ public class ShojiTransition extends Pane {
     private static KeyValue slide(ImageView d, double x, Interpolator how) { return new KeyValue(d.translateXProperty(), x, how); }
 
     private ImageView door(String side) {
-        return new ImageView(new Image(getClass().getResourceAsStream("/images/sliding-doors/edo_sliding_door_" + side + ".png")));
+        return new ImageView(Images.get("/images/sliding-doors/edo_sliding_door_" + side + ".png"));   // read once, reused on every screen change
     }
 }

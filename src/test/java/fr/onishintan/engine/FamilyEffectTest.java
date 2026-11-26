@@ -11,9 +11,10 @@ import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import fr.onishintan.model.*;
+import fr.onishintan.model.*;
+import fr.onishintan.engine.event.GameEvent;
 
-/** The family effects of MockCards by id: the 6 Traps, the 6 Shrine auras, the 6 Curses, Gokitō's draw and Rite stacking. */
+/** The family effects of cards.json by id: the 6 Traps, the 6 Shrine auras, the 6 Curses, Gokitō's draw and Rite stacking. */
 class FamilyEffectTest {
 
     private Player me;        // Kannushi, plays first
@@ -95,6 +96,25 @@ class FamilyEffectTest {
     }
 
     @Test
+    void kawarimiIsHeardBeforeTheAttackWhichTargetsTheLog() {
+        Minion target = place(enemy, 0, card("target", 1, 5));
+        Minion attacker = place(me, 0, card("attacker", 6, 6));
+        attacker.onTurnStart();
+        enemy.setTrap(trap("kawarimi", TrapTrigger.ON_ENEMY_ATTACK_MINION));
+        List<GameEvent> heard = new ArrayList<>();
+        engine.addListener((e, s) -> heard.add(e));
+
+        assertTrue(engine.attack(attacker, target));
+
+        List<GameEvent.Type> types = heard.stream().map(GameEvent::type).toList();
+        int trap = types.indexOf(GameEvent.Type.TRAP_TRIGGERED);
+        int log = types.indexOf(GameEvent.Type.MINION_SUMMONED);
+        int attack = types.indexOf(GameEvent.Type.ATTACK);
+        assertTrue(trap >= 0 && trap < log && log < attack, "TRAP_TRIGGERED, then the log, then ATTACK");
+        assertSame(heard.get(log).target(), heard.get(attack).target(), "ATTACK.target() is the log, the real target");
+    }
+
+    @Test
     void makibishiHitsTheSummonedMinion() {
         enemy.setTrap(trap("makibishi", TrapTrigger.ON_ENEMY_SUMMON));
         assertTrue(play(card("big", 2, 10), 0, null));
@@ -112,7 +132,12 @@ class FamilyEffectTest {
         long asleep = List.of(a, b, c).stream().filter(m -> m.hasStatus(Status.SLEEP)).count();
         assertEquals(2, asleep);
         engine.endTurn();
-        assertTrue(List.of(a, b, c).stream().noneMatch(m -> m.hasStatus(Status.SLEEP)), "they wake at the end of my turn");
+        assertEquals(2, List.of(a, b, c).stream().filter(m -> m.hasStatus(Status.SLEEP)).count(), "asleep during my turn: they sleep through my next one too");
+        engine.endTurn();                        // my next turn
+        List.of(a, b, c).forEach(Minion::onTurnStart);
+        assertEquals(1, List.of(a, b, c).stream().filter(Minion::canAttack).count(), "the two sleepers still cannot attack");
+        engine.endTurn();
+        assertTrue(List.of(a, b, c).stream().noneMatch(m -> m.hasStatus(Status.SLEEP)), "they wake at the end of my next turn");
     }
 
     @Test
@@ -127,6 +152,12 @@ class FamilyEffectTest {
         assertEquals(hp, enemy.getHero().getHealth());
         assertTrue(attacker.hasStatus(Status.SLEEP));
         assertFalse(attacker.canAttack());
+        engine.endTurn();
+        engine.endTurn();                        // my next turn: still asleep
+        assertTrue(attacker.hasStatus(Status.SLEEP));
+        assertFalse(attacker.canAttack());
+        engine.endTurn();
+        assertFalse(attacker.hasStatus(Status.SLEEP), "awake after the end of my next turn");
     }
 
     @Test
@@ -166,7 +197,9 @@ class FamilyEffectTest {
         Minion m = place(me, 1, card("m", 1, 5));
         assertTrue(play(shrine("meiji-otorii", 1), 0, null));
         assertEquals(4, m.getAttack());
-        engine.endTurn();                        // the Shrine had one turn: gone
+        engine.endTurn();                        // still standing during the enemy's turn
+        assertEquals(4, m.getAttack());
+        engine.endTurn();                        // my next turn starts: its one turn is used up, gone
         assertEquals(1, m.getAttack());
     }
 
@@ -176,8 +209,15 @@ class FamilyEffectTest {
         Minion e = place(enemy, 0, card("e", 4, 20));
         m.onTurnStart();
         assertTrue(play(shrine("meiji-otorii", 2), 0, null));
+        List<GameEvent> heard = new ArrayList<>();
+        engine.addListener((ev, s) -> heard.add(ev));
         assertTrue(engine.attack(m, e));
         assertEquals(9, m.getHealth(), "10 - 4 + 3");
+        assertEquals(16, e.getHealth(), "1 + 3 ATK from Meiji");
+        List<GameEvent.Type> types = heard.stream().map(GameEvent::type).toList();
+        int fx = types.indexOf(GameEvent.Type.EFFECT_TRIGGERED);
+        assertTrue(fx >= 0 && fx < types.indexOf(GameEvent.Type.HEAL), "the Shrine is announced before its heal");
+        assertTrue(heard.get(fx).source() instanceof Shrine);
     }
 
     @Test
@@ -197,6 +237,7 @@ class FamilyEffectTest {
         assertEquals(9, m.getHealth());
         assertTrue(m.hasKeyword(Keyword.SHIRODU));
         engine.endTurn();
+        engine.endTurn();                        // my next turn starts: the Shrine expires
         assertFalse(m.hasKeyword(Keyword.SHIRODU));
         assertTrue(guard.hasKeyword(Keyword.SHIRODU), "a Shirodu of its own stays");
     }
@@ -208,6 +249,29 @@ class FamilyEffectTest {
         Minion m = me.getSide().getAt(1);
         assertEquals(5, m.getAttack());
         assertTrue(m.canAttack(), "Tatakae: attacks the turn it is played");
+    }
+
+    @Test
+    void motonosumiReachesTwoSlotsOnEachSideOnly() {
+        Minion[] at = new Minion[7];
+        for (int slot : new int[] {0, 1, 2, 4, 5, 6}) at[slot] = place(me, slot, card("m" + slot, 1, 1));
+        assertTrue(play(shrine("motonosumi-shrine", 2), 3, null));
+        for (int slot : new int[] {1, 2, 4, 5}) {
+            assertEquals(4, at[slot].getAttack(), "slot " + slot + " is within 2 slots");
+            assertTrue(at[slot].hasKeyword(Keyword.TATAKAE), "slot " + slot);
+        }
+        for (int slot : new int[] {0, 6}) {
+            assertEquals(1, at[slot].getAttack(), "slot " + slot + " is 3 slots away");
+            assertFalse(at[slot].hasKeyword(Keyword.TATAKAE), "slot " + slot);
+        }
+    }
+
+    @Test
+    void otherShrinesStillReachOnlyTheirNeighbours() {
+        Minion near = place(me, 2, card("near", 1, 1)), far = place(me, 1, card("far", 1, 1));
+        assertTrue(play(shrine("meiji-otorii", 2), 3, null));
+        assertEquals(4, near.getAttack());
+        assertEquals(1, far.getAttack());
     }
 
     @Test

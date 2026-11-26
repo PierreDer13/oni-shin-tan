@@ -10,7 +10,9 @@ import java.util.Random;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import fr.onishintan.model.*;
+import fr.onishintan.model.*;
+import fr.onishintan.engine.effect.Trigger;
+import fr.onishintan.engine.oath.OathRewards;
 
 /** The passive rewards of the 3 and 6 stack tiers (GDD Oath table), lost when the Oath breaks. */
 class OathRewardTest {

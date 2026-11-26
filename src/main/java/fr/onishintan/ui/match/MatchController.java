@@ -2,15 +2,18 @@ package fr.onishintan.ui.match;
 
 import fr.onishintan.ai.AIController;
 import fr.onishintan.ai.Move;
+import fr.onishintan.adventure.Upgrade;
 import fr.onishintan.engine.GameEngine;
-import fr.onishintan.engine.GameEvent;
-import fr.onishintan.engine.SpellTarget;
+import fr.onishintan.engine.event.GameEvent;
+import fr.onishintan.engine.effect.SpellTarget;
 import fr.onishintan.model.Card;
 import fr.onishintan.model.CurseCard;
 import fr.onishintan.model.CurseZone;
 import fr.onishintan.model.Combatant;
+import fr.onishintan.model.GodaiElement;
 import fr.onishintan.model.Hero;
 import fr.onishintan.model.HeroClass;
+import fr.onishintan.model.Keyword;
 import fr.onishintan.model.MinionCard;
 import fr.onishintan.model.KatanaTier;
 import fr.onishintan.model.Oath;
@@ -18,17 +21,23 @@ import fr.onishintan.model.OathType;
 import fr.onishintan.model.Player;
 import fr.onishintan.model.RiteCard;
 import fr.onishintan.model.Shrine;
+import fr.onishintan.model.SpellCard;
 import fr.onishintan.model.TrapCard;
-import fr.onishintan.ui.MockCards;
+import fr.onishintan.data.CardRepository;
 import fr.onishintan.ui.app.HeroChoice;
 import javafx.animation.PauseTransition;
 import javafx.scene.paint.Color;
 import javafx.util.Duration;
 
 import java.util.List;
+import java.util.Set;
 import java.util.Optional;
 import java.util.Random;
 import java.util.function.Consumer;
+import fr.onishintan.ui.match.fx.EffectRecorder;
+import fr.onishintan.ui.match.hud.ClockTicker;
+import fr.onishintan.ui.match.hud.OathView;
+import fr.onishintan.ui.match.hud.PlayHistory;
 
 /**
  * Runs one hotseat match. Pierre's GameEngine applies every rule; the BoardView only draws the table.
@@ -36,6 +45,14 @@ import java.util.function.Consumer;
  */
 public class MatchController implements CardPlayer {
     private final GameEngine engine;
+    /** Notes what an action did (damage, healing, deaths, traps) so the board can show it before redrawing. */
+    private final EffectRecorder recorder;
+    /** Before a played card's effects: the card landing, or a spell or a Banzai taking effect (GDD timing). */
+    private static final double PLACE_PAUSE = BoardView.FLOAT_MS + BoardView.DROP_MS, EFFECT_PAUSE = PLACE_PAUSE + 50, POWER_PAUSE = 500;   // the card lands before its effects; POWER_PAUSE: a shuriken or beam reaches its target
+    /** How long effects show before the redraw; at the end of a turn they all fit in 0.75 s. */
+    private static final double EFFECT_SHOW = 700, TURN_SHOW = 750;
+    /** Under this time left (30 s), the active player's clock turns red and ticks every second. */
+    private static final long HURRY_MS = 30_000;
     private final BoardView board;
     /** Plays first and starts at the bottom of the screen. */
     private final Player first;
@@ -45,6 +62,9 @@ public class MatchController implements CardPlayer {
     /** The last clock timeout (from CLOCK_TIMEOUT): the hero who ran out of time and the damage he took. */
     private Hero timedOutHero;
     private int timeoutDamage;
+    /** The target(s) of the card or hero power being played right now, for the play history (the engine's event doesn't carry them). */
+    private Combatant aimFirst;
+    private Combatant aimSecond;
     /** How many cards the engine drew during endTurn(), so they can fly in after the pass veil. */
     private int cardsDrawnThisTurn;
     /** False until the second player's first turn: then their whole opening hand is dealt, not only the 2 cards drawn. */
@@ -59,9 +79,9 @@ public class MatchController implements CardPlayer {
     private static final int AI_MAX_MOVES = 40;
     private int aiMoves;
 
-    /** A hotseat match with test decks from MockCards (the Adventure uses this); at the end, onEnd gets whether the first player won. */
+    /** A hotseat match with test decks from CardRepository (the Adventure uses this); at the end, onEnd gets whether the first player won. */
     public MatchController(String boardName, HeroClass yours, HeroClass theirs, Consumer<Boolean> onEnd) {
-        this(boardName, MockCards.player("Kayne", yours, 0), MockCards.player(theirs.name(), theirs, 0), onEnd);
+        this(boardName, CardRepository.player("Kayne", yours, 0), CardRepository.player(theirs.name(), theirs, 0), onEnd);
     }
 
     /** A hotseat match between these two players (PvP: the decks they chose); at the end, onEnd gets whether the first player won. */
@@ -77,35 +97,44 @@ public class MatchController implements CardPlayer {
     public MatchController(String boardName, Player first, Player second, AIController.Difficulty difficulty, Consumer<Boolean> onEnd) {
         HeroClass yours = first.getHero().getHeroClass();
         HeroClass theirs = second.getHero().getHeroClass();
-        // 1. The two players, each given their Gusoku armour.
+        // 1. The two players.
         this.first = first;
         this.second = second;
-        giveGusokuArmour(first);
-        giveGusokuArmour(second);
 
         // 2. The engine: shuffle and deal the opening hands, then the first player's turn 1 (Ki and a draw).
         engine = new GameEngine(first, second, new Random());
-        engine.setCatalog(MockCards.ALL);   // the cards that effects create or summon (Sendaiku, Sakana uri, Inari, Oiwa)
+        engine.setCatalog(CardRepository.all());   // the cards that effects create or summon (Sendaiku, Sakana uri, Inari, Oiwa)
+        recorder = new EffectRecorder(engine);
         engine.getBus().subscribe(GameEvent.Type.CARD_DRAWN, event -> cardsDrawnThisTurn++);
-        engine.startMatch();
-        engine.beginFirstTurn();
+        engine.startMatch();   // the opening hands; turn 1 begins once both mulligans are done (startTurns)
         ai = difficulty == null ? null : new AIController(engine, second, difficulty, new Random());
         pauseClock();   // the engine starts the first player's clock: it waits until both Oaths are sworn
 
         // 3. The table, with each action plugged into the engine.
         board = new BoardView(boardName, second, HeroChoice.portrait(theirs), first, HeroChoice.portrait(yours));
         showClocks();
+        // The play history (left side): every card played, attack and hero power, with their targets, yours and the AI's.
+        PlayHistory history = board.getHistory();
+        engine.getBus().subscribe(GameEvent.Type.TURN_STARTED, event -> history.turn(((Player) event.source()).getName()));
+        engine.getBus().subscribe(GameEvent.Type.CARD_PLAYED, event -> history.played(((Player) event.source()).getName(), (Card) event.target(), aimFirst, aimSecond));
+        engine.getBus().subscribe(GameEvent.Type.ATTACK, event -> history.attacked((Combatant) event.source(), (Combatant) event.target()));
+        engine.getBus().subscribe(GameEvent.Type.HERO_POWER_USED, event -> history.heroPower(((Player) event.source()).getName(), aimFirst));
         board.setOnPlay(this);
         board.setOnAttack(this::attack);
         board.setOnPower(this::useHeroPower);
         board.setOnKatana(this::useKatana);
+        board.setGodai(engine::hasGodai, engine::isGodaiTarget, this::useGodai);
         board.setOnTrade(this::trade);
         board.setOnEndTurn(this::endTurn);
         board.setOnGameOver(() -> onEnd.accept(firstWon()));
         board.setOnSurrender(this::surrender);
 
-        // A trap that goes off is shown to both players (the engine has already applied its effect).
-        engine.getBus().subscribe(GameEvent.Type.TRAP_TRIGGERED, event -> board.revealTrap((TrapCard) event.target()));
+        // A trap that goes off is shown to both players. During a play or an end of turn, the replay shows it in its turn instead.
+        engine.getBus().subscribe(GameEvent.Type.TRAP_TRIGGERED, event -> {
+            if (!recorder.recording()) {
+                board.revealTrap((TrapCard) event.target());
+            }
+        });
         // A trap you set is shown big, then flips and glides to its place by your hero.
         // Adventure: the AI's traps stay hidden (only their face-down back shows by its hero).
         engine.getBus().subscribe(GameEvent.Type.TRAP_SET, event -> {
@@ -126,18 +155,28 @@ public class MatchController implements CardPlayer {
         announceOathEvents();
         board.setOnReswear(this::reswear);
 
-        // 4. Hotseat: each player swears an Oath behind a pass veil, then the first player's hand is dealt.
-        //    Adventure: no Oath, your hand is dealt at once.
+        // 4. Hotseat: each player swears an Oath then does the mulligan behind a pass veil; turn 1 then begins.
+        //    Adventure: no Oath, the AI does its mulligan at once, then yours; turn 1 then begins.
         if (ai == null) {
             chooseOaths(yours, theirs);
         } else {
-            board.dealHand();
+            engine.mulligan(second, ai.mulliganChoice());   // the AI sends back its expensive cards at once
+            board.mulligan(first, cards -> engine.mulligan(first, cards), () -> {
+                startTurns();
+                board.dealHand();
+            });
         }
     }
 
     /** The table to show on screen. */
     public BoardView getBoard() {
         return board;
+    }
+
+    /** Adventure: the bonuses picked during this run apply to you (engine.setUpgrades); called before the first turn. */
+    public void setUpgrades(Set<Upgrade> upgrades) {
+        engine.setUpgrades(first, upgrades);
+        board.render();   // Inochi's 130 HP shows at once
     }
 
 
@@ -176,6 +215,13 @@ public class MatchController implements CardPlayer {
         engine.getBus().subscribe(GameEvent.Type.SHRINE_PLACED, event -> {
             Shrine shrine = (Shrine) event.target();
             board.announce("社", shrine.getSource().getNameRomaji(), "a shrine stands", SHRINE_LAVENDER);
+        });
+        engine.getBus().subscribe(GameEvent.Type.GODAI_GAINED, event -> {   // Takeda Shingen
+            board.announce("五大", "Godai", "the hero power is now Earth, Water, Fire, Wind or Void", OATH_GOLD);
+        });
+        engine.getBus().subscribe(GameEvent.Type.CARD_STOLEN, event -> {   // Izanagi
+            Card stolen = (Card) event.target();
+            board.announce("盗", stolen.getNameRomaji(), "taken from the enemy hand", OATH_BROKEN_RED);
         });
     }
 
@@ -221,7 +267,12 @@ public class MatchController implements CardPlayer {
 
     /** The player whose turn it is gives up: the other player wins at once and the clocks stop. */
     private void surrender() {
-        engine.concede(engine.active());
+        // Adventure: you are the only one with a Surrender button, even during the AI's turn.
+        Player quitter = engine.active();
+        if (ai != null) {
+            quitter = first;
+        }
+        engine.concede(quitter);
 
         
         clockTicker.stop();
@@ -237,16 +288,27 @@ public class MatchController implements CardPlayer {
     private void chooseOaths(HeroClass yours, HeroClass theirs) {
         board.chooseOath(yours, firstOath -> {
             swear(first, firstOath);
-            board.chooseOath(theirs, secondOath -> {
-                swear(second, secondOath);
-                board.passTo(first.getName(), () -> {
-                    resumeClock();          // both Oaths are sworn: the first player's clock starts now
-                    clockTicker.start();
-                    board.dealHand();
+            board.mulligan(first, firstCards -> engine.mulligan(first, firstCards), () -> {
+                board.chooseOath(theirs, secondOath -> {
+                    swear(second, secondOath);
+                    board.mulligan(second, secondCards -> engine.mulligan(second, secondCards), () -> {
+                        board.passTo(first.getName(), () -> {
+                            startTurns();
+                            resumeClock();          // both Oaths are sworn: the first player's clock starts now
+                            clockTicker.start();
+                            board.dealHand();
+                        });
+                    });
                 });
+                board.passTo(second.getName(), () -> {});
             });
-            board.passTo(second.getName(), () -> {});
         });
+    }
+
+    /** After both mulligans: the first player's turn 1 begins (Ki and a draw), then the table is redrawn. */
+    private void startTurns() {
+        engine.beginFirstTurn();
+        board.render();
     }
 
     /** The engine records the Oath (it checks the rule at the end of each turn); the board shows its scroll. */
@@ -279,14 +341,54 @@ public class MatchController implements CardPlayer {
      */
     @Override
     public boolean play(Card card, int slot, Combatant first, Combatant second) {
+        recorder.start();
+        boolean removal = card instanceof CurseCard held && engine.active().isHeldCurse(held);
         boolean played;
-        if (card instanceof CurseCard curse && engine.active().isHeldCurse(curse)) {
-            played = engine.removeCurse(curse);
+        if (removal) {
+            played = engine.removeCurse((CurseCard) card);   // a Curse the enemy gave you: dropping it pays its removal Ki
         } else {
+            aimFirst = first;   // for the play history
+            aimSecond = second;
             played = engine.playCard(card, slot, first, second);
+            aimFirst = null;
+            aimSecond = null;
         }
-        board.render();
-        return played;
+        List<GameEvent> events = recorder.stop();
+        if (!played) {
+            board.render();   // refused: the card goes back to the hand at once
+            return false;
+        }
+        if (!removal && !(card instanceof TrapCard)) {
+            board.showPlayed(card, slot);   // on the board before its effects show (a Trap has its own animation)
+        }
+        // Cards the play put in your hand (Kiji, Noppera-bō, Tamashii-gui…) fly in from your deck once the effects have shown.
+        int added = 0;
+        for (GameEvent event : events) {
+            if (event.type() == GameEvent.Type.CARD_ADDED && event.source() == engine.active()) {
+                added++;
+            }
+        }
+        int flying = added;
+        board.replay(events, pauseBefore(card, events), EFFECT_SHOW, () -> board.dealDrawnCards(flying));
+        if (engine.pendingSteal() == engine.active()) {   // Izanagi: the enemy hand opens, you take one card
+            Player victim = engine.getState().opponent();
+            board.chooseSteal(List.copyOf(victim.getHand()), c -> !victim.isHeldCurse(c), stolen -> {
+                engine.steal(stolen);
+                board.render();   // the stolen card is now in your hand
+            });
+        }
+        return true;
+    }
+
+    /** How long the table waits before a played card's effects show: 0.3 s for a spell or a Banzai, 0.5 s more when a trap went off. */
+    private static double pauseBefore(Card card, List<GameEvent> events) {
+        double pause = PLACE_PAUSE;   // the card lands before anything else happens
+        boolean spell = card instanceof SpellCard && !(card instanceof TrapCard);
+        boolean banzai = card instanceof MinionCard minion && minion.hasKeyword(Keyword.BANZAI);
+        if (spell || banzai) {
+            pause = EFFECT_PAUSE;
+        }
+        return pause;
     }
 
     /** What a hand card costs now: the engine's price for the active player (Yōi, Oath discounts). */
@@ -301,14 +403,60 @@ public class MatchController implements CardPlayer {
         return engine.canPlay(card);
     }
 
-    /** An attacker and its target: the engine deals the damage both ways and removes the dead. BoardView animates, then redraws. */
-    private void attack(Combatant attacker, Combatant target) {
+
+    @Override
+    public boolean powerUsed() {
+        return engine.isHeroPowerUsed();
+    }
+
+    @Override
+    public int nextFatigue(Player p) {
+        return engine.nextFatigue(p);
+    }
+
+    /** The engine's bonus on this card's damage or healing number, for the active player. */
+    @Override
+    public int bonus(Card card) {
+        return engine.bonusOf(engine.active(), card);
+    }
+
+    /** Who this attacker may hit, by the engine's rule. */
+    @Override
+    public List<Combatant> attackTargets(Combatant attacker) {
+        return engine.legalTargets(attacker);
+    }
+
+    /** An attacker and its target: the engine deals the damage both ways and removes the dead. Returns what happened, for BoardView to replay. */
+    private List<GameEvent> attack(Combatant attacker, Combatant target) {
+        recorder.start();
         engine.attack(attacker, target);
+        return recorder.stop();
     }
 
     /** Hero power with a target (Ninja Shuriken, Oni Jikininki) or without (Kannushi Miko: target is null). True if the engine accepted it. */
     private boolean useHeroPower(Combatant target) {
-        return engine.useHeroPower(target);
+        recorder.start();
+        aimFirst = target;   // for the play history
+        boolean used = engine.useHeroPower(target);
+        aimFirst = null;
+        List<GameEvent> events = recorder.stop();
+        if (used) {
+            board.replay(events, POWER_PAUSE, EFFECT_SHOW, () -> {});   // the damage, a death, a trap, one step after the other
+        }
+        return used;
+    }
+
+    /** Takeda Shingen's Godai: the element on its target (null: Earth's armour alone). True if the engine accepted it. */
+    private boolean useGodai(GodaiElement element, Combatant target) {
+        recorder.start();
+        aimFirst = target;   // for the play history
+        boolean used = engine.useGodai(element, target);
+        aimFirst = null;
+        List<GameEvent> events = recorder.stop();
+        if (used) {
+            board.replay(events, POWER_PAUSE, EFFECT_SHOW, () -> {});   // the damage, heal or armour, then the redraw
+        }
+        return used;
     }
 
     /** Samurai power: equip the chosen blade. True if the engine accepted it (enough Ki, not used yet this turn). */
@@ -330,8 +478,16 @@ public class MatchController implements CardPlayer {
         if (ai == null) {
             board.holdEffects();   // banners and stamps from the end of the turn wait for the pass veil
         }
+        recorder.start();
         engine.endTurn();
-        afterTurnEnded();
+        // End- and start-of-turn effects show on the table (0.75 s at most) before the turn passes.
+        List<GameEvent> events = recorder.stop();
+        for (GameEvent e : events) {
+            if (e.type() == GameEvent.Type.CARD_PLAYED && e.target() instanceof Card card) {
+                board.showAiPlayed(card);   // Yamata no Orochi's dragon, arriving on its own at the start of his turn
+            }
+        }
+        board.replay(events, 0, TURN_SHOW, this::afterTurnEnded);
     }
 
     /**
@@ -401,9 +557,17 @@ public class MatchController implements CardPlayer {
             board.aiAttack(move.get().attacker(), move.get().target(), this::nextAiStep);
             return;
         }
+        recorder.start();
+        aimFirst = move.get().target();   // for the play history
+        aimSecond = move.get().second();
         ai.play(move.get());
-        board.render();
-        nextAiStep();
+        aimFirst = null;
+        aimSecond = null;
+        if (move.get().kind() == Move.Kind.PLAY) {
+            board.showAiPlayed(move.get().card());   // its card big on the left and its minion in its slot, before the effects
+        }
+        List<GameEvent> events = recorder.stop();
+        board.replay(events, EFFECT_SHOW, EFFECT_SHOW, this::nextAiStep);   // the card stays readable, then its effects one by one
     }
 
     /** Adventure: the engine ends the AI's turn and starts yours: the cards you draw fly in, End turn works again. */
@@ -429,18 +593,20 @@ public class MatchController implements CardPlayer {
             clockTicker.stop();
             return;
         }
-        cardsDrawnThisTurn = 0;   // a timeout ends the turn inside checkClock(): count only the cards drawn by it
         boolean timedOut = engine.checkClock();
         showClocks();
         if (!timedOut) {
             return;
         }
+        // Timeout: half HP and +30 s, the turn goes on. The clock waits during the TIME'S UP animation.
         clockTicker.stop();
+        pauseClock();
         board.showTimeout(timedOutHero, timeoutDamage, () -> {
             if (engine.getState().isOver()) {
                 return;   // the timeout killed the hero: showTimeout already shows the game over
             }
-            afterTurnEnded();
+            resumeClock();
+            board.render();
             clockTicker.start();
         });
     }
@@ -458,7 +624,8 @@ public class MatchController implements CardPlayer {
         }
         String yours = ClockTicker.format(engine.remainingMs(active));
         String theirs = ClockTicker.format(engine.remainingMs(waiting));
-        board.showClocks(yours, theirs, true);
+        boolean hurry = engine.remainingMs(active) < HURRY_MS;   // the bottom clock turns red and ticks
+        board.showClocks(yours, theirs, true, hurry);
     }
 
     /** Stops the active player's clock while the table is hidden (Oath choice, pass veil), on the engine's own time. */
@@ -469,12 +636,5 @@ public class MatchController implements CardPlayer {
     /** Starts the active player's clock again once they clicked the pass veil. */
     private void resumeClock() {
         engine.resumeClock();
-    }
-
-    /** Samurai passive Gusoku: start with 10 armour (GDD). Here until the engine applies hero passives. */
-    private static void giveGusokuArmour(Player player) {
-        if (player.getHero().getHeroClass() == HeroClass.SAMURAI) {
-            player.getHero().gainArmour(10);
-        }
     }
 }

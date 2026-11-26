@@ -47,6 +47,8 @@ public class HandView extends Group {
     /** Where the lowered hand starts (its middle card's top edge is at 790): the hover zone begins here. */
     private static final double LOWERED_TOP = 780;
     public static final double CARD_W = 120, GAP = 70, RAISED_GAP = 105;
+    /** A drawn card opens BIG_SCALE times bigger in the middle of the table, and stays READ_MS so you can read it. */
+    private static final double BIG_SCALE = 2.3, READ_MS = 700;
 
     private final Player player;
     private final Consumer<Card> onTrade;
@@ -55,23 +57,26 @@ public class HandView extends Group {
     private final List<Node> glows = new ArrayList<>();
     private final IntConsumer onHover;
     private final ToIntFunction<Card> costOf;
+    private final ToIntFunction<Card> bonusOf;
     private CardView hovered;
     private final PauseTransition delay = new PauseTransition(Duration.millis(500));
     private CardView big;
 
     public HandView(Player player, BiConsumer<Card, Integer> onPlay, Consumer<Card> onTrade, IntConsumer onHover,
-                    ToIntFunction<Card> costOf, Predicate<Card> canPlay) {
+                    ToIntFunction<Card> costOf, ToIntFunction<Card> bonusOf, Predicate<Card> canPlay) {
         this.player = player;
         this.onPlay = onPlay;
         this.onHover = onHover;
         this.onTrade = onTrade;
         this.costOf = costOf;
+        this.bonusOf = bonusOf;
         for (Card c : player.getHand()) {
             CardView v = new CardView(c, CARD_W);
             // Every card can be dragged: onto the deck to trade it (free, even when you can't afford it),
             // or onto the board to play it (the engine refuses it otherwise). The pink glow shows what the engine would accept now.
             int cost = costOf.applyAsInt(c);
             v.showCost(cost);   // today's price: Yōi and the Oath discounts
+            v.showBonus(bonusOf.applyAsInt(c));   // damage or healing boosted by Ryū, an Oath or Chikara, in green
             boolean playable = canPlay.test(c);
             // A Curse the enemy gave you can't be played, only removed: it goes dark and shows its removal cost.
             if (c instanceof CurseCard curse && player.isHeldCurse(curse)) {
@@ -95,6 +100,13 @@ public class HandView extends Group {
         setOnMouseMoved(this::pick);
         setOnMouseExited(e -> {showBig(null);hovered = null; fan(false, true); onHover.accept(0); });
         fan(false, false);
+    }
+
+    /** Yōi was just played: every Ki cost in the hand pulses gold. */
+    void sparkleCosts() {
+        for (CardView v : cards) {
+            v.sparkleCost();
+        }
     }
 
     /** Places the cards on an arc centred on the board; raised = lifted and spread out; animate = glide there.
@@ -231,6 +243,7 @@ public class HandView extends Group {
         big = new CardView(v.getCard(), 280);
         big.setMouseTransparent(true);
         big.showCost(costOf.applyAsInt(v.getCard()));
+        big.showBonus(bonusOf.applyAsInt(v.getCard()));
         big.relocate(v.getLayoutX() + CARD_W / 2 - 140, 200);
         getChildren().add(big);
     }
@@ -238,28 +251,29 @@ public class HandView extends Group {
         /** Opening hand: every card in the hand flies in from the deck, one after the other. */
     public void deal() {
         int firstCard = 0;
-        dealFrom(firstCard, Duration.ZERO);
+        dealFrom(firstCard, Duration.ZERO, false);   // the opening hand flies straight in
     }
 
     /** Start of turn: the last `count` cards of the hand (the ones just drawn) fly in from the deck, one after the other. */
     public void dealLastCards(int count) {
         int firstNewCard = cards.size() - count;
-        dealFrom(firstNewCard, Duration.ZERO);
+        dealFrom(firstNewCard, Duration.ZERO, true);   // your draws open big first
     }
 
     /** Same as dealLastCard(), but the card waits on the deck first (a trade waits for the shuffle). */
     public void dealLastCardAfter(Duration wait) {
         int lastCard = cards.size() - 1;
-        dealFrom(lastCard, wait);
+        dealFrom(lastCard, wait, false);   // a trade goes straight to the hand
     }
 
     /**
      * Makes the cards fly in from the deck, from index firstIndex to the end of the hand, after waiting `wait`.
      * Each card leaves the deck face down, flips halfway, and lands face up in its place in the fan.
+     * With showBig (your draws), it flips in the middle of the table instead, opens big, stays READ_MS, then shrinks into its place.
      */
-    private void dealFrom(int firstIndex, Duration wait) {
+    private void dealFrom(int firstIndex, Duration wait, boolean showBig) {
         // While cards are flying, the hand ignores the mouse, so it doesn't fan out in the middle of the deal.
-        setMouseTransparent(true);
+        setMouseTransparent(firstIndex < cards.size());   // nothing to deal (0 cards drawn): the hand stays usable
 
         for (int i = firstIndex; i < cards.size(); i++) {
             CardView card = cards.get(i);
@@ -271,6 +285,11 @@ public class HandView extends Group {
             // 2. The halfway point between the deck and that place: this is where the card flips.
             double midX = (BoardView.DECK_X + endX) / 2;
             double midY = (BoardView.DECK_Y + endY) / 2;
+            if (showBig) {
+                // A draw flips in the middle of the table, where it opens big.
+                midX = BoardView.W / 2 - CARD_W / 2;
+                midY = BoardView.H / 2 - CARD_W * CardView.H / CardView.W / 2;
+            }
 
             // 3. A card back on the deck: it is what you see during the first half of the flight.
             ImageView back = BoardView.image("/images/frames/card-back.png");
@@ -282,6 +301,7 @@ public class HandView extends Group {
             // 4. The real card starts on the deck too, squashed to zero width so you can't see it.
             card.relocate(BoardView.DECK_X, BoardView.DECK_Y);
             card.setScaleX(0);
+            card.setViewOrder(-1);   // drawn above the rest of the hand while it flies
 
             // 5. First half (0 to 200 ms): the back flies to the halfway point and narrows to nothing (seen edge-on).
             //    The card travels with it, still invisible.
@@ -299,16 +319,44 @@ public class HandView extends Group {
                     new KeyValue(card.layoutYProperty(), endY),
                     new KeyValue(card.scaleXProperty(), 1));
 
-            Timeline flight = new Timeline(halfway, landed);
+            Timeline flight;
+            if (showBig) {
+                double fanAngle = card.getRotate();   // its tilt in the fan, for when it goes back
+                card.setRotate(0);                    // straight while it is shown big
+                // 6b. Your draw: the face opens big in the middle of the table, stays to be read, then shrinks into its place.
+                KeyFrame opened = new KeyFrame(Duration.millis(400),
+                        new KeyValue(card.scaleXProperty(), BIG_SCALE),
+                        new KeyValue(card.scaleYProperty(), BIG_SCALE));
+                KeyFrame read = new KeyFrame(Duration.millis(400 + READ_MS),
+                        new KeyValue(card.layoutXProperty(), midX),
+                        new KeyValue(card.layoutYProperty(), midY),
+                        new KeyValue(card.scaleXProperty(), BIG_SCALE),
+                        new KeyValue(card.scaleYProperty(), BIG_SCALE),
+                        new KeyValue(card.rotateProperty(), 0));
+                KeyFrame home = new KeyFrame(Duration.millis(400 + READ_MS + 300),
+                        new KeyValue(card.layoutXProperty(), endX),
+                        new KeyValue(card.layoutYProperty(), endY),
+                        new KeyValue(card.scaleXProperty(), 1),
+                        new KeyValue(card.scaleYProperty(), 1),
+                        new KeyValue(card.rotateProperty(), fanAngle));   // tilts back to its place in the fan
+                flight = new Timeline(halfway, opened, read, home);
+            } else {
+                flight = new Timeline(halfway, landed);
+            }
 
             // 7. Each card leaves 300 ms after the one before it.
             int positionInDeal = i - firstIndex;
-            flight.setDelay(wait.add(Duration.millis(positionInDeal * 300)));
+            double spacing = 300;
+            if (showBig) {
+                spacing = 400 + READ_MS + 300 + 100;   // the next card waits until this one is in your hand
+            }
+            flight.setDelay(wait.add(Duration.millis(positionInDeal * spacing)));
 
             // 8. Once the card has landed, remove its back. After the last card, the hand listens to the mouse again.
             boolean isLastCard = (i == cards.size() - 1);
             flight.setOnFinished(event -> {
                 getChildren().remove(back);
+                card.setViewOrder(0);   // back in its place in the fan
                 if (isLastCard) {
                     setMouseTransparent(false);
                 }
