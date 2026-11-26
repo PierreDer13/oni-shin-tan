@@ -29,6 +29,8 @@ import javafx.animation.PauseTransition;
 import javafx.scene.paint.Color;
 import javafx.util.Duration;
 
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.List;
 import java.util.Set;
 import java.util.Optional;
@@ -38,6 +40,8 @@ import fr.onishintan.ui.match.fx.EffectRecorder;
 import fr.onishintan.ui.match.hud.ClockTicker;
 import fr.onishintan.ui.match.hud.OathView;
 import fr.onishintan.ui.match.hud.PlayHistory;
+import fr.onishintan.ui.lan.LanCodec;
+import fr.onishintan.ui.lan.LanLink;
 
 /**
  * Runs one hotseat match. Pierre's GameEngine applies every rule; the BoardView only draws the table.
@@ -78,6 +82,17 @@ public class MatchController implements CardPlayer {
     /** Adventure: an AI turn never has more moves than this. */
     private static final int AI_MAX_MOVES = 40;
     private int aiMoves;
+    /** LAN: the player on this computer (always at the bottom), the link to the other game, and how moves name their targets. Null otherwise. */
+    private final Player me;
+    private final LanLink link;
+    private final LanCodec codec;
+    /** LAN: the other game's moves, played one after the other (each waits for the previous one's animation). */
+    private final Deque<String> inbox = new ArrayDeque<>();
+    private boolean applying;
+    /** LAN: true while a move from the other game runs in the engine (it is the other player's turn, but the move is legal). */
+    private boolean remoteMove;
+    /** LAN, before turn 1: your Oath sworn, your mulligan shown, and each side's mulligan done. */
+    private boolean oathSworn, mulliganShown, myMulligan, theirMulligan;
 
     /** A hotseat match with test decks from CardRepository (the Adventure uses this); at the end, onEnd gets whether the first player won. */
     public MatchController(String boardName, HeroClass yours, HeroClass theirs, Consumer<Boolean> onEnd) {
@@ -95,14 +110,27 @@ public class MatchController implements CardPlayer {
      * with no Oath (so no clock), no pass veil, and the board never flips (GDD, Adventure).
      */
     public MatchController(String boardName, Player first, Player second, AIController.Difficulty difficulty, Consumer<Boolean> onEnd) {
+        this(boardName, first, second, difficulty, null, null, new Random(), onEnd);
+    }
+
+    /** A LAN match: `me` is the player on this computer; the other game plays the other one through `link`. Both use the same seed. */
+    public MatchController(String boardName, Player first, Player second, Player me, LanLink link, long seed, Consumer<Boolean> onEnd) {
+        this(boardName, first, second, null, me, link, new Random(seed), onEnd);
+    }
+
+    private MatchController(String boardName, Player first, Player second, AIController.Difficulty difficulty,
+                            Player me, LanLink link, Random rng, Consumer<Boolean> onEnd) {
         HeroClass yours = first.getHero().getHeroClass();
         HeroClass theirs = second.getHero().getHeroClass();
         // 1. The two players.
         this.first = first;
         this.second = second;
+        this.me = me;
+        this.link = link;
+        codec = new LanCodec(first, second);
 
         // 2. The engine: shuffle and deal the opening hands, then the first player's turn 1 (Ki and a draw).
-        engine = new GameEngine(first, second, new Random());
+        engine = new GameEngine(first, second, rng);   // LAN: the same seed on both computers, so both engines draw the same cards
         engine.setCatalog(CardRepository.all());   // the cards that effects create or summon (Sendaiku, Sakana uri, Inari, Oiwa)
         recorder = new EffectRecorder(engine);
         engine.getBus().subscribe(GameEvent.Type.CARD_DRAWN, event -> cardsDrawnThisTurn++);
@@ -111,7 +139,8 @@ public class MatchController implements CardPlayer {
         pauseClock();   // the engine starts the first player's clock: it waits until both Oaths are sworn
 
         // 3. The table, with each action plugged into the engine.
-        board = new BoardView(boardName, second, HeroChoice.portrait(theirs), first, HeroChoice.portrait(yours));
+        Player top = opponentOf(you());
+        board = new BoardView(boardName, top, HeroChoice.portrait(top.getHero().getHeroClass()), you(), HeroChoice.portrait(you().getHero().getHeroClass()));
         showClocks();
         // The play history (left side): every card played, attack and hero power, with their targets, yours and the AI's.
         PlayHistory history = board.getHistory();
@@ -126,7 +155,12 @@ public class MatchController implements CardPlayer {
         board.setGodai(engine::hasGodai, engine::isGodaiTarget, this::useGodai);
         board.setOnTrade(this::trade);
         board.setOnEndTurn(this::endTurn);
-        board.setOnGameOver(() -> onEnd.accept(firstWon()));
+        board.setOnGameOver(() -> {
+            if (link != null) {
+                link.close();
+            }
+            onEnd.accept(youWon());
+        });
         board.setOnSurrender(this::surrender);
 
         // A trap that goes off is shown to both players. During a play or an end of turn, the replay shows it in its turn instead.
@@ -138,7 +172,7 @@ public class MatchController implements CardPlayer {
         // A trap you set is shown big, then flips and glides to its place by your hero.
         // Adventure: the AI's traps stay hidden (only their face-down back shows by its hero).
         engine.getBus().subscribe(GameEvent.Type.TRAP_SET, event -> {
-            if (ai == null || event.source() == first) {
+            if ((ai == null && link == null) || event.source() == you()) {
                 board.showTrapSet((TrapCard) event.target());
             }
         });
@@ -157,7 +191,11 @@ public class MatchController implements CardPlayer {
 
         // 4. Hotseat: each player swears an Oath then does the mulligan behind a pass veil; turn 1 then begins.
         //    Adventure: no Oath, the AI does its mulligan at once, then yours; turn 1 then begins.
-        if (ai == null) {
+        if (link != null) {
+            link.setOnMessage(this::receive);   // the moves that waited during the loading come in now
+            link.setOnClosed(this::linkLost);
+            lanOath();
+        } else if (ai == null) {
             chooseOaths(yours, theirs);
         } else {
             engine.mulligan(second, ai.mulliganChoice());   // the AI sends back its expensive cards at once
@@ -260,6 +298,10 @@ public class MatchController implements CardPlayer {
 
     /** "Swear again" clicked: the engine re-swears the same Oath from 0 stacks, then the scroll is redrawn. */
     private void reswear() {
+        if (blocked()) {
+            return;
+        }
+        send("RESWEAR");
         engine.reswearOath(engine.active());
         board.render();
     }
@@ -272,16 +314,36 @@ public class MatchController implements CardPlayer {
         if (ai != null) {
             quitter = first;
         }
+        if (link != null) {
+            quitter = me;   // LAN: you can surrender during the other player's turn too
+            send("CONCEDE");
+        }
         engine.concede(quitter);
 
         
         clockTicker.stop();
     }
 
-    /** True if the first player won (by a dead hero, a timeout or a surrender); false for a loss or a draw. */
-    private boolean firstWon() {
+    /** True if the player at the bottom won (the first player, or you in LAN), by a dead hero, a timeout or a surrender. */
+    private boolean youWon() {
         Player winner = engine.getState().getWinner().orElse(null);
-        return winner == first;
+        return winner == you();
+    }
+
+    /** The player at the bottom of the screen: you in LAN, otherwise the first player. */
+    private Player you() {
+        if (link != null) {
+            return me;
+        }
+        return first;
+    }
+
+    /** The other player. */
+    private Player opponentOf(Player p) {
+        if (p == first) {
+            return second;
+        }
+        return first;
     }
 
     /** Oath choice (GDD): the first player picks, the veil passes to the second, who picks; then the first player's hand is dealt. */
@@ -341,6 +403,10 @@ public class MatchController implements CardPlayer {
      */
     @Override
     public boolean play(Card card, int slot, Combatant first, Combatant second) {
+        if (blocked()) {
+            return false;
+        }
+        String move = "PLAY " + engine.active().getHand().indexOf(card) + " " + slot + " " + codec.ref(first) + " " + codec.ref(second);   // named before the play
         recorder.start();
         boolean removal = card instanceof CurseCard held && engine.active().isHeldCurse(held);
         boolean played;
@@ -358,6 +424,7 @@ public class MatchController implements CardPlayer {
             board.render();   // refused: the card goes back to the hand at once
             return false;
         }
+        send(move);
         if (!removal && !(card instanceof TrapCard)) {
             board.showPlayed(card, slot);   // on the board before its effects show (a Trap has its own animation)
         }
@@ -373,6 +440,7 @@ public class MatchController implements CardPlayer {
         if (engine.pendingSteal() == engine.active()) {   // Izanagi: the enemy hand opens, you take one card
             Player victim = engine.getState().opponent();
             board.chooseSteal(List.copyOf(victim.getHand()), c -> !victim.isHeldCurse(c), stolen -> {
+                send("STEAL " + victim.getHand().indexOf(stolen));
                 engine.steal(stolen);
                 board.render();   // the stolen card is now in your hand
             });
@@ -428,6 +496,10 @@ public class MatchController implements CardPlayer {
 
     /** An attacker and its target: the engine deals the damage both ways and removes the dead. Returns what happened, for BoardView to replay. */
     private List<GameEvent> attack(Combatant attacker, Combatant target) {
+        if (blocked()) {
+            return List.of();
+        }
+        send("ATTACK " + codec.ref(attacker) + " " + codec.ref(target));
         recorder.start();
         engine.attack(attacker, target);
         return recorder.stop();
@@ -435,12 +507,17 @@ public class MatchController implements CardPlayer {
 
     /** Hero power with a target (Ninja Shuriken, Oni Jikininki) or without (Kannushi Miko: target is null). True if the engine accepted it. */
     private boolean useHeroPower(Combatant target) {
+        if (blocked()) {
+            return false;
+        }
+        String move = "POWER " + codec.ref(target);   // named before the power hits
         recorder.start();
         aimFirst = target;   // for the play history
         boolean used = engine.useHeroPower(target);
         aimFirst = null;
         List<GameEvent> events = recorder.stop();
         if (used) {
+            send(move);
             board.replay(events, POWER_PAUSE, EFFECT_SHOW, () -> {});   // the damage, a death, a trap, one step after the other
         }
         return used;
@@ -448,12 +525,17 @@ public class MatchController implements CardPlayer {
 
     /** Takeda Shingen's Godai: the element on its target (null: Earth's armour alone). True if the engine accepted it. */
     private boolean useGodai(GodaiElement element, Combatant target) {
+        if (blocked()) {
+            return false;
+        }
+        String move = "GODAI " + element.name() + " " + codec.ref(target);
         recorder.start();
         aimFirst = target;   // for the play history
         boolean used = engine.useGodai(element, target);
         aimFirst = null;
         List<GameEvent> events = recorder.stop();
         if (used) {
+            send(move);
             board.replay(events, POWER_PAUSE, EFFECT_SHOW, () -> {});   // the damage, heal or armour, then the redraw
         }
         return used;
@@ -461,12 +543,24 @@ public class MatchController implements CardPlayer {
 
     /** Samurai power: equip the chosen blade. True if the engine accepted it (enough Ki, not used yet this turn). */
     private boolean useKatana(KatanaTier tier) {
-        return engine.useKatana(tier);
+        if (blocked() || !engine.useKatana(tier)) {
+            return false;
+        }
+        send("KATANA " + tier.name());
+        return true;
     }
 
     /** A hand card dropped on the deck: the engine shuffles it in and draws another (once per turn). True if it was accepted. */
     private boolean trade(Card card) {
-        return engine.trade(card);
+        if (blocked()) {
+            return false;
+        }
+        String move = "TRADE " + engine.active().getHand().indexOf(card);
+        if (!engine.trade(card)) {
+            return false;
+        }
+        send(move);
+        return true;
     }
 
     /**
@@ -474,8 +568,12 @@ public class MatchController implements CardPlayer {
      * then starts the next player's turn with its draw.
      */
     private void endTurn() {
+        if (blocked()) {
+            return;
+        }
+        send("END");
         cardsDrawnThisTurn = 0;
-        if (ai == null) {
+        if (ai == null && link == null) {
             board.holdEffects();   // banners and stamps from the end of the turn wait for the pass veil
         }
         recorder.start();
@@ -497,6 +595,12 @@ public class MatchController implements CardPlayer {
     private void afterTurnEnded() {
         // A broken Oath can kill its own hero: then the match is over and there is no pass veil.
         if (engine.getState().isOver()) {
+            board.render();
+            return;
+        }
+
+        // LAN: no flip and no veil, the other game plays its turn.
+        if (link != null) {
             board.render();
             return;
         }
@@ -593,11 +697,16 @@ public class MatchController implements CardPlayer {
             clockTicker.stop();
             return;
         }
+        if (blocked()) {
+            showClocks();   // LAN: only the game whose turn it is checks its clock; a timeout comes as a move
+            return;
+        }
         boolean timedOut = engine.checkClock();
         showClocks();
         if (!timedOut) {
             return;
         }
+        send("TIMEOUT");
         // Timeout: half HP and +30 s, the turn goes on. The clock waits during the TIME'S UP animation.
         clockTicker.stop();
         pauseClock();
@@ -617,15 +726,15 @@ public class MatchController implements CardPlayer {
             board.hideClocks();   // no clock yet (Oaths not sworn) or none at all (Adventure)
             return;
         }
-        Player active = engine.active();
-        Player waiting = second;
-        if (active == second) {
-            waiting = first;
+        Player bottom = engine.active();   // hotseat: the active player always sits at the bottom
+        if (link != null) {
+            bottom = me;   // LAN: you always do
         }
-        String yours = ClockTicker.format(engine.remainingMs(active));
-        String theirs = ClockTicker.format(engine.remainingMs(waiting));
-        boolean hurry = engine.remainingMs(active) < HURRY_MS;   // the bottom clock turns red and ticks
-        board.showClocks(yours, theirs, true, hurry);
+        boolean yourTurn = bottom == engine.active();
+        String yours = ClockTicker.format(engine.remainingMs(bottom));
+        String theirs = ClockTicker.format(engine.remainingMs(opponentOf(bottom)));
+        boolean hurry = yourTurn && engine.remainingMs(bottom) < HURRY_MS;   // the bottom clock turns red and ticks
+        board.showClocks(yours, theirs, yourTurn, hurry);
     }
 
     /** Stops the active player's clock while the table is hidden (Oath choice, pass veil), on the engine's own time. */
@@ -636,5 +745,176 @@ public class MatchController implements CardPlayer {
     /** Starts the active player's clock again once they clicked the pass veil. */
     private void resumeClock() {
         engine.resumeClock();
+    }
+
+    // ---------- LAN ----------
+
+    /** LAN: true when a click must do nothing, because it is the other player's turn (his own moves still run). */
+    private boolean blocked() {
+        return link != null && engine.active() != me && !remoteMove;
+    }
+
+    /** LAN: tells the other game about a move made here (never a move that came from it). */
+    private void send(String move) {
+        if (link != null && !remoteMove) {
+            link.send(move);
+        }
+    }
+
+    /** LAN, before turn 1: you swear your Oath; the first player then does his mulligan, and the second after him (same draws on both sides). */
+    private void lanOath() {
+        board.chooseOath(me.getHero().getHeroClass(), oath -> {
+            swear(me, oath);
+            send("OATH " + oath);
+            oathSworn = true;
+            lanMulligan();
+        });
+    }
+
+    /** LAN: your mulligan opens once your Oath is sworn and, if you play second, once the first player's mulligan is done. */
+    private void lanMulligan() {
+        boolean yourTurnToChoose = me == first || theirMulligan;
+        if (!oathSworn || mulliganShown || !yourTurnToChoose) {
+            return;
+        }
+        mulliganShown = true;
+        board.mulligan(me, cards -> {
+            send("MULLIGAN " + LanCodec.places(me.getHand(), cards));   // named before they leave the hand
+            return engine.mulligan(me, cards);
+        }, () -> {
+            myMulligan = true;
+            lanBegin();
+        });
+    }
+
+    /** LAN: both mulligans done: turn 1 begins, and both clocks may run. */
+    private void lanBegin() {
+        if (!myMulligan || !theirMulligan) {
+            return;
+        }
+        startTurns();
+        resumeClock();
+        clockTicker.start();
+        board.dealHand();
+        if (engine.active() != me) {
+            board.theirTurn();
+        }
+    }
+
+    /** LAN: a line from the other game: it waits its turn behind the moves still playing. */
+    private void receive(String line) {
+        inbox.add(line);
+        if (!applying) {
+            applyNext();
+        }
+    }
+
+    /** LAN: plays the next waiting move; each one calls this again once its animation is over. */
+    private void applyNext() {
+        String line = inbox.poll();
+        applying = line != null;
+        if (line != null) {
+            apply(line.split(" "), this::applyNext);
+        }
+    }
+
+    /** LAN: the other player's move, played here exactly as it was played there, then `next`. */
+    private void apply(String[] words, Runnable next) {
+        Player them = opponentOf(me);
+        remoteMove = true;
+        switch (words[0]) {
+            case "OATH" -> {
+                swear(them, words[1]);
+                next.run();
+            }
+            case "MULLIGAN" -> {
+                engine.mulligan(them, LanCodec.cards(them.getHand(), words[1]));
+                theirMulligan = true;
+                lanMulligan();   // you play second: your turn to choose
+                lanBegin();      // you play first: the second player was the last one
+                next.run();
+            }
+            case "PLAY" -> {
+                Card card = them.getHand().get(Integer.parseInt(words[1]));
+                aimFirst = codec.combatant(words[3]);   // for the play history
+                aimSecond = codec.combatant(words[4]);
+                recorder.start();
+                if (them.isHeldCurse(card)) {
+                    engine.removeCurse((CurseCard) card);
+                } else {
+                    engine.playCard(card, Integer.parseInt(words[2]), aimFirst, aimSecond);
+                    board.showAiPlayed(card);   // big on the left, its minion in its slot, before the effects
+                }
+                aimFirst = null;
+                aimSecond = null;
+                board.replay(recorder.stop(), EFFECT_SHOW, EFFECT_SHOW, next);
+            }
+            case "STEAL" -> {
+                engine.steal(me.getHand().get(Integer.parseInt(words[1])));   // Izanagi took it from your hand
+                board.render();
+                next.run();
+            }
+            case "ATTACK" -> board.aiAttack(codec.combatant(words[1]), codec.combatant(words[2]), next);   // the engine runs at once, the lunge after
+            case "POWER" -> {
+                recorder.start();
+                engine.useHeroPower(codec.combatant(words[1]));
+                board.replay(recorder.stop(), POWER_PAUSE, EFFECT_SHOW, next);
+            }
+            case "GODAI" -> {
+                recorder.start();
+                engine.useGodai(GodaiElement.valueOf(words[1]), codec.combatant(words[2]));
+                board.replay(recorder.stop(), POWER_PAUSE, EFFECT_SHOW, next);
+            }
+            case "KATANA" -> {
+                engine.useKatana(KatanaTier.valueOf(words[1]));
+                board.render();
+                next.run();
+            }
+            case "TRADE" -> {
+                engine.trade(them.getHand().get(Integer.parseInt(words[1])));
+                board.render();
+                next.run();
+            }
+            case "RESWEAR" -> {
+                engine.reswearOath(them);
+                board.render();
+                next.run();
+            }
+            case "END" -> {
+                cardsDrawnThisTurn = 0;
+                recorder.start();
+                engine.endTurn();
+                int drawn = cardsDrawnThisTurn;
+                board.replay(recorder.stop(), 0, TURN_SHOW, () -> {
+                    if (!engine.getState().isOver()) {
+                        board.yourTurn();
+                        board.dealDrawnCards(drawn);
+                    }
+                    next.run();
+                });
+            }
+            case "TIMEOUT" -> {
+                them.getClock().add(-engine.remainingMs(them));   // his bank empty here too: the same timeout as on his screen
+                engine.checkClock();
+                board.showTimeout(timedOutHero, timeoutDamage, next);
+            }
+            case "CONCEDE" -> {
+                engine.concede(them);
+                clockTicker.stop();
+                board.opponentGone("Your opponent surrendered");
+            }
+            default -> next.run();   // a line this version doesn't know
+        }
+        remoteMove = false;
+    }
+
+    /** LAN: the other game closed or the network dropped during the match: you win. */
+    private void linkLost() {
+        if (engine.getState().isOver()) {
+            return;
+        }
+        engine.concede(opponentOf(me));
+        clockTicker.stop();
+        board.opponentGone("The connection was lost");
     }
 }

@@ -61,6 +61,15 @@ public class DeckPickView extends Pane {
             choices.getChildren().add(choice(deck, () -> choose(deck)));
         }
         grid.getChildren().add(choices);
+        if (firstPick == null) {   // or each on their own computer, over the local network
+            Label lan = DecksView.button("LAN  ネット対戦", () -> {
+                Pane home = (Pane) getParent();
+                close();
+                home.getChildren().add(new LanView(router));
+            });
+            lan.relocate(W - 260, 60);
+            grid.getChildren().add(lan);
+        }
     }
 
     /** After both decks: the page asks for the battlefield, with one picture per board (BoardPicker). */
@@ -95,7 +104,7 @@ public class DeckPickView extends Pane {
     }
 
     /** The legal saved decks (the starter decks are saved decks too, see DeckStore). */
-    private List<SavedDeck> decksToOffer() {
+    static List<SavedDeck> decksToOffer() {
         List<SavedDeck> decks = new ArrayList<>();
         for (SavedDeck deck : DeckStore.all()) {
             if (deck.isLegal()) {

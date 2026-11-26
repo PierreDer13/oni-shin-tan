@@ -1143,6 +1143,17 @@ public class BoardView extends Pane {
         render();
     }
 
+    /** LAN: the other game plays now: End turn is off until yourTurn(). */
+    public void theirTurn() {
+        switchEndTurn(false);
+    }
+
+    /** LAN: the opponent surrendered or left: the Victory seal, with why across the table. */
+    public void opponentGone(String why) {
+        gameOver(true);
+        EventBanner.show(table, "勝", "Victory", why, Color.GOLD);
+    }
+
     /** Hotseat: the other player now sits at the bottom (their hand, Ki and hero power) and the board flips. */
     public void swapSides() {
         switchEndTurn(true);
