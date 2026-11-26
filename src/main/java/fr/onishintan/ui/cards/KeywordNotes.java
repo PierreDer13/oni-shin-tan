@@ -3,7 +3,7 @@ package fr.onishintan.ui.cards;
 import javafx.scene.control.Label;
 import javafx.scene.layout.VBox;
 
-/** Beside a big card copy: one small dark note per keyword or spell family the card has, with what it does. */
+/** Beside a big card copy: one small dark note per keyword or spell family the card has, with what it does, then its history. */
 final class KeywordNotes extends VBox {
     KeywordNotes(fr.onishintan.model.Card card) {
         super(6);
@@ -15,6 +15,15 @@ final class KeywordNotes extends VBox {
                     + " -fx-background-color: rgba(20,12,8,0.9); -fx-background-radius: 6; -fx-padding: 6 8;");
             getChildren().add(note);
         }
+        String lore = CardLore.of(card);
+        if (!lore.isEmpty()) {   // its history, in a box of its own: rice paper and ink
+            Label history = new Label("歴史  History\n" + lore);
+            history.setWrapText(true);
+            history.setMaxWidth(220);
+            history.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 13; -fx-font-style: italic; -fx-text-fill: #1f1b17;"
+                    + " -fx-background-color: rgba(243,237,225,0.95); -fx-background-radius: 6; -fx-padding: 6 8;");
+            getChildren().add(history);
+        }
         setMouseTransparent(true);   // only words to read: clicks go through
     }
-}
+}

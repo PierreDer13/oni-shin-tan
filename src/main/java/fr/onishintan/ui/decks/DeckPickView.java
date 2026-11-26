@@ -95,7 +95,7 @@ public class DeckPickView extends Pane {
     }
 
     /** The legal saved decks (the starter decks are saved decks too, see DeckStore). */
-    private List<SavedDeck> decksToOffer() {
+    static List<SavedDeck> decksToOffer() {
         List<SavedDeck> decks = new ArrayList<>();
         for (SavedDeck deck : DeckStore.all()) {
             if (deck.isLegal()) {

@@ -7,7 +7,6 @@ import fr.onishintan.model.HeroClass;
 import fr.onishintan.ui.app.SceneRouter;
 import fr.onishintan.ui.app.Profile;
 import fr.onishintan.ui.decks.DecksView;
-import fr.onishintan.ui.decks.DeckPickView;
 import fr.onishintan.ui.app.Screen;
 import fr.onishintan.ui.app.Sound;
 import fr.onishintan.ui.app.Images;
@@ -86,7 +85,7 @@ public class HomeView extends Pane {
         for (int i = 0; i < classes.length; i++) banner(classes[i], 960 + i * 160, 20, 150);
         profile(175, 20, Profile.name(), Profile.stats().rei());
         button("adventure", 480, 610, 300, Screen.CLASS_SELECT);
-        clickable(add("button-pvp", 820, 610, 300), false, () -> grid.getChildren().add(new DeckPickView(router)));   // laid over the home screen
+        button("pvp", 820, 610, 300, Screen.PVP);   // host or join a game on the local network, or play on the same screen
         // Bottom bar: Deck Builder shows every deck, Inventory and Profile go to their screen, Settings opens over the home screen.
         clickable(add("button-deck-builder", 390, 790, 190), false, () -> DecksView.open(router, null));
         button("inventory", 600, 790, 190, Screen.INVENTORY);
@@ -211,4 +210,4 @@ public class HomeView extends Pane {
         l.setTextAlignment(TextAlignment.CENTER);
         return l;
     }
-}
+}

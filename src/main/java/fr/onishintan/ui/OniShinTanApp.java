@@ -10,6 +10,8 @@ import fr.onishintan.ui.app.Profile;
 import fr.onishintan.ui.app.Screen;
 import fr.onishintan.ui.match.BoardView;
 import fr.onishintan.ui.match.MatchController;
+import fr.onishintan.ui.lan.LanLink;
+import fr.onishintan.ui.decks.LanView;
 import fr.onishintan.ui.screens.adventure.OrochiView;
 import fr.onishintan.ui.screens.adventure.ClassSelectView;
 import fr.onishintan.ui.screens.HomeView;
@@ -37,6 +39,7 @@ public class OniShinTanApp extends Application {
         router.register(Screen.CLASS_SELECT, () -> new ClassSelectView(router));
         router.register(Screen.INVENTORY, () -> new InventoryView(router));
         router.register(Screen.PROFILE, () -> new ProfileView(router));
+        router.register(Screen.PVP, () -> new LanView(router));
         router.goTo(Screen.HOME);
         stage.setTitle("Oni Shin Tan");
         stage.getIcons().add(new Image(OniShinTanApp.class.getResourceAsStream("/images/logos/game-icon.png")));   // window and taskbar icon
@@ -64,6 +67,16 @@ public class OniShinTanApp extends Application {
         return match.getBoard();
     }
 
+    /** A LAN match: `you` is one of the two players, the other game plays the other; at the end, onEnd gets whether you won. */
+    public static BoardView lan(String boardName, Player first, Player second, Player you, LanLink link, long seed, Consumer<Boolean> onEnd) {
+        HeroClass played = you.getHero().getHeroClass();
+        MatchController match = new MatchController(boardName, first, second, you, link, seed, won -> {
+            Profile.record(played, won, true);   // PvP: counts the game and moves your Rei
+            onEnd.accept(won);
+        });
+        return match.getBoard();
+    }
+
     /** An Adventure battle: you play first at the bottom against the AI (no Oaths, no clocks, no pass veil), with the run's bonuses; onEnd gets whether you won. */
     public static BoardView adventure(String boardName, Player you, Player enemy, AIController.Difficulty difficulty,
                                       Set<Upgrade> upgrades, Consumer<Boolean> onEnd) {
@@ -77,4 +90,4 @@ public class OniShinTanApp extends Application {
     }
 
     public static void main(String[] args) { launch(args); }
-}
+}
