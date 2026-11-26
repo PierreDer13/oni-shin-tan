@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
+import java.net.DatagramSocket;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -38,6 +39,8 @@ public final class LanLink {
     private Consumer<String> onMessage;
     private Runnable onClosed = () -> {};
     private boolean closed;
+    /** True once the stream ended (the other game left, the network dropped, or close()). */
+    private boolean ended;
 
     private LanLink(Socket socket) throws IOException {
         this.socket = socket;
@@ -90,8 +93,26 @@ public final class LanLink {
         joiner.start();
     }
 
-    /** This computer's addresses on the local network (what the other player types to join). */
-    public static List<String> localAddresses() {
+    /** This computer's address on the local network: the one its main network card uses, else the first one found. */
+    public static String mainAddress() {
+        try (DatagramSocket probe = new DatagramSocket()) {
+            probe.connect(InetAddress.getByName("8.8.8.8"), 53);   // nothing is sent: it only asks which card would be used
+            String address = probe.getLocalAddress().getHostAddress();
+            if (!address.equals("0.0.0.0")) {
+                return address;
+            }
+        } catch (IOException e) {
+            // no route out: look at the cards one by one
+        }
+        List<String> all = localAddresses();
+        if (all.isEmpty()) {
+            return "127.0.0.1";
+        }
+        return all.get(0);
+    }
+
+    /** This computer's addresses on the local network. */
+    private static List<String> localAddresses() {
         List<String> addresses = new ArrayList<>();
         try {
             for (NetworkInterface net : Collections.list(NetworkInterface.getNetworkInterfaces())) {
@@ -123,6 +144,16 @@ public final class LanLink {
         }
     }
 
+    /** Puts a line back to wait for the next listener (a match that is over leaves the lines for the PvP screen). */
+    public void keep(String line) {
+        waiting.add(line);
+    }
+
+    /** False once the other game left or the network dropped. */
+    public boolean isOpen() {
+        return !ended;
+    }
+
     /** What happens when the other game leaves or the network drops. */
     public void setOnClosed(Runnable onClosed) {
         this.onClosed = onClosed;
@@ -151,6 +182,7 @@ public final class LanLink {
             // the socket closed: handled below
         }
         Platform.runLater(() -> {
+            ended = true;
             if (!closed) {
                 onClosed.run();
             }

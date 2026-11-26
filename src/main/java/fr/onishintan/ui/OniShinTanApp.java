@@ -11,6 +11,7 @@ import fr.onishintan.ui.app.Screen;
 import fr.onishintan.ui.match.BoardView;
 import fr.onishintan.ui.match.MatchController;
 import fr.onishintan.ui.lan.LanLink;
+import fr.onishintan.ui.decks.LanView;
 import fr.onishintan.ui.screens.adventure.OrochiView;
 import fr.onishintan.ui.screens.adventure.ClassSelectView;
 import fr.onishintan.ui.screens.HomeView;
@@ -38,6 +39,7 @@ public class OniShinTanApp extends Application {
         router.register(Screen.CLASS_SELECT, () -> new ClassSelectView(router));
         router.register(Screen.INVENTORY, () -> new InventoryView(router));
         router.register(Screen.PROFILE, () -> new ProfileView(router));
+        router.register(Screen.PVP, () -> new LanView(router));
         router.goTo(Screen.HOME);
         stage.setTitle("Oni Shin Tan");
         stage.getIcons().add(new Image(OniShinTanApp.class.getResourceAsStream("/images/logos/game-icon.png")));   // window and taskbar icon

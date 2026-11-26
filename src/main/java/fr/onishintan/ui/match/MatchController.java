@@ -155,12 +155,7 @@ public class MatchController implements CardPlayer {
         board.setGodai(engine::hasGodai, engine::isGodaiTarget, this::useGodai);
         board.setOnTrade(this::trade);
         board.setOnEndTurn(this::endTurn);
-        board.setOnGameOver(() -> {
-            if (link != null) {
-                link.close();
-            }
-            onEnd.accept(youWon());
-        });
+        board.setOnGameOver(() -> onEnd.accept(youWon()));   // LAN: the link stays open for the next game of a best of 3
         board.setOnSurrender(this::surrender);
 
         // A trap that goes off is shown to both players. During a play or an end of turn, the replay shows it in its turn instead.
@@ -803,6 +798,11 @@ public class MatchController implements CardPlayer {
 
     /** LAN: a line from the other game: it waits its turn behind the moves still playing. */
     private void receive(String line) {
+        if (engine.getState().isOver()) {
+            link.setOnMessage(null);   // the match is over: the next lines (the next game's deck) wait for the PvP screen
+            link.keep(line);
+            return;
+        }
         inbox.add(line);
         if (!applying) {
             applyNext();
