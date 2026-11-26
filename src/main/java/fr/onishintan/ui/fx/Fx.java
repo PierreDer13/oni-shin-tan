@@ -100,7 +100,16 @@ public final class Fx {
         Bounds b = over.getBoundsInParent();
         healMotes(layer, b);
         healGlow(over);
-        healNumber(layer, b, amount);
+        healNumber(layer, b, "+" + amount);
+    }
+
+    /** A buff (Shōgun, a Shrine's aura, Ōishi): the heal's glow and motes, with "+ATK/+HP" as the number. */
+    public static void buff(Pane layer, Node over, int attack, int health) {
+        Sound.play(HEAL);
+        Bounds b = over.getBoundsInParent();
+        healMotes(layer, b);
+        healGlow(over);
+        healNumber(layer, b, "+" + attack + "/+" + health);
     }
 
     /** 18 small glowing motes, spread over the bottom half of the character, that drift up while fading. */
@@ -152,14 +161,14 @@ public final class Fx {
     }
 
     /** A big green "+N" that pops up over the character, then floats up and fades out. */
-    private static void healNumber(Pane layer, Bounds b, int amount) {
-        Label l = new Label("+" + amount);
+    private static void healNumber(Pane layer, Bounds b, String text) {
+        Label l = new Label(text);
         l.setStyle("-fx-font-family: 'Yu Mincho'; -fx-font-size: 72; -fx-font-weight: bold; -fx-text-fill: #3ccf6e; -fx-alignment: center;");
         l.setEffect(new DropShadow(6, Color.BLACK));
         l.setMouseTransparent(true);
         l.setViewOrder(-3);
-        l.setPrefWidth(200);
-        l.relocate(b.getCenterX() - 100, b.getCenterY() - 50);
+        l.setPrefWidth(300);   // room for "+4/+4"
+        l.relocate(b.getCenterX() - 150, b.getCenterY() - 50);
         l.setScaleX(0.4);
         l.setScaleY(0.4);
         layer.getChildren().add(l);
@@ -257,4 +266,4 @@ public final class Fx {
         g.sceneProperty().addListener((o, was, now) -> { if (now == null) wave.stop(); });
         return g;
     }
-}
+}
