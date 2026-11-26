@@ -127,8 +127,10 @@ public class BoardView extends Pane {
     private Combatant selected;
     private BiFunction<Combatant, Combatant, List<GameEvent>> onAttack = (a, t) -> List.of();
     private final Map<Combatant, Node> nodes = new HashMap<>();
-    /** Every character's HP at the last redraw: a higher HP at the next one plays the heal effect. */
-    private Map<Combatant, Integer> healthSeen = new HashMap<>();
+    /** Every character's stats at the last redraw: what went up at the next one plays the heal or buff effect. */
+    private Map<Combatant, Seen> seen = new HashMap<>();
+    /** A character's ATK, HP and max HP at one redraw. */
+    private record Seen(int attack, int health, int maxHealth) { }
 
     private static final String HUD = "-fx-background-color: rgba(20,12,8,0.75); -fx-text-fill: #f3ede1; -fx-font-weight: bold;"
         + " -fx-background-radius: 10; -fx-alignment: center; -fx-text-alignment: center;";
@@ -390,21 +392,28 @@ public class BoardView extends Pane {
     }
 
     /**
-     * After a redraw: every character whose HP went up since the last redraw shows the heal effect
-     * (heals, lifesteal, and buffs that raise HP). A character seen for the first time (just summoned) doesn't.
+     * After a redraw: a minion whose ATK or max HP went up since the last redraw shows the buff as +ATK/+HP;
+     * any other character whose HP went up shows the heal. A character seen for the first time (just summoned) doesn't.
      */
     private void healEffects() {
-        Map<Combatant, Integer> healthNow = new HashMap<>();
+        Map<Combatant, Seen> now = new HashMap<>();
         for (Map.Entry<Combatant, Node> entry : nodes.entrySet()) {
             Combatant character = entry.getKey();
-            int health = character.getHealth();
-            healthNow.put(character, health);
-            Integer healthBefore = healthSeen.get(character);
-            if (healthBefore != null && health > healthBefore) {
-                Fx.heal(live, entry.getValue(), health - healthBefore);
+            Seen after = new Seen(character.getAttack(), character.getHealth(), character.getMaxHealth());
+            now.put(character, after);
+            Seen before = seen.get(character);
+            if (before == null) {
+                continue;   // seen for the first time (just summoned)
+            }
+            int attackUp = Math.max(0, after.attack() - before.attack());
+            int maxHealthUp = Math.max(0, after.maxHealth() - before.maxHealth());
+            if (character instanceof Minion && attackUp + maxHealthUp > 0) {
+                Fx.buff(live, entry.getValue(), attackUp, maxHealthUp);   // a buff shows as +ATK/+HP
+            } else if (after.health() > before.health()) {
+                Fx.heal(live, entry.getValue(), after.health() - before.health());
             }
         }
-        healthSeen = healthNow;
+        seen = now;
     }
 
 
@@ -1894,4 +1903,4 @@ public void passTo(String name, Runnable onReady) {
         n.getProperties().put("float", t);
         n.sceneProperty().addListener((o, was, now) -> { if (now == null) t.stop(); });
     }
-}
+}
